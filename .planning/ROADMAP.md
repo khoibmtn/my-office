@@ -41,11 +41,11 @@ Plans:
 **Wave 3** *(blocked on Wave 2 completion)*
 
 - [x] 01-03-PLAN.md — TypeScript types + Firestore CRUD + async submit + retry
-- [ ] 01-04-PLAN.md — DocumentForm + AttachmentInput (dynamic add/remove)
+- [x] 01-04-PLAN.md — DocumentForm + AttachmentInput (dynamic add/remove)
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
-- [ ] 01-05-PLAN.md — DocumentTable + document list page
+- [x] 01-05-PLAN.md — DocumentTable + document list page
 - [ ] 01-06-PLAN.md — DocumentViewer split view + iframe tabs + AttachmentPanel
 
 ### Phase 2: Search & Dashboard
@@ -93,7 +93,7 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Core MVP | 3/6 | In progress | - |
+| 1. Core MVP | 5/6 | In progress | - |
 | 2. Search & Dashboard | 0/TBD | Not started | - |
 | 3. Task Management | 0/TBD | Not started | - |
 | 4. Polish | 0/TBD | Not started | - |
