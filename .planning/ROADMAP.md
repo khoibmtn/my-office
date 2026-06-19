@@ -6,7 +6,7 @@ Xây dựng ứng dụng web quản lý văn bản hành chính với khả năn
 
 ## Phases
 
-- [ ] **Phase 1: Core MVP** - Setup, auth, Drive integration, CRUD văn bản + đính kèm, Document Viewer
+- [x] **Phase 1: Core MVP** - Setup, auth, Drive integration, CRUD văn bản + đính kèm, Document Viewer
 - [ ] **Phase 2: Search & Dashboard** - Algolia full-text search, Dashboard thống kê realtime
 - [ ] **Phase 3: Task Management** - Kanban board, bulk actions, Command palette Cmd+K
 - [ ] **Phase 4: Polish** - Dark mode, mobile responsive, CI/CD, Settings page
@@ -46,7 +46,7 @@ Plans:
 **Wave 4** *(blocked on Wave 3 completion)*
 
 - [x] 01-05-PLAN.md — DocumentTable + document list page
-- [ ] 01-06-PLAN.md — DocumentViewer split view + iframe tabs + AttachmentPanel
+- [x] 01-06-PLAN.md — DocumentViewer split view + iframe tabs + AttachmentPanel
 
 ### Phase 2: Search & Dashboard
 
@@ -93,7 +93,7 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Core MVP | 5/6 | In progress | - |
+| 1. Core MVP | 6/6 | Complete | 2026-06-19 |
 | 2. Search & Dashboard | 0/TBD | Not started | - |
 | 3. Task Management | 0/TBD | Not started | - |
 | 4. Polish | 0/TBD | Not started | - |
