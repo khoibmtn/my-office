@@ -40,7 +40,7 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 01-03-PLAN.md — TypeScript types + Firestore CRUD + async submit + retry
+- [x] 01-03-PLAN.md — TypeScript types + Firestore CRUD + async submit + retry
 - [ ] 01-04-PLAN.md — DocumentForm + AttachmentInput (dynamic add/remove)
 
 **Wave 4** *(blocked on Wave 3 completion)*
@@ -93,7 +93,7 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Core MVP | 2/6 | In progress | - |
+| 1. Core MVP | 3/6 | In progress | - |
 | 2. Search & Dashboard | 0/TBD | Not started | - |
 | 3. Task Management | 0/TBD | Not started | - |
 | 4. Polish | 0/TBD | Not started | - |
