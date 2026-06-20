@@ -88,7 +88,7 @@ export async function submitDocumentWithDriveCopy(
   folderId?: string
 ): Promise<void> {
   try {
-    const body = { originalLink, attachments, folderId }
+    const body = { docId, originalLink, attachments, folderId }
 
     const result = await retryWithBackoff(() =>
       fetch('/api/drive/copy', {
