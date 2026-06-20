@@ -7,7 +7,7 @@ Xây dựng ứng dụng web quản lý văn bản hành chính với khả năn
 ## Phases
 
 - [x] **Phase 1: Core MVP** - Setup, auth, Drive integration, CRUD văn bản + đính kèm, Document Viewer
-- [ ] **Phase 2: Search & Dashboard** - Algolia full-text search, Dashboard thống kê realtime
+- [x] **Phase 2: Search & Dashboard** - Algolia full-text search, Dashboard thống kê realtime (completed 2026-06-20)
 - [ ] **Phase 3: Task Management** - Kanban board, bulk actions, Command palette Cmd+K
 - [ ] **Phase 4: Polish** - Dark mode, mobile responsive, CI/CD, Settings page
 
@@ -65,12 +65,13 @@ Plans:
   3. Dashboard hiển thị StatsGrid (tổng, pending, overdue), DeadlineTimeline (ProgressChart deferred per D-10)
   4. Dashboard cập nhật realtime khi có thay đổi (Firestore onSnapshot)
 
-**Plans**: 3 plans
+**Plans**: 3/3 plans complete
 
 Plans:
+
 - [x] 02-01-PLAN.md — Algolia setup: client/server helpers + sync injection + useSearch hook (Wave 1)
 - [x] 02-02-PLAN.md — Search page: SearchClient + SearchFilters + SearchResultCard + /search route (Wave 2)
-- [ ] 02-03-PLAN.md — Dashboard: StatsGrid + DeadlineTimeline + useDeadlineDocuments + trang chủ (Wave 2)
+- [x] 02-03-PLAN.md — Dashboard: StatsGrid + DeadlineTimeline + useDeadlineDocuments + trang chủ (Wave 2)
 
 ### Phase 3: Task Management
 
@@ -104,6 +105,6 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Core MVP | 8/8 | Complete    | 2026-06-19 |
-| 2. Search & Dashboard | 2/3 | In progress | - |
+| 2. Search & Dashboard | 3/3 | Complete   | 2026-06-20 |
 | 3. Task Management | 0/TBD | Not started | - |
 | 4. Polish | 0/TBD | Not started | - |
