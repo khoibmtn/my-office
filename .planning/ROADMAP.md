@@ -27,7 +27,7 @@ Xây dựng ứng dụng web quản lý văn bản hành chính với khả năn
   5. Document Viewer: split view trái (metadata + attachment panel) + phải (iframe preview với tab switcher)
   6. User xem được file chính và từng đính kèm qua iframe tabs
 
-**Plans:** 6 plans
+**Plans:** 8/8 plans complete
 
 Plans:
 **Wave 1**
@@ -48,6 +48,11 @@ Plans:
 - [x] 01-05-PLAN.md — DocumentTable + document list page
 - [x] 01-06-PLAN.md — DocumentViewer split view + iframe tabs + AttachmentPanel
 
+**Gap Closure** *(wave 1, independent)*
+
+- [x] 01-07-PLAN.md — [GAP] Lazy-init drive.ts + fix result.mainFile typo + non-blocking submit (D-07)
+- [x] 01-08-PLAN.md — [GAP] Remove broken middleware cookie check
+
 ### Phase 2: Search & Dashboard
 
 **Goal**: Tìm kiếm full-text tức thì qua Algolia; Dashboard hiển thị thống kê và deadline realtime
@@ -57,10 +62,15 @@ Plans:
 
   1. Gõ keyword → kết quả xuất hiện tức thì với highlight, badge số đính kèm
   2. Filter được theo status, deadline, assignee
-  3. Dashboard hiển thị StatsGrid (tổng, pending, overdue), ProgressChart, DeadlineTimeline
+  3. Dashboard hiển thị StatsGrid (tổng, pending, overdue), DeadlineTimeline (ProgressChart deferred per D-10)
   4. Dashboard cập nhật realtime khi có thay đổi (Firestore onSnapshot)
 
-**Plans**: TBD
+**Plans**: 3 plans
+
+Plans:
+- [x] 02-01-PLAN.md — Algolia setup: client/server helpers + sync injection + useSearch hook (Wave 1)
+- [ ] 02-02-PLAN.md — Search page: SearchClient + SearchFilters + SearchResultCard + /search route (Wave 2)
+- [ ] 02-03-PLAN.md — Dashboard: StatsGrid + DeadlineTimeline + useDeadlineDocuments + trang chủ (Wave 2)
 
 ### Phase 3: Task Management
 
@@ -93,7 +103,7 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Core MVP | 6/6 | Complete | 2026-06-19 |
-| 2. Search & Dashboard | 0/TBD | Not started | - |
+| 1. Core MVP | 8/8 | Complete    | 2026-06-19 |
+| 2. Search & Dashboard | 1/3 | In progress | - |
 | 3. Task Management | 0/TBD | Not started | - |
 | 4. Polish | 0/TBD | Not started | - |
