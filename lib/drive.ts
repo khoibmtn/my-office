@@ -2,11 +2,13 @@
 import { google } from 'googleapis'
 import { detectLinkType, extractDriveFileId } from './link-detector'
 
-const auth = new google.auth.GoogleAuth({
-  credentials: JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_KEY!),
-  scopes: ['https://www.googleapis.com/auth/drive'],
-})
-const drive = google.drive({ version: 'v3', auth })
+function getAuthenticatedDrive() {
+  const auth = new google.auth.GoogleAuth({
+    credentials: JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_KEY!),
+    scopes: ['https://www.googleapis.com/auth/drive'],
+  })
+  return google.drive({ version: 'v3', auth })
+}
 
 export interface DriveResult {
   driveFileId: string
@@ -27,6 +29,7 @@ export async function copyFileToDrive({
   const fileId = extractDriveFileId(originalLink)
   if (!fileId) throw new Error('Không thể extract file ID từ link')
 
+  const drive = getAuthenticatedDrive()
   const copied = await drive.files.copy({
     fileId,
     requestBody: { parents: [folderId] },
