@@ -69,7 +69,7 @@ Plans:
 
 Plans:
 - [x] 02-01-PLAN.md — Algolia setup: client/server helpers + sync injection + useSearch hook (Wave 1)
-- [ ] 02-02-PLAN.md — Search page: SearchClient + SearchFilters + SearchResultCard + /search route (Wave 2)
+- [x] 02-02-PLAN.md — Search page: SearchClient + SearchFilters + SearchResultCard + /search route (Wave 2)
 - [ ] 02-03-PLAN.md — Dashboard: StatsGrid + DeadlineTimeline + useDeadlineDocuments + trang chủ (Wave 2)
 
 ### Phase 3: Task Management
@@ -104,6 +104,6 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Core MVP | 8/8 | Complete    | 2026-06-19 |
-| 2. Search & Dashboard | 1/3 | In progress | - |
+| 2. Search & Dashboard | 2/3 | In progress | - |
 | 3. Task Management | 0/TBD | Not started | - |
 | 4. Polish | 0/TBD | Not started | - |

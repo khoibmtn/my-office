@@ -5,14 +5,14 @@ milestone_name: milestone
 current_phase: 2
 current_phase_name: Search & Dashboard
 status: In progress
-stopped_at: Phase 2 Plan 01 complete
-last_updated: "2026-06-20T01:30:00.000Z"
+stopped_at: Phase 2 Plan 02 complete
+last_updated: "2026-06-20T01:48:01.000Z"
 progress:
   total_phases: 4
   completed_phases: 1
   total_plans: 8
-  completed_plans: 8
-  percent: 25
+  completed_plans: 9
+  percent: 30
 ---
 
 # State: Ứng dụng Quản lý Văn bản
@@ -24,13 +24,13 @@ progress:
 ## Current Position
 
 - **Phase:** 2 — Search & Dashboard
-- **Plan:** 01 complete
-- **Next plan:** 02-02
+- **Plan:** 02 complete
+- **Next plan:** 02-03
 
 ## Last Session
 
 - **Date:** 2026-06-20
-- **Stopped at:** Phase 2 Plan 01 complete (Algolia integration layer)
+- **Stopped at:** Phase 2 Plan 02 complete (Search UI)
 - **Resume file:** None
 
 ## Phase Status
@@ -38,7 +38,7 @@ progress:
 | Phase | Status |
 |-------|--------|
 | 1. Core MVP | Complete (6/6 plans done) |
-| 2. Search & Dashboard | In progress (1/3 plans done) |
+| 2. Search & Dashboard | In progress (2/3 plans done) |
 | 3. Task Management | Not started |
 | 4. Polish | Not started |
 
@@ -52,6 +52,7 @@ progress:
 - Phase 1 chỉ support type 'drive'; docs/url throw Error rõ ràng
 - DocumentViewer tab state init từ doc.driveViewUrl; AttachmentPanel onTabSelect drive setActiveUrl
 - Xóa firebase-auth-token cookie check — Firebase JS SDK không set cookie này; client-side guard trong layout.tsx đủ cho MVP
+- shadcn Checkbox không có trong project — dùng native input[type=checkbox] trong SearchFilters
 
 ## Session
 
