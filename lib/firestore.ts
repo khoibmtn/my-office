@@ -82,17 +82,13 @@ async function retryWithBackoff<T>(
 }
 
 export async function submitDocumentWithDriveCopy(
-  input: CreateDocumentInput,
-  onStatusChange?: (status: DocumentStatus) => void
-): Promise<string> {
-  const docId = await createDocument(input)
-  onStatusChange?.('uploading')
-
+  docId: string,
+  originalLink: string,
+  attachments: Array<{ title: string; originalLink: string }>,
+  folderId?: string
+): Promise<void> {
   try {
-    const body = {
-      originalLink: input.originalLink,
-      attachments: input.attachmentInputs,
-    }
+    const body = { originalLink, attachments, folderId }
 
     const result = await retryWithBackoff(() =>
       fetch('/api/drive/copy', {
@@ -105,12 +101,8 @@ export async function submitDocumentWithDriveCopy(
       })
     )
 
-    await updateDocumentDriveInfo(docId, result.main, result.attachments ?? [])
-    onStatusChange?.('pending')
+    await updateDocumentDriveInfo(docId, result.mainFile, result.attachments ?? [])
   } catch {
     await updateDocumentStatus(docId, 'upload_failed')
-    onStatusChange?.('upload_failed')
   }
-
-  return docId
 }
