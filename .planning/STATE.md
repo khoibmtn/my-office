@@ -2,14 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
+current_phase: 01
 status: in_progress
-stopped_at: "Phase 1 Plan 07 complete"
-last_updated: "2026-06-20T00:03:38.000Z"
+stopped_at: Phase 1 Plan 08 complete (gap closure)
+last_updated: "2026-06-20T00:06:02.451Z"
 progress:
   total_phases: 4
-  completed_phases: 0
-  total_plans: 7
-  completed_plans: 7
+  completed_phases: 1
+  total_plans: 8
+  completed_plans: 8
   percent: 25
 ---
 
@@ -17,18 +18,18 @@ progress:
 
 ## Current Phase
 
-**Phase 1: Core MVP** — Plan 07 complete, Gap Closure done
+**Phase 1: Core MVP** — Plan 08 complete, Gap Closure done
 
 ## Current Position
 
 - **Phase:** 01-core-mvp
-- **Plan:** 07 complete → Phase 1 gap closure done
+- **Plan:** 08 complete → Phase 1 gap closure done
 - **Next plan:** Phase 2
 
 ## Last Session
 
 - **Date:** 2026-06-20
-- **Stopped at:** Phase 1 Plan 07 complete
+- **Stopped at:** Phase 1 Plan 08 complete (gap closure)
 - **Resume file:** None (Phase 1 gap closure complete)
 
 ## Phase Status
@@ -49,9 +50,10 @@ progress:
 - folderId fallback to DRIVE_FOLDER_ID env var — client không tự chỉ định folder (T-02-01)
 - Phase 1 chỉ support type 'drive'; docs/url throw Error rõ ràng
 - DocumentViewer tab state init từ doc.driveViewUrl; AttachmentPanel onTabSelect drive setActiveUrl
+- Xóa firebase-auth-token cookie check — Firebase JS SDK không set cookie này; client-side guard trong layout.tsx đủ cho MVP
 
 ## Session
 
-**Last session:** 2026-06-19T17:19:32.000Z
+**Last session:** 2026-06-20T00:06:02.446Z
 **Stopped at:** Phase 1 Plan 06 complete
 **Resume file:** None
