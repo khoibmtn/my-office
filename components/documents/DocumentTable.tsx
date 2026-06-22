@@ -396,7 +396,7 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
                 className="badge-filter px-2 py-0.5 rounded shadow-sm flex items-center gap-1 transition-all border text-xs font-semibold"
                 style={{
                   '--badge-color': p.color,
-                  background: isSelected ? p.color : `color-mix(in srgb, ${p.color} 12%, #ffffff)`,
+                  background: isSelected ? p.color : `color-mix(in srgb, ${p.color} 25%, #ffffff)`,
                   borderColor: p.color,
                   color: isSelected ? '#fff' : p.color,
                   boxShadow: isSelected ? `0 0 0 2px #fff, 0 0 0 3px ${p.color}` : 'none'
@@ -448,7 +448,7 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
               className={`badge-filter px-2 py-1 rounded shadow-sm flex items-center gap-1 transition-all border`}
               style={{ 
                 '--badge-color': b.color,
-                background: isSelected ? b.color : `color-mix(in srgb, ${b.color} 12%, #ffffff)`,
+                background: isSelected ? b.color : `color-mix(in srgb, ${b.color} 25%, #ffffff)`,
                 borderColor: b.color,
                 color: isSelected ? '#fff' : b.color,
                 boxShadow: isSelected ? `0 0 0 2px #fff, 0 0 0 4px ${b.color}` : 'none'
@@ -844,13 +844,13 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
           white-space: nowrap;
         }
         .status-chip:hover { transform: scale(1.05); }
-        .status-completed { background: ${settings.completedColor}1a; color: ${settings.completedColor}; }
+        .status-completed { background: color-mix(in srgb, ${settings.completedColor} 20%, #ffffff); color: ${settings.completedColor}; }
         .status-pending { background: #f1f5f9; color: #475569; }
         .status-progress { background: #dbeafe; color: #1d4ed8; }
-        .status-urgent1 { background: ${settings.urgent1Color}1a; color: ${settings.urgent1Color}; }
-        .status-urgent2 { background: ${settings.urgent2Color}1a; color: ${settings.urgent2Color}; }
-        .status-overdue { background: ${settings.overdueColor}1a; color: ${settings.overdueColor}; }
-        .status-expired { background: ${settings.expiredColor}1a; color: ${settings.expiredColor}; }
+        .status-urgent1 { background: color-mix(in srgb, ${settings.urgent1Color} 20%, #ffffff); color: ${settings.urgent1Color}; }
+        .status-urgent2 { background: color-mix(in srgb, ${settings.urgent2Color} 20%, #ffffff); color: ${settings.urgent2Color}; }
+        .status-overdue { background: color-mix(in srgb, ${settings.overdueColor} 20%, #ffffff); color: ${settings.overdueColor}; }
+        .status-expired { background: color-mix(in srgb, ${settings.expiredColor} 20%, #ffffff); color: ${settings.expiredColor}; }
         .status-uploading { background: #f1f5f9; color: #64748b; }
         .status-failed { background: #fee2e2; color: #dc2626; }
 
