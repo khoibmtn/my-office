@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { X, Copy, Check, ExternalLink, FileText, Paperclip, Download, FileSpreadsheet, FileImage, FileArchive, File as FileGeneric } from 'lucide-react'
 import { getDocument } from '@/lib/firestore'
 import { parseFileNameFromUrl, getStructuredMainFileName } from '@/lib/utils'
+import { useAuth } from '@/hooks/useAuth'
 import type { Document } from '@/types'
 
 function getDaysRemaining(ts: { toDate(): Date } | undefined): number | null {
@@ -39,6 +40,7 @@ interface DocumentModalProps {
 }
 
 export function DocumentModal({ docId, onClose }: DocumentModalProps) {
+  const { user } = useAuth()
   const [doc, setDoc] = useState<Document | null>(null)
   const [loading, setLoading] = useState(true)
   const [activeUrl, setActiveUrl] = useState('')
@@ -145,7 +147,7 @@ export function DocumentModal({ docId, onClose }: DocumentModalProps) {
                 <div className="meta-row">
                   <span className="meta-label">Số VB:</span>
                   <div className="flex items-center gap-2">
-                    <span>{doc.docNumber || 'Không có'}</span>
+                    <span className="font-bold">{doc.docNumber || 'Không có'}</span>
                     {(() => {
                       const days = getDaysRemaining(doc.deadline)
                       const si = getStatusInfo(doc, days)
@@ -168,33 +170,39 @@ export function DocumentModal({ docId, onClose }: DocumentModalProps) {
                 {doc.deadline && (() => {
                   const days = getDaysRemaining(doc.deadline)
                   const daysText = days === null ? '' : days < 0 ? ` (quá ${Math.abs(days)} ngày)` : days === 0 ? ' (hôm nay!)' : ` (còn ${days} ngày)`
+                  const isWarning = days !== null && days <= 3
                   return (
                     <div className="meta-row">
                       <span className="meta-label">Deadline:</span>
-                      <span>{doc.deadline.toDate().toLocaleDateString('vi-VN')}<strong style={{color: days !== null && days <= 1 ? '#ef4444' : days !== null && days <= 3 ? '#f59e0b' : '#22c55e'}}>{daysText}</strong></span>
+                      <span className={isWarning ? "font-bold text-red-600" : ""}>
+                        {doc.deadline.toDate().toLocaleDateString('vi-VN')}
+                        <strong style={{color: days !== null && days <= 1 ? '#ef4444' : days !== null && days <= 3 ? '#f59e0b' : '#22c55e', marginLeft: '4px'}}>{daysText}</strong>
+                      </span>
                     </div>
                   )
                 })()}
                 <div className="meta-row">
                   <span className="meta-label">Người được giao:</span>
-                  {doc.assignee ? (
-                    <span>{doc.assignee}</span>
-                  ) : (
+                  {(!doc.assignee || doc.assignee === user?.displayName) ? (
                     <span className="text-slate-400 italic">Chưa giao</span>
+                  ) : (
+                    <span>{doc.assignee}</span>
                   )}
                 </div>
-                {doc.notes && (() => {
-                  const lines = doc.notes.split('\n').map(l => l.trim()).filter(Boolean)
+                {(() => {
+                  const lines = (doc.notes || '').split('\n').map(l => l.trim()).filter(Boolean)
                   const filtered = lines.filter(l => {
                     if (doc.sender && l.includes(doc.sender) && /^(CQBH|CQ ban hành)/i.test(l)) return false
                     if (doc.leader && l.includes(doc.leader) && /^Lãnh đạo/i.test(l)) return false
                     return true
                   })
-                  if (filtered.length === 0) return null
+                  
                   return (
                     <div className="meta-row" style={{ alignItems: 'flex-start' }}>
                       <span className="meta-label" style={{ marginTop: 2 }}>Ghi chú:</span>
-                      <span className="whitespace-pre-wrap">{filtered.join('\n')}</span>
+                      <span className={filtered.length === 0 ? "text-slate-400 italic" : "whitespace-pre-wrap"}>
+                        {filtered.length === 0 ? 'Không có' : filtered.join('\n')}
+                      </span>
                     </div>
                   )
                 })()}
