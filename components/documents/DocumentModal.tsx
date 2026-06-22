@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { X, Copy, Check, ExternalLink, FileText, Paperclip, Download, FileSpreadsheet, FileImage, FileArchive, File as FileGeneric } from 'lucide-react'
+import { X, Copy, Check, ExternalLink, FileText, Paperclip, Download, FileSpreadsheet, FileImage, FileArchive, File as FileGeneric, Send } from 'lucide-react'
 import { getDocument } from '@/lib/firestore'
 import { parseFileNameFromUrl, getStructuredMainFileName } from '@/lib/utils'
 import { useAuth } from '@/hooks/useAuth'
@@ -223,9 +223,9 @@ export function DocumentModal({ docId, onClose }: DocumentModalProps) {
                     className="icon-btn"
                     style={{ width: 24, height: 24, padding: 0 }}
                     onClick={handleCopyAll}
-                    title="Copy tất cả link tải trực tiếp"
+                    data-tooltip="Copy thông tin giao việc"
                   >
-                    {copiedAll ? <Check size={14} className="text-green-500" /> : <Copy size={14} />}
+                    {copiedAll ? <Check size={14} className="text-green-500" /> : <Send size={14} />}
                   </button>
                 </div>
                 <div className="flex flex-col gap-2">
@@ -246,7 +246,7 @@ export function DocumentModal({ docId, onClose }: DocumentModalProps) {
                           <button
                             className="icon-btn"
                             onClick={() => handleCopy(f.url, f.id)}
-                            title="Copy link"
+                            data-tooltip="Copy link"
                           >
                             {copiedId === f.id ? <Check size={14} className="text-green-500" /> : <Copy size={14} />}
                           </button>
@@ -255,7 +255,7 @@ export function DocumentModal({ docId, onClose }: DocumentModalProps) {
                             target="_blank"
                             rel="noopener noreferrer"
                             className="icon-btn"
-                            title="Tải xuống"
+                            data-tooltip="Tải file"
                           >
                             <Download size={14} />
                           </a>
@@ -264,7 +264,7 @@ export function DocumentModal({ docId, onClose }: DocumentModalProps) {
                             target="_blank"
                             rel="noopener noreferrer"
                             className="icon-btn"
-                            title="Mở Drive"
+                            data-tooltip="Mở trong trình duyệt"
                           >
                             <ExternalLink size={14} />
                           </a>
