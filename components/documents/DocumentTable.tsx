@@ -441,112 +441,118 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
     const set = new Set<string>()
     documents.forEach(d => { if (d.assignee) set.add(d.assignee) })
     staffList.forEach(s => set.add(s))
-    return Array.from(set).sort()
-  }, [documents, staffList])
-
-  return (
-    <>
-      {/* Search + Filters */}
-      <div className="filters-bar">
-        <div className="filter-group">
-          <Calendar size={16} className="text-slate-500" />
-          <select
-            value={timePeriod}
-            onChange={e => {
-              const val = e.target.value
-              setTimePeriod(val)
-              if (val === 'today') {
-                setFilterStatus('pending')
-              } else {
-                setFilterStatus('all')
-              }
-              e.target.blur()
-            }}
-          >
-            <option value="today">Đến hôm nay</option>
-            <option value="week">Tuần này</option>
-            <option value="last_month">Tháng trước</option>
-            <option value="custom">Bất kỳ</option>
-          </select>
-        </div>
-        {timePeriod === 'custom' && (
-          <div className="filter-group" style={{ gap: '4px' }}>
-            <label style={{ fontSize: '11px' }}>Từ</label>
-            <input type="date" value={customFrom} onChange={e => setCustomFrom(e.target.value)} style={{ fontSize: '12px', padding: '4px 6px' }} />
-            <label style={{ fontSize: '11px' }}>Đến</label>
-            <input type="date" value={customTo} min={customFrom || undefined} onChange={e => setCustomTo(e.target.value)} style={{ fontSize: '12px', padding: '4px 6px' }} />
+    return Array.from(set).sort()      {/* Search + Filters */}
+      <div className="flex flex-col gap-2 mb-3">
+        <div className="filters-bar" style={{ marginBottom: 0 }}>
+          <div className="filter-group">
+            <Calendar size={16} className="text-slate-500" />
+            <select
+              value={timePeriod}
+              onChange={e => {
+                const val = e.target.value
+                setTimePeriod(val)
+                if (val === 'today') {
+                  setFilterStatus('pending')
+                } else {
+                  setFilterStatus('all')
+                }
+                e.target.blur()
+              }}
+            >
+              <option value="today">Đến hôm nay</option>
+              <option value="week">Tuần này</option>
+              <option value="last_month">Tháng trước</option>
+              <option value="custom">Bất kỳ</option>
+            </select>
           </div>
-        )}
-        {periodRange && timePeriod !== 'today' && (
-          <span style={{ fontSize: '11px', color: '#64748b', fontStyle: 'italic' }}>
-            {periodRange.from.toLocaleDateString('vi-VN')} — {periodRange.to.toLocaleDateString('vi-VN')}
-          </span>
-        )}
-        <div className="filter-group">
-          <label>Lọc danh sách:</label>
-          <select 
-            value={filterStatus} 
-            onChange={e => { setFilterStatus(e.target.value); e.target.blur() }}
-            className={filterStatus !== 'all' ? 'select-colored' : ''}
-            style={{
-              background: filterStatus === 'completed' ? settings.completedColor : filterStatus === 'pending' ? '#f59e0b' : undefined,
-              color: filterStatus === 'all' ? undefined : '#fff',
-              borderColor: filterStatus === 'completed' ? settings.completedColor : filterStatus === 'pending' ? '#f59e0b' : undefined,
-              fontWeight: filterStatus === 'all' ? undefined : 600,
-            }}
-          >
-            <option value="all">Tất cả</option>
-            <option value="pending">Chưa hoàn thành</option>
-            <option value="completed">Đã hoàn thành</option>
-          </select>
-        </div>
-        <div className="filter-group">
-          <label>Mức độ khẩn:</label>
-          {[
-            { key: 'normal', label: 'Thường', color: '#64748b' },
-            { key: 'urgent', label: 'Khẩn', color: '#f59e0b' },
-            { key: 'very_urgent', label: 'Thượng khẩn', color: '#f97316' },
-            { key: 'express', label: 'Hỏa tốc', color: '#ef4444' },
-            { key: 'express_scheduled', label: 'Hỏa tốc hẹn giờ', color: '#e11d48' }
-          ].map(p => {
-            const count = priorityStats[p.key] || 0
-            if (count === 0) return null
-            const isSelected = priorityBadgeFilters.includes(p.key)
-            return (
-              <button
-                key={p.key}
-                onClick={() => setPriorityBadgeFilters(prev =>
-                  prev.includes(p.key) ? prev.filter(x => x !== p.key) : [...prev, p.key]
-                )}
-                className="badge-filter px-2 py-0.5 rounded shadow-sm flex items-center gap-1 transition-all border text-xs font-semibold"
-                style={{
-                  '--badge-color': p.color,
-                  background: isSelected ? p.color : `color-mix(in srgb, ${p.color} 25%, #ffffff)`,
-                  borderColor: p.color,
-                  color: isSelected ? '#fff' : p.color,
-                  boxShadow: isSelected ? `0 0 0 2px #fff, 0 0 0 3px ${p.color}` : 'none'
-                } as React.CSSProperties}
-              >
-                {p.label} ({count})
-                {isSelected && <span className="opacity-70 hover:opacity-100 font-normal ml-0.5 text-sm leading-none">×</span>}
-              </button>
-            )
-          })}
+          
+          <div className="filter-group">
+            <label>Lọc danh sách:</label>
+            <select 
+              value={filterStatus} 
+              onChange={e => { setFilterStatus(e.target.value); e.target.blur() }}
+              className={filterStatus !== 'all' ? 'select-colored' : ''}
+              style={{
+                background: filterStatus === 'completed' ? settings.completedColor : filterStatus === 'pending' ? '#f59e0b' : undefined,
+                color: filterStatus === 'all' ? undefined : '#fff',
+                borderColor: filterStatus === 'completed' ? settings.completedColor : filterStatus === 'pending' ? '#f59e0b' : undefined,
+                fontWeight: filterStatus === 'all' ? undefined : 600,
+              }}
+            >
+              <option value="all">Tất cả</option>
+              <option value="pending">Chưa hoàn thành</option>
+              <option value="completed">Đã hoàn thành</option>
+            </select>
+          </div>
+
+          <div className="filter-group">
+            <label>Mức độ khẩn:</label>
+            {[
+              { key: 'normal', label: 'Thường', color: '#64748b' },
+              { key: 'urgent', label: 'Khẩn', color: '#f59e0b' },
+              { key: 'very_urgent', label: 'Thượng khẩn', color: '#f97316' },
+              { key: 'express', label: 'Hỏa tốc', color: '#ef4444' },
+              { key: 'express_scheduled', label: 'Hỏa tốc hẹn giờ', color: '#e11d48' }
+            ].map(p => {
+              const count = priorityStats[p.key] || 0
+              if (count === 0) return null
+              const isSelected = priorityBadgeFilters.includes(p.key)
+              return (
+                <button
+                  key={p.key}
+                  onClick={() => setPriorityBadgeFilters(prev =>
+                    prev.includes(p.key) ? prev.filter(x => x !== p.key) : [...prev, p.key]
+                  )}
+                  className="badge-filter px-2 py-0.5 rounded shadow-sm flex items-center gap-1 transition-all border text-xs font-semibold"
+                  style={{
+                    '--badge-color': p.color,
+                    background: isSelected ? p.color : `color-mix(in srgb, ${p.color} 25%, #ffffff)`,
+                    borderColor: p.color,
+                    color: isSelected ? '#fff' : p.color,
+                    boxShadow: isSelected ? `0 0 0 2px #fff, 0 0 0 3px ${p.color}` : 'none'
+                  } as React.CSSProperties}
+                >
+                  {p.label} ({count})
+                  {isSelected && <span className="opacity-70 hover:opacity-100 font-normal ml-0.5 text-sm leading-none">×</span>}
+                </button>
+              )
+            })}
+          </div>
+
+          <div className="flex-1"></div>
+
+          <div className="search-box">
+            <Search size={16} />
+            <input
+              type="text"
+              placeholder="Tìm kiếm văn bản..."
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+            />
+            {searchQuery && (
+              <button className="search-clear" onClick={() => setSearchQuery('')}>×</button>
+            )}
+          </div>
+          <span className="filter-count">{filteredDocs.length}/{baseDocs.length} văn bản</span>
         </div>
 
-        <div className="flex-1"></div>
-
-        <div className="search-box">
-          <Search size={16} />
-          <input
-            type="text"
-            placeholder="Tìm kiếm văn bản..."
-            value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)}
-          />
-          {searchQuery && (
-            <button className="search-clear" onClick={() => setSearchQuery('')}>×</button>
+        {/* Second row for custom date picker and period range label */}
+        <div className="flex items-center gap-4 px-4 text-sm">
+          {timePeriod === 'custom' && (
+            <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-md border border-slate-200 shadow-sm">
+              <label className="text-slate-500 font-medium text-xs">Từ</label>
+              <input type="date" value={customFrom} onChange={e => setCustomFrom(e.target.value)} className="text-xs outline-none bg-transparent" />
+              <label className="text-slate-500 font-medium text-xs ml-2">Đến</label>
+              <input type="date" value={customTo} min={customFrom || undefined} onChange={e => setCustomTo(e.target.value)} className="text-xs outline-none bg-transparent" />
+            </div>
           )}
+          {periodRange && timePeriod !== 'today' && (
+            <span className="text-slate-500 italic text-xs font-medium bg-slate-100 px-2 py-1 rounded">
+              Thống kê văn bản từ {periodRange.from.toLocaleDateString('vi-VN')} đến {periodRange.to.toLocaleDateString('vi-VN')}
+            </span>
+          )}
+        </div>
+      </div>
         </div>
         <span className="filter-count">{filteredDocs.length}/{baseDocs.length} văn bản</span>
       </div>
@@ -788,7 +794,18 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
                         {eff.icon}
                         <span>{eff.label}</span>
                       </button>
-                      {doc.status === 'upload_failed' ? (
+                      {doc.completedDate && (() => {
+                        const cd = toDateSafe(doc.completedDate)
+                        if (!cd) return null
+                        return (
+                          <span style={{ fontSize: '10px', fontStyle: 'italic', marginLeft: '4px' }}>
+                            <span style={{ color: '#dc2626' }}>HT:</span>{' '}
+                            <span style={{ color: '#64748b' }}>{cd.toLocaleDateString('vi-VN')}</span>
+                          </span>
+                        )
+                      })()}
+                    </div>
+                    {doc.status === 'upload_failed' ? (
                         <Button size="sm" variant="outline" onClick={() => handleRetry(doc)} disabled={retrying === doc.id}>
                           {retrying === doc.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
                         </Button>
