@@ -58,10 +58,14 @@ async function uploadFileToDrive(
 
 function parseDate(dateStr: string): Date | null {
   if (!dateStr) return null
-  const match = dateStr.trim().match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/)
+  const match = dateStr.trim().match(/(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?/)
   if (!match) return null
-  const [, dd, mm, yyyy] = match
-  return new Date(parseInt(yyyy), parseInt(mm) - 1, parseInt(dd))
+  const [, dd, mm, yyyy, h, m, s] = match
+  const date = new Date(parseInt(yyyy), parseInt(mm) - 1, parseInt(dd))
+  if (h && m) {
+    date.setHours(parseInt(h), parseInt(m), s ? parseInt(s) : 0)
+  }
+  return date
 }
 
 // CORS headers for Chrome Extension

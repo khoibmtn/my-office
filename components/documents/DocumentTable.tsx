@@ -347,7 +347,7 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
         <TableHeader>
           <TableRow className="doc-table-header">
             <ThResizable width={colWidths.stt} minWidth={30} onWidthChange={(w: number) => handleWidthChange('stt', w)} className="cursor-pointer hover:bg-slate-700/50" onClick={() => setSortConfig(null)}>#</ThResizable>
-            <ThResizable width={colWidths.issueDate} minWidth={60} onWidthChange={(w: number) => handleWidthChange('issueDate', w)} className="cursor-pointer hover:bg-slate-700/50" onClick={() => handleSort('issueDate')}>Ngày BH <ArrowUpDown className="h-3 w-3 inline ml-1"/></ThResizable>
+            <ThResizable width={colWidths.issueDate} minWidth={60} onWidthChange={(w: number) => handleWidthChange('issueDate', w)} className="cursor-pointer hover:bg-slate-700/50" onClick={() => handleSort('issueDate')}>Ngày ban hành <ArrowUpDown className="h-3 w-3 inline ml-1"/></ThResizable>
             <ThResizable width={colWidths.docNumber} minWidth={80} onWidthChange={(w: number) => handleWidthChange('docNumber', w)} className="cursor-pointer hover:bg-slate-700/50" onClick={() => handleSort('docNumber')}>Mã hiệu <ArrowUpDown className="h-3 w-3 inline ml-1"/></ThResizable>
             <ThResizable width={colWidths.title} minWidth={150} onWidthChange={(w: number) => handleWidthChange('title', w)} className="cursor-pointer hover:bg-slate-700/50" onClick={() => handleSort('title')}>Tiêu đề <ArrowUpDown className="h-3 w-3 inline ml-1"/></ThResizable>
             <ThResizable width={colWidths.status} minWidth={90} onWidthChange={(w: number) => handleWidthChange('status', w)} className="cursor-pointer hover:bg-slate-700/50" onClick={() => handleSort('status')}>Tình trạng <ArrowUpDown className="h-3 w-3 inline ml-1"/></ThResizable>
@@ -379,9 +379,21 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
                 className={`doc-row ${idx % 2 === 0 ? 'row-even' : 'row-odd'} ${rowDanger ? 'row-danger' : rowWarning ? 'row-warning' : ''} ${doc.status === 'completed' ? 'row-completed' : ''}`}
               >
                 <TableCell className="text-center text-slate-400 font-mono text-xs">{idx + 1}</TableCell>
-                <TableCell className="text-xs">{formatDate(doc.issueDate)}</TableCell>
+                <TableCell className="text-xs">
+                  <div className="font-medium">{formatDate(doc.issueDate)}</div>
+                  {doc.issueDate && (doc.issueDate.toDate().getHours() !== 0 || doc.issueDate.toDate().getMinutes() !== 0) && (
+                    <div className="text-[10px] text-slate-400 mt-0.5">
+                      {doc.issueDate.toDate().getHours()}:{String(doc.issueDate.toDate().getMinutes()).padStart(2, '0')}
+                    </div>
+                  )}
+                </TableCell>
                 <TableCell className="font-semibold text-slate-800 text-xs">
                   <Highlight text={doc.docNumber || '—'} query={searchQuery} />
+                  {doc.sender && (
+                    <div className="text-[10px] text-slate-400 italic font-normal mt-0.5">
+                      <Highlight text={doc.sender} query={searchQuery} />
+                    </div>
+                  )}
                 </TableCell>
                 <TableCell style={{ maxWidth: colWidths.title || 250 }}>
                   <span className="text-xs flex flex-col gap-1 items-start">

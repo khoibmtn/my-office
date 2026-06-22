@@ -52,8 +52,17 @@ function extractDocumentData() {
     docNumber = raw;
   }
 
-  // Issue date: "Ban hành: 24/04/2026" → "24/04/2026"
-  const issueDate = extractText('.vanban-ngaybanhanh', true);
+  // Issue date: try to get it from the sibling/parent of CQBH first (includes time)
+  let issueDate = '';
+  const cqbhEl = document.querySelector('.vanban-coquanbanhanh');
+  if (cqbhEl && cqbhEl.parentElement) {
+    const match = cqbhEl.parentElement.textContent.match(/\d{1,2}\/\d{1,2}\/\d{4}\s+\d{1,2}:\d{2}(?::\d{2})?/);
+    if (match) issueDate = match[0];
+  }
+  // Fallback to top bar "Ban hành: 24/04/2026"
+  if (!issueDate) {
+    issueDate = extractText('.vanban-ngaybanhanh', true);
+  }
 
   // Summary from right panel
   let summary = '';

@@ -168,12 +168,18 @@ export function DocumentModal({ docId, onClose }: DocumentModalProps) {
                     <span>{doc.sender}</span>
                   </div>
                 )}
-                {doc.issueDate && (
-                  <div className="meta-row">
-                    <span className="meta-label">Ngày ban hành:</span>
-                    <span>{doc.issueDate.toDate().toLocaleDateString('vi-VN')}</span>
-                  </div>
-                )}
+                {doc.issueDate && (() => {
+                  const d = doc.issueDate.toDate()
+                  const dateStr = d.toLocaleDateString('vi-VN')
+                  const hasTime = d.getHours() !== 0 || d.getMinutes() !== 0 || d.getSeconds() !== 0
+                  const timeStr = hasTime ? ` ${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}` : ''
+                  return (
+                    <div className="meta-row">
+                      <span className="meta-label">Ngày ban hành:</span>
+                      <span>{dateStr}{timeStr}</span>
+                    </div>
+                  )
+                })()}
                 {doc.deadline && (() => {
                   const days = getDaysRemaining(doc.deadline)
                   const daysText = days === null ? '' : days < 0 ? ` (quá ${Math.abs(days)} ngày)` : days === 0 ? ' (hôm nay!)' : ` (còn ${days} ngày)`
