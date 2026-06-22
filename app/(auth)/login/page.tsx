@@ -2,7 +2,7 @@
 
 export const dynamic = 'force-dynamic'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { signInWithGoogle } from '@/lib/firebase'
 import { useAuth } from '@/hooks/useAuth'
@@ -13,20 +13,23 @@ export default function LoginPage() {
   const router = useRouter()
   const { user, loading: authLoading } = useAuth()
   const [error, setError] = useState<string | null>(null)
-  const [loading, setLoading] = useState(false)
+  const [signingIn, setSigningIn] = useState(false)
 
   // If user is already logged in, go to home
-  if (user && !authLoading) {
-    router.push('/')
-    return null
-  }
+  useEffect(() => {
+    if (user && !authLoading) {
+      router.push('/')
+    }
+  }, [user, authLoading, router])
 
   async function handleLogin() {
     setError(null)
-    setLoading(true)
+    setSigningIn(true)
     try {
       await signInWithGoogle()
-      router.push('/')
+      // signInWithPopup resolves after successful auth
+      // onAuthStateChanged in useAuth will detect the user
+      // and the useEffect above will redirect
     } catch (err: unknown) {
       const code = (err as { code?: string })?.code ?? ''
       if (code === 'auth/popup-blocked') {
@@ -36,20 +39,23 @@ export default function LoginPage() {
       } else {
         setError(code || 'Lỗi đăng nhập')
       }
-      setLoading(false)
+      setSigningIn(false)
     }
   }
+
+  // Don't render login form if user is already authed
+  if (user) return null
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-50">
       <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-8 w-full max-w-sm">
         <h1 className="text-2xl font-semibold text-slate-900 mb-2">Quản lý Văn bản</h1>
         <p className="text-sm text-slate-500 mb-6">Đăng nhập để tiếp tục</p>
-        <Button className="w-full" onClick={handleLogin} disabled={loading || authLoading}>
-          {loading || authLoading ? (
+        <Button className="w-full" onClick={handleLogin} disabled={signingIn}>
+          {signingIn ? (
             <>
               <Loader2 className="h-4 w-4 animate-spin mr-2" />
-              Đang xử lý...
+              Đang đăng nhập...
             </>
           ) : (
             'Đăng nhập với Google'
