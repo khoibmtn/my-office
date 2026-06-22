@@ -243,7 +243,14 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
                 <TableCell className="text-xs">{formatDate(doc.issueDate)}</TableCell>
                 <TableCell className="font-semibold text-slate-800 text-xs">{doc.docNumber || '—'}</TableCell>
                 <TableCell style={{ maxWidth: 280 }}>
-                  <span className="line-clamp-2 text-xs">{doc.title}</span>
+                  <span className="text-xs">
+                    {doc.title}
+                    {doc.attachments && doc.attachments.length > 0 && (
+                      <span className="text-slate-500 ml-1 font-medium whitespace-nowrap">
+                        ({doc.attachments.length} 📎)
+                      </span>
+                    )}
+                  </span>
                 </TableCell>
                 <TableCell>
                   <button
