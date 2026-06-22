@@ -1,0 +1,363 @@
+/**
+ * Extension popup logic
+ * - Shows today's submission history as a table (at bottom)
+ * - Skips duplicate warning if doc was already sent today
+ * - Shows in-progress items in history
+ * - Warns when no document popup is open
+ */
+
+const DEFAULT_API_URL = 'http://localhost:3000';
+let currentMetadata = null;
+
+const els = {
+  notQlvb: () => document.getElementById('not-qlvb'),
+  noDoc: () => document.getElementById('no-doc'),
+  loading: () => document.getElementById('loading'),
+  error: () => document.getElementById('error'),
+  errorMsg: () => document.getElementById('error-msg'),
+  mainForm: () => document.getElementById('main-form'),
+  docNumber: () => document.getElementById('docNumber'),
+  issueDate: () => document.getElementById('issueDate'),
+  deadline: () => document.getElementById('deadline'),
+  handler: () => document.getElementById('handler'),
+  sender: () => document.getElementById('sender'),
+  title: () => document.getElementById('title'),
+  fileList: () => document.getElementById('file-list'),
+  btnSubmit: () => document.getElementById('btn-submit'),
+  progress: () => document.getElementById('progress'),
+  progressFill: () => document.getElementById('progress-fill'),
+  progressText: () => document.getElementById('progress-text'),
+  apiUrl: () => document.getElementById('apiUrl'),
+  btnSaveSettings: () => document.getElementById('btn-save-settings'),
+  dupWarning: () => document.getElementById('duplicate-warning'),
+  dupMsg: () => document.getElementById('duplicate-msg'),
+  dupList: () => document.getElementById('duplicate-list'),
+  btnCancelDup: () => document.getElementById('btn-cancel-dup'),
+  btnForceAdd: () => document.getElementById('btn-force-add'),
+  historySection: () => document.getElementById('history-section'),
+  historyBody: () => document.getElementById('history-body'),
+};
+
+// ========== INITIALIZATION ==========
+
+document.addEventListener('DOMContentLoaded', async () => {
+  const settings = await chrome.storage.local.get(['apiUrl']);
+  els.apiUrl().value = settings.apiUrl || DEFAULT_API_URL;
+
+  els.btnSaveSettings().addEventListener('click', async () => {
+    await chrome.storage.local.set({ apiUrl: els.apiUrl().value });
+    els.btnSaveSettings().textContent = '✓ Đã lưu';
+    setTimeout(() => { els.btnSaveSettings().textContent = 'Lưu'; }, 1500);
+  });
+
+  els.btnSubmit().addEventListener('click', handleSubmit);
+
+  els.btnCancelDup().addEventListener('click', () => window.close());
+  els.btnForceAdd().addEventListener('click', () => {
+    els.dupWarning().style.display = 'none';
+    els.btnSubmit().disabled = false;
+  });
+
+  // Extract data from current tab first
+  await extractFromCurrentTab();
+
+  // Show today's history at bottom
+  await renderTodayHistory();
+});
+
+// ========== HISTORY ==========
+
+function getTodayKey() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
+async function getTodayHistory() {
+  const key = getTodayKey();
+  const data = await chrome.storage.local.get(['submissionHistory']);
+  const history = data.submissionHistory || {};
+  return history[key] || [];
+}
+
+async function renderTodayHistory() {
+  let items = await getTodayHistory();
+  
+  // Filter: if a doc has a 'done' entry, remove its 'failed' entries
+  const doneDocNumbers = new Set(items.filter(i => i.status === 'done').map(i => i.docNumber));
+  items = items.filter(item => {
+    if (item.status === 'failed' && doneDocNumbers.has(item.docNumber)) return false;
+    return true;
+  });
+  
+  if (items.length === 0) {
+    els.historySection().style.display = 'none';
+    return;
+  }
+
+  els.historySection().style.display = 'block';
+  const tbody = els.historyBody();
+  tbody.innerHTML = '';
+
+  items.forEach((item, i) => {
+    const tr = document.createElement('tr');
+    
+    const tdIdx = document.createElement('td');
+    tdIdx.textContent = i + 1;
+    
+    const tdDoc = document.createElement('td');
+    tdDoc.textContent = item.docNumber || '—';
+    tdDoc.style.fontWeight = '600';
+    
+    const tdStatus = document.createElement('td');
+    const badge = document.createElement('span');
+    badge.className = 'status-badge';
+    
+    if (item.status === 'sending') {
+      badge.className += ' sending';
+      badge.textContent = '⏳ Đang gửi...';
+    } else if (item.status === 'done') {
+      badge.className += ' done';
+      badge.textContent = '✓ Xong';
+    } else if (item.status === 'failed') {
+      badge.className += ' failed';
+      badge.textContent = '✗ Lỗi';
+    }
+    
+    tdStatus.appendChild(badge);
+    tr.appendChild(tdIdx);
+    tr.appendChild(tdDoc);
+    tr.appendChild(tdStatus);
+    tbody.appendChild(tr);
+  });
+}
+
+async function isAlreadySentToday(docNumber) {
+  const items = await getTodayHistory();
+  return items.some(item => 
+    item.docNumber && item.docNumber.trim() === docNumber.trim() && item.status === 'done'
+  );
+}
+
+// ========== DATA EXTRACTION ==========
+
+async function extractFromCurrentTab() {
+  els.loading().style.display = 'block';
+  
+  try {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    
+    if (!tab || !tab.url || !tab.url.includes('qlvb.hpnet.vn')) {
+      els.loading().style.display = 'none';
+      els.notQlvb().style.display = 'block';
+      return;
+    }
+
+    let response;
+    try {
+      response = await chrome.tabs.sendMessage(tab.id, { action: 'extract-data' });
+    } catch (connErr) {
+      console.log('Content script not loaded, injecting...');
+      try {
+        await chrome.scripting.executeScript({
+          target: { tabId: tab.id },
+          files: ['content.js'],
+        });
+        await new Promise(r => setTimeout(r, 300));
+        response = await chrome.tabs.sendMessage(tab.id, { action: 'extract-data' });
+      } catch (injectErr) {
+        throw new Error('Không thể kết nối. Hãy reload trang (F5) rồi thử lại.');
+      }
+    }
+    
+    if (!response || !response.success) {
+      throw new Error(response?.error || 'Không thể đọc dữ liệu.');
+    }
+
+    // Check if no document popup is open (on list page)
+    if (response.data._noDocument) {
+      els.loading().style.display = 'none';
+      els.noDoc().style.display = 'block';
+      return;
+    }
+
+    currentMetadata = response.data;
+    displayMetadata(currentMetadata);
+    
+    els.loading().style.display = 'none';
+    els.mainForm().style.display = 'block';
+
+    // Always check duplicate from database
+    if (currentMetadata.docNumber) {
+      await checkDuplicate(currentMetadata.docNumber);
+    }
+  } catch (err) {
+    els.loading().style.display = 'none';
+    showError(err.message || 'Lỗi khi đọc trang.');
+  }
+}
+
+// ========== DISPLAY ==========
+
+function displayMetadata(data) {
+  els.docNumber().value = data.docNumber || '';
+  els.issueDate().value = data.issueDate || '';
+  els.deadline().value = data.deadline || '';
+  els.handler().value = data.handler || '';
+  els.sender().value = data.sender || '';
+  els.title().value = data.summary || '';
+
+  const fileListEl = els.fileList();
+  fileListEl.innerHTML = '';
+
+  if (data.mainFileName) {
+    fileListEl.appendChild(createFileItem(data.mainFileName, 'main', true));
+  }
+
+  (data.attachments || []).forEach((att, i) => {
+    fileListEl.appendChild(createFileItem(att.fileName, 'attachment', true, i));
+  });
+}
+
+function createFileItem(fileName, type, checked, index) {
+  const div = document.createElement('div');
+  div.className = 'file-item';
+
+  const checkbox = document.createElement('input');
+  checkbox.type = 'checkbox';
+  checkbox.checked = checked;
+  checkbox.dataset.type = type;
+  if (index !== undefined) checkbox.dataset.index = index;
+
+  const nameSpan = document.createElement('span');
+  nameSpan.className = 'file-name';
+  nameSpan.textContent = fileName;
+  nameSpan.title = fileName;
+
+  const badge = document.createElement('span');
+  badge.className = `file-badge ${type}`;
+  badge.textContent = type === 'main' ? 'Chính' : 'Đính kèm';
+
+  div.appendChild(checkbox);
+  div.appendChild(nameSpan);
+  div.appendChild(badge);
+  return div;
+}
+
+function showError(msg) {
+  els.error().style.display = 'block';
+  els.errorMsg().textContent = msg;
+}
+
+function setProgress(percent, text) {
+  els.progress().style.display = 'block';
+  els.progressFill().style.width = `${percent}%`;
+  els.progressText().textContent = text;
+}
+
+// ========== SUBMIT ==========
+
+async function handleSubmit() {
+  if (!currentMetadata) return;
+
+  const btn = els.btnSubmit();
+  btn.disabled = true;
+  els.error().style.display = 'none';
+
+  const editedTitle = els.title().value.trim();
+  if (editedTitle) currentMetadata.summary = editedTitle;
+
+  const checkboxes = document.querySelectorAll('.file-item input[type="checkbox"]');
+  const selectedAttachments = [];
+  checkboxes.forEach(cb => {
+    if (cb.dataset.type === 'attachment' && cb.checked) {
+      const idx = parseInt(cb.dataset.index);
+      if (currentMetadata.attachments[idx]) {
+        selectedAttachments.push(currentMetadata.attachments[idx]);
+      }
+    }
+  });
+
+  const submissionMetadata = { ...currentMetadata, attachments: selectedAttachments };
+
+  try {
+    const settings = await chrome.storage.local.get(['apiUrl']);
+    const apiUrl = settings.apiUrl || DEFAULT_API_URL;
+
+    chrome.runtime.sendMessage({
+      action: 'submit-document',
+      metadata: submissionMetadata,
+      apiUrl: apiUrl,
+    });
+
+    btn.textContent = '📤 Đang xử lý nền...';
+    setProgress(100, 'Đã gửi. Bạn có thể đóng popup và tiếp tục làm việc!');
+    
+    setTimeout(() => window.close(), 1500);
+  } catch (err) {
+    showError(`Lỗi: ${err.message}`);
+    btn.disabled = false;
+    btn.textContent = 'Gửi đến My Office';
+    els.progress().style.display = 'none';
+  }
+}
+
+// ========== DUPLICATE CHECK ==========
+
+async function checkDuplicate(docNumber) {
+  try {
+    const settings = await chrome.storage.local.get(['apiUrl']);
+    const apiUrl = settings.apiUrl || DEFAULT_API_URL;
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
+
+    const res = await fetch(`${apiUrl}/api/extension/check-duplicate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ docNumber }),
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+
+    if (!res.ok) return;
+    const data = await res.json();
+    if (!data.exists || !data.matches?.length) return;
+
+    const warningEl = els.dupWarning();
+    const listEl = els.dupList();
+    
+    els.dupMsg().textContent = `⚠️ Văn bản "${docNumber}" đã có ${data.matches.length} bản trong hệ thống:`;
+
+    listEl.innerHTML = '';
+    data.matches.forEach(match => {
+      const item = document.createElement('div');
+      item.className = 'duplicate-item';
+
+      const title = document.createElement('span');
+      title.className = 'dup-title';
+      title.textContent = match.title || match.docNumber;
+      title.title = match.title;
+
+      const date = document.createElement('span');
+      date.className = 'dup-date';
+      if (match.createdAt) {
+        date.textContent = new Date(match.createdAt).toLocaleDateString('vi-VN');
+      }
+
+      const status = document.createElement('span');
+      status.className = 'dup-status';
+      status.textContent = match.status || 'pending';
+
+      item.appendChild(title);
+      item.appendChild(date);
+      item.appendChild(status);
+      listEl.appendChild(item);
+    });
+
+    warningEl.style.display = 'block';
+    els.btnSubmit().disabled = true;
+  } catch (err) {
+    // Silent fail — don't block user if API is unreachable
+    console.log('Duplicate check skipped:', err.message);
+  }
+}

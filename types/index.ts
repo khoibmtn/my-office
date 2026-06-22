@@ -23,6 +23,9 @@ export interface Attachment {
 export interface Document {
   id: string
   title: string
+  docNumber?: string
+  issueDate?: Timestamp
+  sender?: string
   originalLink: string
   driveFileId: string
   driveViewUrl: string
@@ -46,6 +49,7 @@ export interface AttachmentInput {
 
 export interface CreateDocumentInput {
   title: string
+  docNumber?: string
   originalLink: string
   task?: string
   assignee?: string

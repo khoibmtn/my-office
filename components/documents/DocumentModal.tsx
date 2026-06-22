@@ -1,0 +1,451 @@
+'use client'
+
+import { useState, useEffect, useCallback } from 'react'
+import { X, Copy, Check, ExternalLink, FileText, Paperclip, Download } from 'lucide-react'
+import { getDocument } from '@/lib/firestore'
+import type { Document } from '@/types'
+
+function getDaysRemaining(ts: { toDate(): Date } | undefined): number | null {
+  if (!ts) return null
+  const now = new Date(); now.setHours(0,0,0,0)
+  const dl = ts.toDate(); dl.setHours(0,0,0,0)
+  return Math.ceil((dl.getTime() - now.getTime()) / 86400000)
+}
+
+function getStatusInfo(doc: Document, days: number | null) {
+  if (doc.status === 'completed') return { label: '✅ Hoàn thành', cls: 'status-done' }
+  if (days !== null && days < 0) return { label: '🔴 Quá hạn', cls: 'status-overdue' }
+  if (days !== null && days <= 1) return { label: '🟠 Sắp hết hạn', cls: 'status-urgent' }
+  return { label: '⏳ Chờ xử lý', cls: 'status-pending' }
+}
+
+interface DocumentModalProps {
+  docId: string | null
+  onClose: () => void
+}
+
+export function DocumentModal({ docId, onClose }: DocumentModalProps) {
+  const [doc, setDoc] = useState<Document | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [activeUrl, setActiveUrl] = useState('')
+  const [copiedId, setCopiedId] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!docId) return
+    setLoading(true)
+    getDocument(docId).then((d) => {
+      setDoc(d)
+      if (d?.driveViewUrl) setActiveUrl(d.driveViewUrl)
+      setLoading(false)
+    })
+  }, [docId])
+
+  const handleCopy = useCallback(async (text: string, id: string) => {
+    await navigator.clipboard.writeText(text)
+    setCopiedId(id)
+    setTimeout(() => setCopiedId(null), 2000)
+  }, [])
+
+  const handleBackdropClick = useCallback((e: React.MouseEvent) => {
+    if (e.target === e.currentTarget) onClose()
+  }, [onClose])
+
+  useEffect(() => {
+    const handleEsc = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', handleEsc)
+    return () => window.removeEventListener('keydown', handleEsc)
+  }, [onClose])
+
+  if (!docId) return null
+
+  const allFiles = doc ? [
+    {
+      id: 'main',
+      label: 'File chính',
+      type: 'main' as const,
+      url: doc.driveViewUrl,
+      driveId: doc.driveFileId,
+    },
+    ...(doc.attachments ?? []).map((a, i) => ({
+      id: `att-${i}`,
+      label: a.title || `Đính kèm ${i + 1}`,
+      type: 'attachment' as const,
+      url: a.driveViewUrl,
+      driveId: a.driveFileId,
+    })),
+  ] : []
+
+  return (
+    <div className="modal-backdrop" onClick={handleBackdropClick}>
+      <div className="modal-container">
+        {/* Header */}
+        <div className="modal-header">
+          <div className="modal-header-info">
+            <h2>{doc?.title || 'Đang tải...'}</h2>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 2 }}>
+              {doc?.docNumber && (
+                <span className="modal-doc-number">{doc.docNumber}</span>
+              )}
+              {doc && (() => {
+                const days = getDaysRemaining(doc.deadline)
+                const si = getStatusInfo(doc, days)
+                return <span className={`modal-status-badge ${si.cls}`}>{si.label}</span>
+              })()}
+            </div>
+          </div>
+          <button className="modal-close" onClick={onClose}>
+            <X size={20} />
+          </button>
+        </div>
+
+        {loading ? (
+          <div className="modal-loading">
+            <div className="spinner" />
+            <p>Đang tải văn bản...</p>
+          </div>
+        ) : doc ? (
+          <div className="modal-body">
+            {/* Left: details + file list */}
+            <div className="modal-sidebar">
+              {/* Meta */}
+              <div className="modal-meta">
+                {doc.deadline && (() => {
+                  const days = getDaysRemaining(doc.deadline)
+                  const daysText = days === null ? '' : days < 0 ? ` (quá ${Math.abs(days)} ngày)` : days === 0 ? ' (hôm nay!)' : ` (còn ${days} ngày)`
+                  return (
+                    <div className="meta-row">
+                      <span className="meta-label">Deadline:</span>
+                      <span>{doc.deadline.toDate().toLocaleDateString('vi-VN')}<strong style={{color: days !== null && days <= 1 ? '#ef4444' : days !== null && days <= 3 ? '#f59e0b' : '#22c55e'}}>{daysText}</strong></span>
+                    </div>
+                  )
+                })()}
+                {doc.assignee && (
+                  <div className="meta-row">
+                    <span className="meta-label">Người nhận:</span>
+                    <span>{doc.assignee}</span>
+                  </div>
+                )}
+                {doc.sender && (
+                  <div className="meta-row">
+                    <span className="meta-label">CQBH:</span>
+                    <span>{doc.sender}</span>
+                  </div>
+                )}
+                {doc.notes && (() => {
+                  // Deduplicate lines in notes
+                  const lines = doc.notes.split('\n').map(l => l.trim()).filter(Boolean)
+                  const unique = [...new Set(lines)]
+                  // Also remove lines that duplicate sender info already shown above
+                  const filtered = unique.filter(l => {
+                    if (doc.sender && l.includes(doc.sender) && /^(CQBH|CQ ban hành)/i.test(l)) return false
+                    return true
+                  })
+                  if (filtered.length === 0) return null
+                  return <p className="modal-notes">{filtered.join('\n')}</p>
+                })()}
+              </div>
+
+              {/* File list */}
+              <div className="modal-file-list">
+                <h3>Danh sách tệp</h3>
+                {allFiles.map((f) => (
+                  <div
+                    key={f.id}
+                    className={`modal-file-item ${activeUrl === f.url ? 'active' : ''}`}
+                  >
+                    <button
+                      className="file-select-btn"
+                      onClick={() => setActiveUrl(f.url)}
+                      title="Xem file này"
+                    >
+                      {f.type === 'main' ? (
+                        <FileText size={14} className="text-blue-600" />
+                      ) : (
+                        <Paperclip size={14} className="text-purple-500" />
+                      )}
+                      <span className="file-label">{f.label}</span>
+                      <span className={`file-type-badge ${f.type}`}>
+                        {f.type === 'main' ? 'Chính' : 'Đính kèm'}
+                      </span>
+                    </button>
+                    <div className="file-actions">
+                      <button
+                        className="icon-btn"
+                        onClick={() => handleCopy(f.url, f.id)}
+                        title="Copy link"
+                      >
+                        {copiedId === f.id ? <Check size={14} className="text-green-500" /> : <Copy size={14} />}
+                      </button>
+                      <a
+                        href={`https://drive.google.com/uc?export=download&id=${f.driveId}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="icon-btn"
+                        title="Tải xuống"
+                      >
+                        <Download size={14} />
+                      </a>
+                      <a
+                        href={`https://drive.google.com/file/d/${f.driveId}/view`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="icon-btn"
+                        title="Mở Drive"
+                      >
+                        <ExternalLink size={14} />
+                      </a>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Right: iframe preview */}
+            <div className="modal-preview">
+              {activeUrl ? (
+                <iframe
+                  src={activeUrl}
+                  className="preview-iframe"
+                  title="Document preview"
+                />
+              ) : (
+                <div className="preview-placeholder">
+                  <p>Chọn một file để xem</p>
+                </div>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div className="modal-loading">
+            <p>Không tìm thấy văn bản.</p>
+          </div>
+        )}
+      </div>
+
+      <style jsx>{`
+        .modal-backdrop {
+          position: fixed;
+          inset: 0;
+          z-index: 999;
+          background: rgba(0, 0, 0, 0.6);
+          backdrop-filter: blur(4px);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          animation: fadeIn 0.2s ease;
+        }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        .modal-container {
+          width: 92vw;
+          height: 88vh;
+          max-width: 1400px;
+          background: #fff;
+          border-radius: 12px;
+          box-shadow: 0 25px 60px rgba(0,0,0,0.3);
+          display: flex;
+          flex-direction: column;
+          overflow: hidden;
+          animation: slideUp 0.25s ease;
+        }
+        @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+        .modal-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 16px 20px;
+          border-bottom: 1px solid #e2e8f0;
+          background: #f8fafc;
+        }
+        .modal-header-info h2 {
+          font-size: 16px;
+          font-weight: 700;
+          color: #1e293b;
+          margin: 0;
+          line-height: 1.3;
+        }
+        .modal-doc-number {
+          font-size: 12px;
+          color: #64748b;
+          font-weight: 500;
+        }
+        .modal-status-badge {
+          font-size: 11px;
+          padding: 2px 8px;
+          border-radius: 6px;
+          font-weight: 600;
+        }
+        .status-done { background: #dcfce7; color: #166534; }
+        .status-overdue { background: #fee2e2; color: #dc2626; }
+        .status-urgent { background: #ffedd5; color: #c2410c; }
+        .status-pending { background: #f1f5f9; color: #475569; }
+        .modal-close {
+          background: none;
+          border: none;
+          padding: 6px;
+          cursor: pointer;
+          border-radius: 6px;
+          color: #64748b;
+          transition: all 0.15s;
+        }
+        .modal-close:hover { background: #fee2e2; color: #ef4444; }
+
+        .modal-loading {
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          gap: 12px;
+          color: #64748b;
+        }
+        .spinner {
+          width: 32px;
+          height: 32px;
+          border: 3px solid #e2e8f0;
+          border-top-color: #3b82f6;
+          border-radius: 50%;
+          animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .modal-body {
+          flex: 1;
+          display: flex;
+          overflow: hidden;
+        }
+
+        .modal-sidebar {
+          width: 340px;
+          border-right: 1px solid #e2e8f0;
+          display: flex;
+          flex-direction: column;
+          overflow-y: auto;
+        }
+
+        .modal-meta {
+          padding: 12px 16px;
+          border-bottom: 1px solid #f1f5f9;
+          font-size: 13px;
+        }
+        .meta-row {
+          display: flex;
+          gap: 6px;
+          margin-bottom: 4px;
+        }
+        .meta-label {
+          font-weight: 600;
+          color: #475569;
+          white-space: nowrap;
+        }
+        .modal-notes {
+          font-size: 12px;
+          color: #64748b;
+          margin-top: 6px;
+          white-space: pre-line;
+        }
+
+        .modal-file-list {
+          flex: 1;
+          padding: 12px 16px;
+        }
+        .modal-file-list h3 {
+          font-size: 12px;
+          font-weight: 600;
+          color: #475569;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+          margin-bottom: 8px;
+        }
+
+        .modal-file-item {
+          display: flex;
+          align-items: center;
+          border: 1px solid #e2e8f0;
+          border-radius: 8px;
+          margin-bottom: 6px;
+          overflow: hidden;
+          transition: all 0.15s;
+        }
+        .modal-file-item.active {
+          border-color: #3b82f6;
+          background: #eff6ff;
+        }
+        .modal-file-item:hover {
+          border-color: #94a3b8;
+        }
+
+        .file-select-btn {
+          flex: 1;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          padding: 8px 10px;
+          background: none;
+          border: none;
+          cursor: pointer;
+          text-align: left;
+          font-size: 12px;
+          color: #1e293b;
+          min-width: 0;
+        }
+        .file-label {
+          flex: 1;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        .file-type-badge {
+          font-size: 9px;
+          padding: 1px 5px;
+          border-radius: 4px;
+          font-weight: 600;
+          white-space: nowrap;
+        }
+        .file-type-badge.main { background: #dbeafe; color: #1d4ed8; }
+        .file-type-badge.attachment { background: #f3e8ff; color: #7c3aed; }
+
+        .file-actions {
+          display: flex;
+          gap: 2px;
+          padding: 4px 6px;
+        }
+        .icon-btn {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 28px;
+          height: 28px;
+          border: none;
+          background: none;
+          border-radius: 6px;
+          cursor: pointer;
+          color: #64748b;
+          transition: all 0.15s;
+          text-decoration: none;
+        }
+        .icon-btn:hover { background: #f1f5f9; color: #334155; }
+
+        .modal-preview {
+          flex: 1;
+          display: flex;
+          background: #f8fafc;
+        }
+        .preview-iframe {
+          width: 100%;
+          height: 100%;
+          border: none;
+        }
+        .preview-placeholder {
+          flex: 1;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: #94a3b8;
+          font-size: 14px;
+        }
+      `}</style>
+    </div>
+  )
+}

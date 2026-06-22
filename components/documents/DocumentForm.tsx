@@ -33,14 +33,33 @@ export function DocumentForm() {
     { id: uuid(), title: '', originalLink: '' },
   ])
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState<string | null>(null)
+  const [mainFile, setMainFile] = useState<File | null>(null)
+
+  async function uploadFileToDrive(file: File): Promise<string> {
+    const token = localStorage.getItem('google_access_token')
+    const form = new FormData()
+    form.append('file', file)
+    form.append('folderId', process.env.NEXT_PUBLIC_DRIVE_FOLDER_ID ?? '')
+    if (token) form.append('userAccessToken', token)
+    const res = await fetch('/api/drive/upload', { method: 'POST', body: form })
+    if (!res.ok) throw new Error(await res.text())
+    const { driveFileId } = await res.json()
+    return `https://drive.google.com/file/d/${driveFileId}/view`
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsSubmitting(true)
+    setSubmitError(null)
     try {
+      let link = originalLink
+      if (mainFile) {
+        link = await uploadFileToDrive(mainFile)
+      }
       const docId = await createDocument({
         title,
-        originalLink,
+        originalLink: link,
         notes: notes || undefined,
         assignee: assignee || undefined,
         tags: tags ? tags.split(',').map((t) => t.trim()).filter(Boolean) : [],
@@ -50,13 +69,16 @@ export function DocumentForm() {
         })),
       })
       router.push('/')
-      submitDocumentWithDriveCopy(
-        docId,
-        originalLink,
-        attachments.map(({ title, originalLink }) => ({ title, originalLink }))
-      )
+      if (!mainFile) {
+        submitDocumentWithDriveCopy(
+          docId,
+          link,
+          attachments.map(({ title, originalLink }) => ({ title, originalLink }))
+        )
+      }
     } catch (err) {
       console.error('Submit error:', err)
+      setSubmitError(err instanceof Error ? err.message : String(err))
     } finally {
       setIsSubmitting(false)
     }
@@ -75,13 +97,33 @@ export function DocumentForm() {
       </div>
 
       <div className="flex flex-col gap-1">
-        <Label htmlFor="originalLink">Link file chính *</Label>
+        <Label htmlFor="originalLink">Link file chính {!mainFile && '*'}</Label>
         <Input
           id="originalLink"
           value={originalLink}
           onChange={(e) => setOriginalLink(e.target.value)}
-          required
+          required={!mainFile}
+          placeholder="https://..."
         />
+        {originalLink.includes('qlvb.hpnet.vn') && !mainFile && (
+          <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded px-2 py-1">
+            ⚠️ Link từ <b>qlvb.hpnet.vn</b> yêu cầu đăng nhập — server không thể tải tự động.
+            Hãy tải file về máy rồi chọn <b>&quot;Tải file lên trực tiếp&quot;</b> bên dưới.
+          </p>
+        )}
+        <div className="flex items-center gap-2 mt-1">
+          <span className="text-xs text-slate-400">hoặc</span>
+          <label className="text-xs text-blue-600 cursor-pointer hover:underline">
+            Tải file lên trực tiếp
+            <input type="file" className="hidden" onChange={(e) => setMainFile(e.target.files?.[0] ?? null)} />
+          </label>
+          {mainFile && (
+            <span className="text-xs text-slate-600 flex items-center gap-1">
+              📎 {mainFile.name}
+              <button type="button" onClick={() => setMainFile(null)} className="text-slate-400 hover:text-red-500 ml-1">✕</button>
+            </span>
+          )}
+        </div>
       </div>
 
       <div className="flex flex-col gap-1">
@@ -144,6 +186,9 @@ export function DocumentForm() {
       </div>
 
       <div className="flex justify-end gap-2 pt-2">
+        {submitError && (
+          <p className="text-sm text-red-600 self-center mr-auto">{submitError}</p>
+        )}
         <Button
           type="button"
           variant="outline"

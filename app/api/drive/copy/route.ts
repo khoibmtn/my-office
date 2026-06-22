@@ -5,7 +5,7 @@ import { syncAfterDriveUpdate } from '@/lib/algolia-server'
 export async function POST(request: Request) {
   try {
     const body = await request.json()
-    const { docId, originalLink, attachments, folderId: bodyFolderId } = body
+    const { docId, originalLink, attachments, folderId: bodyFolderId, userAccessToken } = body
     const folderId = bodyFolderId ?? process.env.DRIVE_FOLDER_ID
 
     if (!originalLink || !folderId) {
@@ -13,8 +13,8 @@ export async function POST(request: Request) {
     }
 
     const [mainFile, attachmentResults] = await Promise.all([
-      copyFileToDrive({ originalLink, folderId }),
-      attachments?.length ? copyAttachmentsToDrive(attachments, folderId) : Promise.resolve([]),
+      copyFileToDrive({ originalLink, folderId, userAccessToken }),
+      attachments?.length ? copyAttachmentsToDrive(attachments, folderId, userAccessToken) : Promise.resolve([]),
     ])
 
     if (docId) {

@@ -2,8 +2,12 @@ import {
   addDoc,
   collection,
   doc,
+  deleteDoc as firestoreDeleteDoc,
   updateDoc,
   getDoc,
+  onSnapshot,
+  orderBy,
+  query,
   serverTimestamp,
 } from 'firebase/firestore'
 import { db } from './firebase'
@@ -47,6 +51,17 @@ export async function updateDocumentDriveInfo(
   })
 }
 
+export async function updateDocument(
+  docId: string,
+  fields: Partial<{ title: string; originalLink: string; notes: string; status: DocumentStatus; assignee: string; tags: string[]; deadline: unknown }>
+): Promise<void> {
+  // Firestore rejects undefined — replace with empty string for optional string fields
+  const safe = Object.fromEntries(
+    Object.entries(fields).map(([k, v]) => [k, v === undefined ? '' : v])
+  )
+  await updateDoc(doc(db(), COLLECTION, docId), { ...safe, updatedAt: serverTimestamp() })
+}
+
 export async function updateDocumentStatus(
   docId: string,
   status: DocumentStatus
@@ -87,22 +102,57 @@ export async function submitDocumentWithDriveCopy(
   attachments: Array<{ title: string; originalLink: string }>,
   folderId?: string
 ): Promise<void> {
+  const userAccessToken = typeof window !== 'undefined' ? localStorage.getItem('google_access_token') : null
   try {
-    const body = { docId, originalLink, attachments, folderId }
-
+    // All URLs (Drive + external) go through server-side /api/drive/copy
+    // This avoids CORS issues — server-side fetch is not subject to browser CORS
+    const body = { docId, originalLink, attachments, folderId, userAccessToken }
     const result = await retryWithBackoff(() =>
       fetch('/api/drive/copy', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       }).then(async (res) => {
-        if (!res.ok) throw new Error(`Drive copy failed: ${res.status}`)
+        if (!res.ok) throw new Error(await res.text())
         return res.json()
       })
     )
 
-    await updateDocumentDriveInfo(docId, result.mainFile, result.attachments ?? [])
-  } catch {
+    const mainFile = result.mainFile
+    const attachmentResults: Array<{ driveFileId: string; driveViewUrl: string; mimeType: string }> = result.attachments ?? []
+
+    await updateDocumentDriveInfo(docId, mainFile, attachmentResults.map((r, i) => ({
+      id: attachments[i]?.title ?? String(i),
+      ...r,
+    })))
+  } catch (err) {
+    console.error('[Drive upload failed]', err)
     await updateDocumentStatus(docId, 'upload_failed')
   }
+}
+
+export async function deleteDocument(docId: string, deleteDriveFiles = false): Promise<void> {
+  if (deleteDriveFiles) {
+    try {
+      const snap = await getDoc(doc(db(), COLLECTION, docId))
+      if (snap.exists()) {
+        const data = snap.data()
+        const token = localStorage.getItem('google_access_token')
+        if (token) {
+          const fileIds = [data.driveFileId, ...(data.attachments || []).map((a: { driveFileId: string }) => a.driveFileId)].filter(Boolean)
+          await Promise.allSettled(
+            fileIds.map(fid =>
+              fetch(`https://www.googleapis.com/drive/v3/files/${fid}`, {
+                method: 'DELETE',
+                headers: { Authorization: `Bearer ${token}` },
+              })
+            )
+          )
+        }
+      }
+    } catch (err) {
+      console.warn('Drive file deletion failed:', err)
+    }
+  }
+  await firestoreDeleteDoc(doc(db(), COLLECTION, docId))
 }

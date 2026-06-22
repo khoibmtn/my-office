@@ -1,13 +1,25 @@
-import { notFound } from 'next/navigation'
+'use client'
+
+import { useEffect, useState } from 'react'
+import { useParams } from 'next/navigation'
+import { Loader2 } from 'lucide-react'
 import { getDocument } from '@/lib/firestore'
 import { DocumentViewer } from '@/components/documents/DocumentViewer'
+import type { Document } from '@/types'
 
-interface Props {
-  params: { id: string }
-}
+export default function DocumentPage() {
+  const { id } = useParams<{ id: string }>()
+  const [doc, setDoc] = useState<Document | null | undefined>(undefined)
 
-export default async function DocumentPage({ params }: Props) {
-  const document = await getDocument(params.id)
-  if (!document) notFound()
-  return <DocumentViewer doc={document} />
+  useEffect(() => {
+    getDocument(id).then(setDoc)
+  }, [id])
+
+  if (doc === undefined) return (
+    <div className="p-8 flex justify-center">
+      <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
+    </div>
+  )
+  if (doc === null) return <div className="p-8 text-slate-500">Không tìm thấy văn bản.</div>
+  return <DocumentViewer doc={doc} />
 }

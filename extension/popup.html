@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <title>My Office - QLVB Helper</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>📋 My Office - QLVB Helper</h1>
+    </header>
+
+    <!-- Status: not on qlvb page -->
+    <div id="not-qlvb" class="status-msg" style="display:none;">
+      <p>⚠️ Hãy mở trang <strong>qlvb.hpnet.vn</strong> và xem một văn bản trước khi sử dụng extension.</p>
+    </div>
+
+    <!-- Status: on qlvb but no document popup -->
+    <div id="no-doc" class="status-msg info" style="display:none;">
+      <p>📄 Bạn đang ở trang danh sách. Hãy <strong>mở một văn bản</strong> (bấm vào tên văn bản) để ghi vào My Office.</p>
+    </div>
+
+    <!-- Loading -->
+    <div id="loading" class="status-msg" style="display:none;">
+      <p>⏳ Đang đọc dữ liệu...</p>
+    </div>
+
+    <!-- Error -->
+    <div id="error" class="status-msg error" style="display:none;">
+      <p id="error-msg"></p>
+    </div>
+
+    <!-- Main form -->
+    <div id="main-form" style="display:none;">
+      <section class="metadata">
+        <div class="field">
+          <label>Số hiệu</label>
+          <input type="text" id="docNumber" readonly>
+        </div>
+        <div class="field">
+          <label>Ngày ban hành</label>
+          <input type="text" id="issueDate" readonly>
+        </div>
+        <div class="field">
+          <label>Thời hạn xử lý</label>
+          <input type="text" id="deadline" readonly>
+        </div>
+        <div class="field">
+          <label>Người xử lý</label>
+          <input type="text" id="handler" readonly>
+        </div>
+        <div class="field">
+          <label>CQ ban hành</label>
+          <input type="text" id="sender" readonly>
+        </div>
+        <div class="field full-width">
+          <label>Tiêu đề (Trích yếu)</label>
+          <textarea id="title" rows="3"></textarea>
+        </div>
+      </section>
+
+      <!-- Duplicate warning -->
+      <div id="duplicate-warning" class="status-msg duplicate" style="display:none;">
+        <p id="duplicate-msg">⚠️ Văn bản này đã tồn tại!</p>
+        <div id="duplicate-list"></div>
+        <div class="duplicate-actions">
+          <button id="btn-cancel-dup" class="btn-danger-sm">Hủy bỏ</button>
+          <button id="btn-force-add" class="btn-secondary-sm">Vẫn thêm</button>
+        </div>
+      </div>
+
+      <section class="files">
+        <h3>📎 Files</h3>
+        <div id="file-list"></div>
+      </section>
+
+      <section class="actions">
+        <button id="btn-submit" class="btn-primary">
+          Gửi đến My Office
+        </button>
+      </section>
+
+      <!-- Progress -->
+      <div id="progress" style="display:none;">
+        <div class="progress-bar">
+          <div id="progress-fill" class="progress-fill"></div>
+        </div>
+        <p id="progress-text">Đang xử lý...</p>
+      </div>
+    </div>
+
+    <!-- Today's history table (at bottom) -->
+    <section id="history-section" style="display:none;">
+      <h3>📋 Đã gửi hôm nay</h3>
+      <table id="history-table" class="history-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Số hiệu</th>
+            <th>Trạng thái</th>
+          </tr>
+        </thead>
+        <tbody id="history-body"></tbody>
+      </table>
+    </section>
+
+    <!-- Settings toggle -->
+    <details class="settings">
+      <summary>⚙️ Cài đặt</summary>
+      <div class="field">
+        <label>API URL</label>
+        <input type="text" id="apiUrl" placeholder="http://localhost:3000">
+      </div>
+      <button id="btn-save-settings" class="btn-secondary">Lưu</button>
+    </details>
+  </div>
+
+  <script src="utils.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>
