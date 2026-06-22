@@ -512,7 +512,7 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
                   </select>
                 </TableCell>
                 <TableCell>
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-1 flex-wrap">
                     <button
                       className={`status-chip mr-2 ${eff.cls}`}
                       onClick={() => handleToggleComplete(doc)}
