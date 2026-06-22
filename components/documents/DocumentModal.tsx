@@ -70,8 +70,6 @@ export function DocumentModal({ docId, onClose }: DocumentModalProps) {
     return () => window.removeEventListener('keydown', handleEsc)
   }, [onClose])
 
-  if (!docId) return null
-
   const allFiles = doc ? [
     {
       id: 'main',
@@ -104,6 +102,8 @@ export function DocumentModal({ docId, onClose }: DocumentModalProps) {
     setCopiedAll(true)
     setTimeout(() => setCopiedAll(false), 2000)
   }, [allFiles])
+
+  if (!docId) return null
 
   return (
     <div className="modal-backdrop" onClick={handleBackdropClick}>
