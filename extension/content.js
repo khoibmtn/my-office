@@ -139,11 +139,15 @@ function extractDocumentData() {
       const rows = parentDoc.querySelectorAll('tr');
       for (const row of rows) {
         if (row.textContent.includes(docNumber)) {
-          const rowText = row.textContent.toLowerCase();
-          if (rowText.includes('hỏa tốc hẹn giờ')) priority = 'express_scheduled';
-          else if (rowText.includes('hỏa tốc')) priority = 'express';
-          else if (rowText.includes('thượng khẩn')) priority = 'very_urgent';
-          else if (rowText.includes('khẩn')) priority = 'urgent';
+          // Look for the specific label badge to avoid false positives from document titles
+          const labelEl = row.querySelector('.label');
+          if (labelEl) {
+            const labelText = labelEl.textContent.toLowerCase().trim();
+            if (labelText.includes('hỏa tốc hẹn giờ')) priority = 'express_scheduled';
+            else if (labelText.includes('hỏa tốc')) priority = 'express';
+            else if (labelText.includes('thượng khẩn')) priority = 'very_urgent';
+            else if (labelText.includes('khẩn')) priority = 'urgent';
+          }
           break;
         }
       }
