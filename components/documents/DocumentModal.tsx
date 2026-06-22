@@ -206,7 +206,7 @@ export function DocumentModal({ docId, onClose }: DocumentModalProps) {
                     </div>
                   )
                 })()}
-                <div className="meta-row">
+                <div className="meta-row" style={{ alignItems: 'center' }}>
                   <span className="meta-label">Hoàn thành:</span>
                   <input
                     type="date"
@@ -223,9 +223,9 @@ export function DocumentModal({ docId, onClose }: DocumentModalProps) {
                         setDoc(prev => prev ? { ...prev, completedDate: undefined, status: newStatus } as any : prev)
                       }
                     }}
-                    style={{ fontSize: '13px', padding: '2px 6px', border: '1px solid transparent', borderRadius: '4px', background: 'transparent', cursor: 'pointer', transition: 'all 0.15s' }}
-                    onMouseEnter={e => { e.currentTarget.style.background = '#f1f5f9'; e.currentTarget.style.borderColor = '#cbd5e1' }}
-                    onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderColor = 'transparent' }}
+                    style={{ fontSize: '13px', padding: '4px 8px', border: '1px solid #cbd5e1', borderRadius: '5px', background: '#f1f5f9', cursor: 'pointer', transition: 'all 0.15s' }}
+                    onMouseEnter={e => { e.currentTarget.style.background = '#e2e8f0'; e.currentTarget.style.borderColor = '#94a3b8' }}
+                    onMouseLeave={e => { e.currentTarget.style.background = '#f1f5f9'; e.currentTarget.style.borderColor = '#cbd5e1' }}
                   />
                 </div>
                 <div className="meta-row">
