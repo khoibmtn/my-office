@@ -54,7 +54,7 @@ export function DocumentViewer({ doc }: DocumentViewerProps) {
         })()}
         <p className="text-sm text-slate-600 mb-2">
           <span className="font-semibold text-slate-700">Người được giao:</span>{' '}
-          {(!doc.assignee || doc.assignee === user?.displayName) ? (
+          {(!doc.assignee || doc.assignee === user?.displayName || doc.assignee === 'Bùi Minh Khôi') ? (
             <span className="text-slate-400 italic">Chưa giao</span>
           ) : (
             doc.assignee

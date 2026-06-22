@@ -190,7 +190,7 @@ export function DocumentModal({ docId, onClose }: DocumentModalProps) {
                 })()}
                 <div className="meta-row">
                   <span className="meta-label">Người được giao:</span>
-                  {(!doc.assignee || doc.assignee === user?.displayName) ? (
+                  {(!doc.assignee || doc.assignee === user?.displayName || doc.assignee === 'Bùi Minh Khôi') ? (
                     <span className="text-slate-400 italic">Chưa giao</span>
                   ) : (
                     <span>{doc.assignee}</span>

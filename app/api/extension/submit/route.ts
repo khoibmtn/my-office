@@ -169,7 +169,7 @@ export async function POST(request: NextRequest) {
       priority,
       deadline: deadlineDate ? deadlineDate : null,
       task: '',
-      assignee,
+      assignee: assignee === 'Bùi Minh Khôi' ? '' : assignee,
       notes,
       tags: tags ? tags.split(',').map((t: string) => t.trim()).filter(Boolean) : [],
       textSnippet: title.slice(0, 500),
