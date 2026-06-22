@@ -146,62 +146,74 @@ export function DocumentModal({ docId, onClose }: DocumentModalProps) {
                     <span>{doc.sender}</span>
                   </div>
                 )}
-                {doc.notes && (
-                  <div className="bg-amber-50 border border-amber-200 rounded p-2 mb-2 mx-4 mt-2">
-                    <p className="text-xs font-semibold text-amber-800 mb-1">📝 Ghi chú cá nhân:</p>
-                    <p className="text-sm text-amber-900 whitespace-pre-wrap">{doc.notes}</p>
-                  </div>
-                )}
+                {doc.notes && (() => {
+                  const lines = doc.notes.split('\n').map(l => l.trim()).filter(Boolean)
+                  const filtered = lines.filter(l => {
+                    if (doc.sender && l.includes(doc.sender) && /^(CQBH|CQ ban hành)/i.test(l)) return false
+                    if (doc.leader && l.includes(doc.leader) && /^Lãnh đạo/i.test(l)) return false
+                    return true
+                  })
+                  if (filtered.length === 0) return null
+                  return (
+                    <div className="bg-amber-50 border border-amber-200 rounded p-2 mb-2 mx-4 mt-2">
+                      <p className="text-xs font-semibold text-amber-800 mb-1">📝 Ghi chú cá nhân:</p>
+                      <p className="text-sm text-amber-900 whitespace-pre-wrap">{filtered.join('\n')}</p>
+                    </div>
+                  )
+                })()}
               </div>
 
               {/* File list */}
               <div className="modal-file-list">
-                <h3>Danh sách tệp</h3>
-                {allFiles.map((f) => (
-                  <div
-                    key={f.id}
-                    className={`modal-file-item ${activeUrl === f.url ? 'active' : ''}`}
-                  >
-                    <button
-                      className="file-select-btn"
+                <h3>Danh sách tệp ({allFiles.length})</h3>
+                <div className="flex flex-col gap-2">
+                  {allFiles.map((f) => (
+                    <div
+                      key={f.id}
+                      className={`modal-file-item ${activeUrl === f.url ? 'active' : ''}`}
                       onClick={() => setActiveUrl(f.url)}
-                      title="Xem file này"
                     >
-                      {getFileIcon(f.label, f.mimeType, f.type === 'main' ? 'text-blue-600' : 'text-purple-500')}
-                      <span className="file-label">{f.label}</span>
-                      <span className={`file-type-badge ${f.type}`}>
-                        {f.type === 'main' ? 'Chính' : 'Đính kèm'}
-                      </span>
-                    </button>
-                    <div className="file-actions">
-                      <button
-                        className="icon-btn"
-                        onClick={() => handleCopy(f.url, f.id)}
-                        title="Copy link"
-                      >
-                        {copiedId === f.id ? <Check size={14} className="text-green-500" /> : <Copy size={14} />}
-                      </button>
-                      <a
-                        href={`https://drive.google.com/uc?export=download&id=${f.driveId}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="icon-btn"
-                        title="Tải xuống"
-                      >
-                        <Download size={14} />
-                      </a>
-                      <a
-                        href={`https://drive.google.com/file/d/${f.driveId}/view`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="icon-btn"
-                        title="Mở Drive"
-                      >
-                        <ExternalLink size={14} />
-                      </a>
+                      <div className="file-item-row1">
+                        <div className="file-item-meta">
+                          {getFileIcon(f.label, f.mimeType, f.type === 'main' ? 'text-blue-600' : 'text-purple-500')}
+                          <span className={`file-type-badge ${f.type}`}>
+                            {f.type === 'main' ? 'Chính' : 'Đính kèm'}
+                          </span>
+                        </div>
+                        <div className="file-actions" onClick={e => e.stopPropagation()}>
+                          <button
+                            className="icon-btn"
+                            onClick={() => handleCopy(f.url, f.id)}
+                            title="Copy link"
+                          >
+                            {copiedId === f.id ? <Check size={14} className="text-green-500" /> : <Copy size={14} />}
+                          </button>
+                          <a
+                            href={`https://drive.google.com/uc?export=download&id=${f.driveId}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="icon-btn"
+                            title="Tải xuống"
+                          >
+                            <Download size={14} />
+                          </a>
+                          <a
+                            href={`https://drive.google.com/file/d/${f.driveId}/view`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="icon-btn"
+                            title="Mở Drive"
+                          >
+                            <ExternalLink size={14} />
+                          </a>
+                        </div>
+                      </div>
+                      <div className="file-item-row2">
+                        <span className="file-label" title={f.label}>{f.label}</span>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
             </div>
 
@@ -366,12 +378,14 @@ export function DocumentModal({ docId, onClose }: DocumentModalProps) {
 
         .modal-file-item {
           display: flex;
-          align-items: center;
+          flex-direction: column;
           border: 1px solid #e2e8f0;
           border-radius: 8px;
-          margin-bottom: 6px;
           overflow: hidden;
           transition: all 0.15s;
+          cursor: pointer;
+          padding: 6px 10px 8px 10px;
+          gap: 2px;
         }
         .modal-file-item.active {
           border-color: #3b82f6;
@@ -380,26 +394,31 @@ export function DocumentModal({ docId, onClose }: DocumentModalProps) {
         .modal-file-item:hover {
           border-color: #94a3b8;
         }
-
-        .file-select-btn {
-          flex: 1;
+        .file-item-row1 {
           display: flex;
-          align-items: flex-start;
-          gap: 8px;
-          padding: 8px 10px;
-          background: none;
-          border: none;
-          cursor: pointer;
-          text-align: left;
-          font-size: 12px;
-          color: #1e293b;
-          min-width: 0;
+          align-items: center;
+          justify-content: space-between;
+          width: 100%;
+        }
+        .file-item-meta {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+        }
+        .file-item-row2 {
+          width: 100%;
+          padding-left: 2px;
         }
         .file-label {
-          flex: 1;
-          word-break: break-word;
+          font-size: 11px;
+          font-style: italic;
+          color: #475569;
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
           line-height: 1.4;
-          padding-top: 1px;
+          word-break: break-all;
         }
         .file-type-badge {
           font-size: 9px;
@@ -414,14 +433,13 @@ export function DocumentModal({ docId, onClose }: DocumentModalProps) {
         .file-actions {
           display: flex;
           gap: 2px;
-          padding: 4px 6px;
         }
         .icon-btn {
           display: flex;
           align-items: center;
           justify-content: center;
-          width: 28px;
-          height: 28px;
+          width: 26px;
+          height: 26px;
           border: none;
           background: none;
           border-radius: 6px;
