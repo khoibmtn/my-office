@@ -528,7 +528,17 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
             })}
           </div>
 
-          <div className="flex-1"></div>
+          <div className="flex-1 flex justify-center items-center px-4">
+            {timePeriod === 'today' ? (
+              <span className="text-blue-600 font-bold text-sm">
+                Thống kê văn bản đến hôm nay, ngày {new Date().toLocaleDateString('vi-VN')}
+              </span>
+            ) : periodRange ? (
+              <span className="text-blue-600 font-bold text-sm">
+                Thống kê văn bản từ {periodRange.from.toLocaleDateString('vi-VN')} đến {periodRange.to.toLocaleDateString('vi-VN')}
+              </span>
+            ) : null}
+          </div>
 
           <div className="search-box">
             <Search size={16} />
@@ -545,22 +555,16 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
           <span className="filter-count">{filteredDocs.length}/{baseDocs.length} văn bản</span>
         </div>
 
-        {/* Second row for custom date picker and period range label */}
-        <div className="flex items-center gap-4 px-4 text-sm">
-          {timePeriod === 'custom' && (
+        {timePeriod === 'custom' && (
+          <div className="flex items-center gap-4 px-4 text-sm">
             <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-md border border-slate-200 shadow-sm">
               <label className="text-slate-500 font-medium text-xs">Từ</label>
               <input type="date" value={customFrom} onChange={e => setCustomFrom(e.target.value)} className="text-xs outline-none bg-transparent" />
               <label className="text-slate-500 font-medium text-xs ml-2">Đến</label>
               <input type="date" value={customTo} min={customFrom || undefined} onChange={e => setCustomTo(e.target.value)} className="text-xs outline-none bg-transparent" />
             </div>
-          )}
-          {periodRange && timePeriod !== 'today' && (
-            <span className="text-slate-500 italic text-xs font-medium bg-slate-100 px-2 py-1 rounded">
-              Thống kê văn bản từ {periodRange.from.toLocaleDateString('vi-VN')} đến {periodRange.to.toLocaleDateString('vi-VN')}
-            </span>
-          )}
-        </div>
+          </div>
+        )}
       </div>
       <div className="flex gap-2 mb-4 text-xs font-semibold flex-wrap">
         {[
