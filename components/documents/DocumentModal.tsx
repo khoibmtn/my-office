@@ -99,6 +99,7 @@ export function DocumentModal({ docId, onClose }: DocumentModalProps) {
     const mainFile = allFiles[0]
     if (mainFile) {
       lines.push(mainFile.url)
+      lines.push('') // Dòng trắng
     }
     
     if (allFiles.length > 1) {
@@ -109,7 +110,7 @@ export function DocumentModal({ docId, onClose }: DocumentModalProps) {
       }
     }
     
-    await navigator.clipboard.writeText(lines.filter(Boolean).join('\n'))
+    await navigator.clipboard.writeText(lines.join('\n'))
     setCopiedAll(true)
     setTimeout(() => setCopiedAll(false), 2000)
   }, [allFiles, doc])
