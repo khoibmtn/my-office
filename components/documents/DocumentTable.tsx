@@ -452,6 +452,15 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
     <>
       {/* Search + Filters */}
       <div className="flex flex-col gap-2 mb-3">
+        {(timePeriod === 'today' || periodRange) && (
+          <div className="text-blue-600 font-bold text-[15px] px-1">
+            {timePeriod === 'today' ? (
+              <>Thống kê văn bản đến hôm nay, ngày {new Date().toLocaleDateString('vi-VN')}</>
+            ) : (
+              <>Thống kê văn bản từ {periodRange!.from.toLocaleDateString('vi-VN')} đến {periodRange!.to.toLocaleDateString('vi-VN')}</>
+            )}
+          </div>
+        )}
         <div className="filters-bar" style={{ marginBottom: 0 }}>
           <div className="filter-group">
             <Calendar size={16} className="text-slate-500" />
@@ -528,17 +537,7 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
             })}
           </div>
 
-          <div className="flex-1 flex justify-center items-center px-4">
-            {timePeriod === 'today' ? (
-              <span className="text-blue-600 font-bold text-sm">
-                Thống kê văn bản đến hôm nay, ngày {new Date().toLocaleDateString('vi-VN')}
-              </span>
-            ) : periodRange ? (
-              <span className="text-blue-600 font-bold text-sm">
-                Thống kê văn bản từ {periodRange.from.toLocaleDateString('vi-VN')} đến {periodRange.to.toLocaleDateString('vi-VN')}
-              </span>
-            ) : null}
-          </div>
+          <div className="flex-1"></div>
 
           <div className="search-box">
             <Search size={16} />
