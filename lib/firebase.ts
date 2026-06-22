@@ -1,5 +1,12 @@
 import { getApps, initializeApp } from 'firebase/app'
-import { getAuth, GoogleAuthProvider, signInWithPopup, signOut } from 'firebase/auth'
+import {
+  getAuth,
+  GoogleAuthProvider,
+  signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
+  signOut,
+} from 'firebase/auth'
 import { getFirestore } from 'firebase/firestore'
 
 function getFirebaseApp() {
@@ -41,39 +48,58 @@ export function db() {
   return _db
 }
 
-export async function signInWithGoogle() {
-  const result = await signInWithPopup(auth(), provider)
-  const credential = GoogleAuthProvider.credentialFromResult(result)
-  if (credential?.accessToken) {
-    localStorage.setItem('google_access_token', credential.accessToken)
-  }
-  return result
-}
-
 /**
- * Ensure google_access_token is in localStorage.
- * If missing (e.g. session restored from persistence), re-auth silently via popup.
- * Returns true if token is available.
+ * Sign in with Google.
+ * Uses popup on localhost, redirect on production (to avoid popup blockers).
  */
-export async function ensureGoogleToken(): Promise<boolean> {
-  const existing = localStorage.getItem('google_access_token')
-  if (existing) return true
+export async function signInWithGoogle() {
+  const isLocalhost = typeof window !== 'undefined' && window.location.hostname === 'localhost'
 
-  try {
-    const user = auth().currentUser
-    if (!user) return false
-    // Re-sign in to get fresh access token
+  if (isLocalhost) {
+    // Popup works fine on localhost
     const result = await signInWithPopup(auth(), provider)
     const credential = GoogleAuthProvider.credentialFromResult(result)
     if (credential?.accessToken) {
       localStorage.setItem('google_access_token', credential.accessToken)
-      return true
     }
-  } catch (err) {
-    console.log('Token refresh skipped:', err)
+    return result
+  } else {
+    // Use redirect on production to avoid popup blockers
+    await signInWithRedirect(auth(), provider)
+    return null // Page will redirect, won't reach here
   }
-  return false
 }
 
-export const signOutUser = () => signOut(auth())
+/**
+ * Handle redirect result after Google sign-in redirect.
+ * Call this on app load to process the redirect result.
+ */
+export async function handleRedirectResult() {
+  try {
+    const result = await getRedirectResult(auth())
+    if (result) {
+      const credential = GoogleAuthProvider.credentialFromResult(result)
+      if (credential?.accessToken) {
+        localStorage.setItem('google_access_token', credential.accessToken)
+      }
+      return result
+    }
+  } catch (err) {
+    console.log('Redirect result check:', err)
+  }
+  return null
+}
 
+/**
+ * Ensure google_access_token is in localStorage.
+ * Does NOT auto-popup — only checks if token exists.
+ */
+export function hasGoogleToken(): boolean {
+  if (typeof window === 'undefined') return false
+  return !!localStorage.getItem('google_access_token')
+}
+
+export const signOutUser = async () => {
+  localStorage.removeItem('google_access_token')
+  await signOut(auth())
+}
