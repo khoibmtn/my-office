@@ -441,7 +441,12 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
     const set = new Set<string>()
     documents.forEach(d => { if (d.assignee) set.add(d.assignee) })
     staffList.forEach(s => set.add(s))
-    return Array.from(set).sort()      {/* Search + Filters */}
+    return Array.from(set).sort()
+  }, [documents, staffList])
+
+  return (
+    <>
+      {/* Search + Filters */}
       <div className="flex flex-col gap-2 mb-3">
         <div className="filters-bar" style={{ marginBottom: 0 }}>
           <div className="filter-group">
@@ -553,10 +558,6 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
           )}
         </div>
       </div>
-        </div>
-        <span className="filter-count">{filteredDocs.length}/{baseDocs.length} văn bản</span>
-      </div>
-
       <div className="flex gap-2 mb-4 text-xs font-semibold flex-wrap">
         {[
           { key: 'overdue', count: stats.overdue, color: settings.overdueColor, label: 'Quá hạn' },
@@ -805,7 +806,8 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
                         )
                       })()}
                     </div>
-                    {doc.status === 'upload_failed' ? (
+                    <div className="flex items-center gap-1 flex-wrap mt-1">
+                      {doc.status === 'upload_failed' ? (
                         <Button size="sm" variant="outline" onClick={() => handleRetry(doc)} disabled={retrying === doc.id}>
                           {retrying === doc.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
                         </Button>
@@ -830,16 +832,6 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
                         {deleting === doc.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
                       </Button>
                     </div>
-                    {doc.completedDate && (() => {
-                      const cd = toDateSafe(doc.completedDate)
-                      if (!cd) return null
-                      return (
-                        <span style={{ fontSize: '10px', fontStyle: 'italic', marginTop: '2px' }}>
-                          <span style={{ color: '#dc2626' }}>HT:</span>{' '}
-                          <span style={{ color: '#64748b' }}>{cd.toLocaleDateString('vi-VN')}</span>
-                        </span>
-                      )
-                    })()}
                   </div>
                 </TableCell>
               </TableRow>
