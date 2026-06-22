@@ -527,12 +527,12 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
                       </Button>
                     ) : doc.status !== 'uploading' && (
                       <>
-                        <Button size="icon" variant="outline" className="h-8 w-8" onClick={() => setViewingId(doc.id)} title="Xem">
-                          <Eye className="h-4 w-4" />
+                        <Button size="icon" variant="ghost" className="h-8 w-8 hover:bg-slate-100" onClick={() => setViewingId(doc.id)} title="Xem">
+                          <Eye className="h-4 w-4 text-slate-500" />
                         </Button>
-                        <Button size="icon" variant="outline" className="h-8 w-8" asChild title="Sửa">
+                        <Button size="icon" variant="ghost" className="h-8 w-8 hover:bg-slate-100" asChild title="Sửa">
                           <Link href={`/documents/${doc.id}/edit`}>
-                            <Pencil className="h-4 w-4 text-slate-600" />
+                            <Pencil className="h-4 w-4 text-slate-500" />
                           </Link>
                         </Button>
                       </>
@@ -739,16 +739,22 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
         .assign-select {
           font-size: 11px;
           padding: 3px 6px;
-          border: 1px solid #e2e8f0;
+          border: 1px solid transparent;
           border-radius: 5px;
-          background: #fff;
+          background: transparent;
           color: #334155;
           cursor: pointer;
           width: 100%;
           max-width: 120px;
+          transition: all 0.15s ease;
+        }
+        .assign-select:hover {
+          background: #f1f5f9;
+          border-color: #cbd5e1;
         }
         .assign-select:focus {
           outline: none;
+          background: #fff;
           border-color: #3b82f6;
         }
 
