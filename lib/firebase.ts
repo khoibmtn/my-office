@@ -3,8 +3,6 @@ import {
   getAuth,
   GoogleAuthProvider,
   signInWithPopup,
-  signInWithRedirect,
-  getRedirectResult,
   signOut,
 } from 'firebase/auth'
 import { getFirestore } from 'firebase/firestore'
@@ -49,50 +47,20 @@ export function db() {
 }
 
 /**
- * Sign in with Google.
- * Uses popup on localhost, redirect on production (to avoid popup blockers).
+ * Sign in with Google using popup.
+ * Always uses popup — redirect doesn't work well with custom domains.
  */
 export async function signInWithGoogle() {
-  const isLocalhost = typeof window !== 'undefined' && window.location.hostname === 'localhost'
-
-  if (isLocalhost) {
-    // Popup works fine on localhost
-    const result = await signInWithPopup(auth(), provider)
-    const credential = GoogleAuthProvider.credentialFromResult(result)
-    if (credential?.accessToken) {
-      localStorage.setItem('google_access_token', credential.accessToken)
-    }
-    return result
-  } else {
-    // Use redirect on production to avoid popup blockers
-    await signInWithRedirect(auth(), provider)
-    return null // Page will redirect, won't reach here
+  const result = await signInWithPopup(auth(), provider)
+  const credential = GoogleAuthProvider.credentialFromResult(result)
+  if (credential?.accessToken) {
+    localStorage.setItem('google_access_token', credential.accessToken)
   }
+  return result
 }
 
 /**
- * Handle redirect result after Google sign-in redirect.
- * Call this on app load to process the redirect result.
- */
-export async function handleRedirectResult() {
-  try {
-    const result = await getRedirectResult(auth())
-    if (result) {
-      const credential = GoogleAuthProvider.credentialFromResult(result)
-      if (credential?.accessToken) {
-        localStorage.setItem('google_access_token', credential.accessToken)
-      }
-      return result
-    }
-  } catch (err) {
-    console.log('Redirect result check:', err)
-  }
-  return null
-}
-
-/**
- * Ensure google_access_token is in localStorage.
- * Does NOT auto-popup — only checks if token exists.
+ * Check if google_access_token is in localStorage.
  */
 export function hasGoogleToken(): boolean {
   if (typeof window === 'undefined') return false

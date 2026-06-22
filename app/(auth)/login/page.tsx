@@ -15,7 +15,7 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
-  // If user is already logged in (e.g. after redirect), go to home
+  // If user is already logged in, go to home
   if (user && !authLoading) {
     router.push('/')
     return null
@@ -25,21 +25,17 @@ export default function LoginPage() {
     setError(null)
     setLoading(true)
     try {
-      const result = await signInWithGoogle()
-      // On localhost, popup returns result and we can redirect
-      // On production, signInWithRedirect redirects the page, so this won't execute
-      if (result) {
-        router.push('/')
-      }
-      // If result is null, redirect is happening — just show loading
+      await signInWithGoogle()
+      router.push('/')
     } catch (err: unknown) {
-      const code = (err as { code?: string })?.code ?? 'unknown'
-      const msg = (err as { message?: string })?.message ?? ''
-      console.log('Login:', code, msg)
-      setError(code === 'auth/popup-blocked'
-        ? 'Popup bị chặn. Cho phép popup trong trình duyệt hoặc thử lại.'
-        : code
-      )
+      const code = (err as { code?: string })?.code ?? ''
+      if (code === 'auth/popup-blocked') {
+        setError('Popup bị chặn! Bấm biểu tượng 🔒 trên thanh địa chỉ → Cho phép popup → Thử lại.')
+      } else if (code === 'auth/popup-closed-by-user') {
+        setError('Đã đóng popup. Thử lại.')
+      } else {
+        setError(code || 'Lỗi đăng nhập')
+      }
       setLoading(false)
     }
   }
