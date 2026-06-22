@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useMemo } from 'react'
+import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react'
 import { Loader2, Trash2, Eye, RefreshCw, CheckCircle2, Clock, AlertTriangle, XCircle, CircleDot, Search, Pencil, ArrowUpDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -12,6 +12,71 @@ import { DocumentModal } from './DocumentModal'
 import Link from 'next/link'
 import { useStaff } from '@/hooks/useStaff'
 import { useSettings } from '@/hooks/useSettings'
+
+// === Components ===
+
+function Highlight({ text, query }: { text: string; query: string }) {
+  if (!query.trim() || !text) return <>{text}</>
+  const words = query.trim().toLowerCase().split(/\s+/).filter(Boolean)
+  if (words.length === 0) return <>{text}</>
+  const regex = new RegExp(`(${words.join('|')})`, 'gi')
+  const parts = String(text).split(regex)
+  return (
+    <>
+      {parts.map((part, i) =>
+        words.some(w => w === part.toLowerCase()) ? (
+          <mark key={i} className="bg-yellow-200 text-slate-900 rounded px-0.5">{part}</mark>
+        ) : (
+          <span key={i}>{part}</span>
+        )
+      )}
+    </>
+  )
+}
+
+function ThResizable({ width, minWidth = 30, onWidthChange, children, className, onClick }: any) {
+  const thRef = useRef<HTMLTableCellElement>(null)
+  
+  const handleMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    const startX = e.pageX
+    const startWidth = thRef.current?.offsetWidth || width
+
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      const newWidth = Math.max(minWidth, startWidth + (moveEvent.pageX - startX))
+      if (thRef.current) {
+        thRef.current.style.width = `${newWidth}px`
+        thRef.current.style.minWidth = `${newWidth}px`
+        thRef.current.style.maxWidth = `${newWidth}px`
+      }
+    }
+    const handleMouseUp = (upEvent: MouseEvent) => {
+      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleMouseUp)
+      const finalWidth = Math.max(minWidth, startWidth + (upEvent.pageX - startX))
+      onWidthChange(finalWidth)
+    }
+    document.addEventListener('mousemove', handleMouseMove)
+    document.addEventListener('mouseup', handleMouseUp)
+  }
+
+  return (
+    <TableHead 
+      ref={thRef} 
+      className={`relative group ${className || ''}`} 
+      style={{ width, minWidth: width, maxWidth: width }} 
+      onClick={onClick}
+    >
+      {children}
+      <div 
+        className="absolute right-0 top-0 bottom-0 w-2 cursor-col-resize hover:bg-slate-400 opacity-0 group-hover:opacity-100 z-10 transition-opacity"
+        onMouseDown={handleMouseDown}
+        onClick={(e) => e.stopPropagation()} 
+      />
+    </TableHead>
+  )
+}
 
 // === Helpers ===
 
@@ -98,18 +163,32 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
   const [filterPerson, setFilterPerson] = useState<string>('all')
   const [searchQuery, setSearchQuery] = useState('')
   const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' } | null>(null)
+  
+  const [colWidths, setColWidths] = useState<Record<string, number>>({
+    stt: 36, issueDate: 90, docNumber: 130, title: 250, status: 120, deadline: 90, remaining: 80, assignee: 130, actions: 130
+  })
 
-  // Fuzzy search helper
-  const fuzzyMatch = useCallback((text: string, query: string) => {
-    const q = query.toLowerCase()
-    const t = text.toLowerCase()
-    if (t.includes(q)) return true
-    // Simple fuzzy: all query chars appear in order
-    let qi = 0
-    for (let i = 0; i < t.length && qi < q.length; i++) {
-      if (t[i] === q[qi]) qi++
+  useEffect(() => {
+    const saved = localStorage.getItem('docTableWidths')
+    if (saved) {
+      try { setColWidths(JSON.parse(saved)) } catch {}
     }
-    return qi === q.length
+  }, [])
+
+  const handleWidthChange = useCallback((key: string, w: number) => {
+    setColWidths(prev => {
+      const next = { ...prev, [key]: w }
+      localStorage.setItem('docTableWidths', JSON.stringify(next))
+      return next
+    })
+  }, [])
+
+  // Word match helper
+  const wordMatch = useCallback((text: string, query: string) => {
+    const queryWords = query.toLowerCase().trim().split(/\s+/).filter(Boolean)
+    if (queryWords.length === 0) return true
+    const t = String(text).toLowerCase()
+    return queryWords.every(word => t.includes(word))
   }, [])
 
   // Search + Filter pipeline
@@ -123,7 +202,7 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
           d.sender, formatDate(d.issueDate), formatDate(d.deadline),
           d.status, ...(d.tags || []),
         ].filter(Boolean).join(' ')
-        return fuzzyMatch(searchable, searchQuery.trim())
+        return wordMatch(searchable, searchQuery)
       })
     }
     // Status filter
@@ -167,7 +246,7 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
     }
 
     return result
-  }, [documents, filterStatus, filterPerson, filterPriority, searchQuery, fuzzyMatch, sortConfig])
+  }, [documents, filterStatus, filterPerson, filterPriority, searchQuery, wordMatch, sortConfig])
 
   const handleSort = (key: string) => {
     let direction: 'asc' | 'desc' = 'asc'
@@ -267,15 +346,15 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
       <Table className="doc-table">
         <TableHeader>
           <TableRow className="doc-table-header">
-            <TableHead style={{ width: 36 }} className="cursor-pointer hover:bg-slate-100" onClick={() => setSortConfig(null)}>#</TableHead>
-            <TableHead style={{ width: 90 }} className="cursor-pointer hover:bg-slate-100" onClick={() => handleSort('issueDate')}>Ngày BH <ArrowUpDown className="h-3 w-3 inline ml-1"/></TableHead>
-            <TableHead style={{ width: 130 }} className="cursor-pointer hover:bg-slate-100" onClick={() => handleSort('docNumber')}>Mã hiệu <ArrowUpDown className="h-3 w-3 inline ml-1"/></TableHead>
-            <TableHead className="w-[25%] cursor-pointer hover:bg-slate-100" onClick={() => handleSort('title')}>Tiêu đề <ArrowUpDown className="h-3 w-3 inline ml-1"/></TableHead>
-            <TableHead style={{ width: 120 }} className="cursor-pointer hover:bg-slate-100" onClick={() => handleSort('status')}>Tình trạng <ArrowUpDown className="h-3 w-3 inline ml-1"/></TableHead>
-            <TableHead style={{ width: 90 }} className="cursor-pointer hover:bg-slate-100" onClick={() => handleSort('deadline')}>Deadline <ArrowUpDown className="h-3 w-3 inline ml-1"/></TableHead>
-            <TableHead style={{ width: 80 }} className="cursor-pointer hover:bg-slate-100" onClick={() => handleSort('deadline')}>Còn lại <ArrowUpDown className="h-3 w-3 inline ml-1"/></TableHead>
-            <TableHead style={{ width: 130 }} className="cursor-pointer hover:bg-slate-100" onClick={() => handleSort('assignee')}>Người TH <ArrowUpDown className="h-3 w-3 inline ml-1"/></TableHead>
-            <TableHead style={{ width: 130 }}>Actions</TableHead>
+            <ThResizable width={colWidths.stt} minWidth={30} onWidthChange={(w: number) => handleWidthChange('stt', w)} className="cursor-pointer hover:bg-slate-700/50" onClick={() => setSortConfig(null)}>#</ThResizable>
+            <ThResizable width={colWidths.issueDate} minWidth={60} onWidthChange={(w: number) => handleWidthChange('issueDate', w)} className="cursor-pointer hover:bg-slate-700/50" onClick={() => handleSort('issueDate')}>Ngày BH <ArrowUpDown className="h-3 w-3 inline ml-1"/></ThResizable>
+            <ThResizable width={colWidths.docNumber} minWidth={80} onWidthChange={(w: number) => handleWidthChange('docNumber', w)} className="cursor-pointer hover:bg-slate-700/50" onClick={() => handleSort('docNumber')}>Mã hiệu <ArrowUpDown className="h-3 w-3 inline ml-1"/></ThResizable>
+            <ThResizable width={colWidths.title} minWidth={150} onWidthChange={(w: number) => handleWidthChange('title', w)} className="cursor-pointer hover:bg-slate-700/50" onClick={() => handleSort('title')}>Tiêu đề <ArrowUpDown className="h-3 w-3 inline ml-1"/></ThResizable>
+            <ThResizable width={colWidths.status} minWidth={90} onWidthChange={(w: number) => handleWidthChange('status', w)} className="cursor-pointer hover:bg-slate-700/50" onClick={() => handleSort('status')}>Tình trạng <ArrowUpDown className="h-3 w-3 inline ml-1"/></ThResizable>
+            <ThResizable width={colWidths.deadline} minWidth={70} onWidthChange={(w: number) => handleWidthChange('deadline', w)} className="cursor-pointer hover:bg-slate-700/50" onClick={() => handleSort('deadline')}>Deadline <ArrowUpDown className="h-3 w-3 inline ml-1"/></ThResizable>
+            <ThResizable width={colWidths.remaining} minWidth={60} onWidthChange={(w: number) => handleWidthChange('remaining', w)} className="cursor-pointer hover:bg-slate-700/50" onClick={() => handleSort('deadline')}>Còn lại <ArrowUpDown className="h-3 w-3 inline ml-1"/></ThResizable>
+            <ThResizable width={colWidths.assignee} minWidth={90} onWidthChange={(w: number) => handleWidthChange('assignee', w)} className="cursor-pointer hover:bg-slate-700/50" onClick={() => handleSort('assignee')}>Người TH <ArrowUpDown className="h-3 w-3 inline ml-1"/></ThResizable>
+            <ThResizable width={colWidths.actions} minWidth={100} onWidthChange={(w: number) => handleWidthChange('actions', w)}>Actions</ThResizable>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -301,8 +380,10 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
               >
                 <TableCell className="text-center text-slate-400 font-mono text-xs">{idx + 1}</TableCell>
                 <TableCell className="text-xs">{formatDate(doc.issueDate)}</TableCell>
-                <TableCell className="font-semibold text-slate-800 text-xs">{doc.docNumber || '—'}</TableCell>
-                <TableCell style={{ maxWidth: 280 }}>
+                <TableCell className="font-semibold text-slate-800 text-xs">
+                  <Highlight text={doc.docNumber || '—'} query={searchQuery} />
+                </TableCell>
+                <TableCell style={{ maxWidth: colWidths.title || 250 }}>
                   <span className="text-xs flex flex-col gap-1 items-start">
                     {prio && doc.priority && doc.priority !== 'normal' && (
                       <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium ${prio.color}`}>
@@ -310,7 +391,7 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
                       </span>
                     )}
                     <span>
-                      {doc.title}
+                      <Highlight text={doc.title} query={searchQuery} />
                       {doc.attachments && doc.attachments.length > 0 && (
                         <span className="text-slate-500 ml-1 font-medium whitespace-nowrap">
                           ({doc.attachments.length} 📎)
@@ -471,6 +552,11 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
           font-weight: 500;
         }
 
+        .doc-table {
+          table-layout: fixed;
+          width: 100%;
+        }
+
         .doc-table-header {
           background: linear-gradient(135deg, #1e293b, #334155) !important;
         }
@@ -485,6 +571,7 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
         .doc-row td {
           padding: 8px !important;
           vertical-align: middle !important;
+          word-wrap: break-word;
         }
         .row-even { background: #ffffff; }
         .row-odd { background: #f1f5f9; }
