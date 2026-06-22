@@ -90,18 +90,29 @@ export function DocumentModal({ docId, onClose }: DocumentModalProps) {
   ] : []
 
   const handleCopyAll = useCallback(async () => {
-    if (!allFiles.length) return
-    const links = allFiles.map(f => {
-      if (f.driveId) {
-        return `https://drive.google.com/uc?export=download&id=${f.driveId}`
-      }
-      return f.url
-    }).filter(Boolean).join('\n')
+    if (!doc || !allFiles.length) return
     
-    await navigator.clipboard.writeText(links)
+    const lines = []
+    lines.push(`Giao việc cho: ${doc.assignee || ''}`)
+    lines.push(`Nội dung văn bản: ${doc.title || ''}`)
+    
+    const mainFile = allFiles[0]
+    if (mainFile) {
+      lines.push(mainFile.driveId ? `https://drive.google.com/uc?export=download&id=${mainFile.driveId}` : mainFile.url)
+    }
+    
+    if (allFiles.length > 1) {
+      lines.push('Các văn bản đính kèm:')
+      for (let i = 1; i < allFiles.length; i++) {
+        const att = allFiles[i]
+        lines.push(att.driveId ? `https://drive.google.com/uc?export=download&id=${att.driveId}` : att.url)
+      }
+    }
+    
+    await navigator.clipboard.writeText(lines.filter(Boolean).join('\n'))
     setCopiedAll(true)
     setTimeout(() => setCopiedAll(false), 2000)
-  }, [allFiles])
+  }, [allFiles, doc])
 
   if (!docId) return null
 
