@@ -371,7 +371,7 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
           <label>Lọc danh sách:</label>
           <select 
             value={filterStatus} 
-            onChange={e => setFilterStatus(e.target.value)}
+            onChange={e => { setFilterStatus(e.target.value); e.target.blur() }}
             style={{
               background: filterStatus === 'completed' ? settings.completedColor : filterStatus === 'pending' ? '#f59e0b' : undefined,
               color: filterStatus === 'all' ? undefined : '#fff',
