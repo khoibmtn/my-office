@@ -123,38 +123,13 @@ function getEffectiveStatus(doc: Document): { icon: React.ReactNode; label: stri
     icon: <Loader2 className="h-4 w-4 animate-spin text-slate-400" />,
     label: 'Đang tải...', cls: 'status-uploading'
   }
-  if (doc.status === 'upload_failed') return {
-    icon: <XCircle className="h-4 w-4 text-red-500" />,
-    label: 'Lỗi tải', cls: 'status-failed'
-  }
-  
-  const days = getDaysRemaining(doc.deadline)
-  if (days !== null) {
-    if (days < 0) return {
-      icon: <XCircle className="h-4 w-4" />,
-      label: 'Quá hạn', cls: 'status-overdue'
-    }
-    if (days === 0) return {
-      icon: <AlertTriangle className="h-4 w-4" />,
-      label: 'Hết hạn (0 ngày)', cls: 'status-expired'
-    }
-    if (days >= 1 && days <= 3) return {
-      icon: <Clock className="h-4 w-4" />,
-      label: 'Cận hạn 1-3 ngày', cls: 'status-urgent1'
-    }
-    if (days >= 4 && days <= 7) return {
-      icon: <Clock className="h-4 w-4" />,
-      label: 'Cận hạn 4-7 ngày', cls: 'status-urgent2'
-    }
-  }
-
-  if (doc.status === 'in_progress') return {
+  if (doc.assignee) return {
     icon: <CircleDot className="h-4 w-4 text-blue-500" />,
     label: 'Đang xử lý', cls: 'status-progress'
   }
   return {
     icon: <Clock className="h-4 w-4 text-slate-400" />,
-    label: 'Chờ xử lý', cls: 'status-pending'
+    label: 'Chưa giao', cls: 'status-pending'
   }
 }
 
@@ -169,6 +144,7 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
   const [filterStatus, setFilterStatus] = useState<string>('pending')
   const [filterPriority, setFilterPriority] = useState<string>('all')
   const [filterPerson, setFilterPerson] = useState<string>('all')
+  const [badgeFilter, setBadgeFilter] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' } | null>(null)
   
@@ -226,6 +202,20 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
     if (filterPerson !== 'all') result = result.filter(d => d.assignee === filterPerson)
     if (filterPriority !== 'all') result = result.filter(d => (d.priority || 'normal') === filterPriority)
 
+    // Badge filter
+    if (badgeFilter) {
+      result = result.filter(d => {
+        if (d.status === 'completed') return false
+        const days = getDaysRemaining(d.deadline)
+        if (badgeFilter === 'overdue') return days !== null && days < 0
+        if (badgeFilter === 'expired') return days !== null && days === 0
+        if (badgeFilter === 'urgent1') return days !== null && days >= 1 && days <= 3
+        if (badgeFilter === 'urgent2') return days !== null && days >= 4 && days <= 7
+        if (badgeFilter === 'normal') return days === null || days > 7
+        return true
+      })
+    }
+
     // Sorting
     if (sortConfig) {
       result = [...result].sort((a, b) => {
@@ -262,7 +252,7 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
     }
 
     return result
-  }, [documents, filterStatus, filterPerson, filterPriority, searchQuery, wordMatch, sortConfig])
+  }, [documents, filterStatus, filterPerson, filterPriority, badgeFilter, searchQuery, wordMatch, sortConfig])
 
   // Count stats
   const stats = useMemo(() => {
@@ -312,13 +302,21 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
   }, [])
 
   const handleToggleComplete = useCallback(async (doc: Document) => {
-    const newStatus: DocumentStatus = doc.status === 'completed' ? 'pending' : 'completed'
+    const newStatus: DocumentStatus = doc.status === 'completed' 
+      ? (doc.assignee ? 'in_progress' : 'pending') 
+      : 'completed'
     await updateDocument(doc.id, { status: newStatus })
   }, [])
 
   const handleAssign = useCallback(async (docId: string, person: string) => {
-    await updateDocument(docId, { assignee: person })
-  }, [])
+    const doc = documents.find(d => d.id === docId)
+    if (!doc) return
+    let newStatus = doc.status
+    if (doc.status !== 'completed') {
+      newStatus = person ? 'in_progress' : 'pending'
+    }
+    await updateDocument(docId, { assignee: person, status: newStatus })
+  }, [documents])
 
   // Unique assignees from data for filter
   const assignees = useMemo(() => {
@@ -379,11 +377,26 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
       </div>
 
       <div className="flex gap-2 mb-4 text-xs font-semibold text-white flex-wrap">
-        {stats.overdue > 0 && <span className="px-2 py-1 rounded shadow-sm" style={{ background: settings.overdueColor }}>Quá hạn: {stats.overdue}</span>}
-        {stats.expired > 0 && <span className="px-2 py-1 rounded shadow-sm" style={{ background: settings.expiredColor }}>Hết hạn (0 ngày): {stats.expired}</span>}
-        {stats.urgent1 > 0 && <span className="px-2 py-1 rounded shadow-sm" style={{ background: settings.urgent1Color }}>Cận hạn 1-3 ngày: {stats.urgent1}</span>}
-        {stats.urgent2 > 0 && <span className="px-2 py-1 rounded shadow-sm" style={{ background: settings.urgent2Color }}>Cận hạn 4-7 ngày: {stats.urgent2}</span>}
-        {stats.normal > 0 && <span className="px-2 py-1 rounded shadow-sm" style={{ background: settings.normalColor }}>Còn hạn &gt; 7 ngày: {stats.normal}</span>}
+        {[
+          { key: 'overdue', count: stats.overdue, color: settings.overdueColor, label: 'Quá hạn' },
+          { key: 'expired', count: stats.expired, color: settings.expiredColor, label: 'Hết hạn (0 ngày)' },
+          { key: 'urgent1', count: stats.urgent1, color: settings.urgent1Color, label: 'Cận hạn 1-3 ngày' },
+          { key: 'urgent2', count: stats.urgent2, color: settings.urgent2Color, label: 'Cận hạn 4-7 ngày' },
+          { key: 'normal', count: stats.normal, color: settings.normalColor, label: 'Còn hạn > 7 ngày' }
+        ].map(b => b.count > 0 && (
+          <button
+            key={b.key}
+            onClick={() => setBadgeFilter(badgeFilter === b.key ? null : b.key)}
+            className={`px-2 py-1 rounded shadow-sm flex items-center gap-1 transition-all ${badgeFilter === b.key ? 'scale-105' : 'opacity-90 hover:opacity-100 hover:scale-105'}`}
+            style={{ 
+              background: b.color,
+              boxShadow: badgeFilter === b.key ? `0 0 0 2px #fff, 0 0 0 4px ${b.color}` : 'none'
+            }}
+          >
+            {b.label}: {b.count}
+            {badgeFilter === b.key && <span className="opacity-70 hover:opacity-100 font-normal ml-1 text-sm leading-none">×</span>}
+          </button>
+        ))}
       </div>
 
       <Table className="doc-table">
@@ -393,7 +406,6 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
             <ThResizable width={colWidths.issueDate} minWidth={60} onWidthChange={(w: number) => handleWidthChange('issueDate', w)} className="cursor-pointer hover:bg-slate-700/50" onClick={() => handleSort('issueDate')}>Ngày ban hành <ArrowUpDown className="h-3 w-3 inline ml-1"/></ThResizable>
             <ThResizable width={colWidths.docNumber} minWidth={80} onWidthChange={(w: number) => handleWidthChange('docNumber', w)} className="cursor-pointer hover:bg-slate-700/50" onClick={() => handleSort('docNumber')}>Mã hiệu <ArrowUpDown className="h-3 w-3 inline ml-1"/></ThResizable>
             <ThResizable width={colWidths.title} minWidth={150} onWidthChange={(w: number) => handleWidthChange('title', w)} className="cursor-pointer hover:bg-slate-700/50" onClick={() => handleSort('title')}>Tiêu đề <ArrowUpDown className="h-3 w-3 inline ml-1"/></ThResizable>
-            <ThResizable width={colWidths.status} minWidth={90} onWidthChange={(w: number) => handleWidthChange('status', w)} className="cursor-pointer hover:bg-slate-700/50" onClick={() => handleSort('status')}>Tình trạng <ArrowUpDown className="h-3 w-3 inline ml-1"/></ThResizable>
             <ThResizable width={colWidths.deadline} minWidth={70} onWidthChange={(w: number) => handleWidthChange('deadline', w)} className="cursor-pointer hover:bg-slate-700/50" onClick={() => handleSort('deadline')}>Deadline <ArrowUpDown className="h-3 w-3 inline ml-1"/></ThResizable>
             <ThResizable width={colWidths.remaining} minWidth={60} onWidthChange={(w: number) => handleWidthChange('remaining', w)} className="cursor-pointer hover:bg-slate-700/50" onClick={() => handleSort('remaining')}>Còn lại <ArrowUpDown className="h-3 w-3 inline ml-1"/></ThResizable>
             <ThResizable width={colWidths.assignee} minWidth={90} onWidthChange={(w: number) => handleWidthChange('assignee', w)} className="cursor-pointer hover:bg-slate-700/50" onClick={() => handleSort('assignee')}>Người TH <ArrowUpDown className="h-3 w-3 inline ml-1"/></ThResizable>
@@ -467,16 +479,6 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
                     )}
                   </span>
                 </TableCell>
-                <TableCell>
-                  <button
-                    className={`status-chip ${eff.cls}`}
-                    onClick={() => handleToggleComplete(doc)}
-                    title={doc.status === 'completed' ? 'Bấm để đánh dấu chưa hoàn thành' : 'Bấm để đánh dấu hoàn thành'}
-                  >
-                    {eff.icon}
-                    <span>{eff.label}</span>
-                  </button>
-                </TableCell>
                 <TableCell className="text-xs">{formatDate(doc.deadline)}</TableCell>
                 <TableCell>
                   <span className={`days-badge ${days !== null && days <= 0 ? 'days-danger' : days !== null && days === 1 ? 'days-warning' : days !== null && days <= 3 ? 'days-caution' : ''}`}>
@@ -494,7 +496,15 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
                   </select>
                 </TableCell>
                 <TableCell>
-                  <div className="flex gap-1">
+                  <div className="flex items-center gap-1">
+                    <button
+                      className={`status-chip mr-2 ${eff.cls}`}
+                      onClick={() => handleToggleComplete(doc)}
+                      title={doc.status === 'completed' ? 'Bấm để chuyển về trạng thái chờ' : 'Bấm để đánh dấu hoàn thành'}
+                    >
+                      {eff.icon}
+                      <span>{eff.label}</span>
+                    </button>
                     {doc.status === 'upload_failed' ? (
                       <Button size="sm" variant="outline" onClick={() => handleRetry(doc)} disabled={retrying === doc.id}>
                         {retrying === doc.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
