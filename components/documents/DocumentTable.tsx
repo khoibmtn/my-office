@@ -116,7 +116,7 @@ function getDaysLabel(d: number | null): string {
 // Determine effective display status based on deadline
 function getEffectiveStatus(doc: Document): { icon: React.ReactNode; label: string; cls: string } {
   if (doc.status === 'completed') return {
-    icon: <CheckCircle2 className="h-4 w-4 text-green-500" />,
+    icon: <CheckCircle2 className="h-4 w-4" />,
     label: 'Hoàn thành', cls: 'status-completed'
   }
   if (doc.status === 'uploading') return {
@@ -127,19 +127,27 @@ function getEffectiveStatus(doc: Document): { icon: React.ReactNode; label: stri
     icon: <XCircle className="h-4 w-4 text-red-500" />,
     label: 'Lỗi tải', cls: 'status-failed'
   }
+  
   const days = getDaysRemaining(doc.deadline)
-  if (days !== null && days < 0) return {
-    icon: <XCircle className="h-4 w-4 text-red-600" />,
-    label: 'Quá hạn', cls: 'status-overdue'
+  if (days !== null) {
+    if (days < 0) return {
+      icon: <XCircle className="h-4 w-4" />,
+      label: 'Quá hạn', cls: 'status-overdue'
+    }
+    if (days === 0) return {
+      icon: <AlertTriangle className="h-4 w-4" />,
+      label: 'Hết hạn (0 ngày)', cls: 'status-expired'
+    }
+    if (days >= 1 && days <= 3) return {
+      icon: <Clock className="h-4 w-4" />,
+      label: 'Cận hạn 1-3 ngày', cls: 'status-urgent1'
+    }
+    if (days >= 4 && days <= 7) return {
+      icon: <Clock className="h-4 w-4" />,
+      label: 'Cận hạn 4-7 ngày', cls: 'status-urgent2'
+    }
   }
-  if (days !== null && days <= 1) return {
-    icon: <AlertTriangle className="h-4 w-4 text-orange-500" />,
-    label: days === 0 ? 'Hết hạn hôm nay' : 'Sắp hết hạn', cls: 'status-urgent'
-  }
-  if (days !== null && days <= 3) return {
-    icon: <Clock className="h-4 w-4 text-amber-500" />,
-    label: 'Gần hết hạn', cls: 'status-warning'
-  }
+
   if (doc.status === 'in_progress') return {
     icon: <CircleDot className="h-4 w-4 text-blue-500" />,
     label: 'Đang xử lý', cls: 'status-progress'
@@ -668,12 +676,13 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
           white-space: nowrap;
         }
         .status-chip:hover { transform: scale(1.05); }
-        .status-completed { background: #dcfce7; color: #166534; }
+        .status-completed { background: ${settings.completedColor}1a; color: ${settings.completedColor}; }
         .status-pending { background: #f1f5f9; color: #475569; }
         .status-progress { background: #dbeafe; color: #1d4ed8; }
-        .status-urgent { background: #ffedd5; color: #c2410c; }
-        .status-warning { background: #fef3c7; color: #b45309; }
-        .status-overdue { background: #fee2e2; color: #dc2626; }
+        .status-urgent1 { background: ${settings.urgent1Color}1a; color: ${settings.urgent1Color}; }
+        .status-urgent2 { background: ${settings.urgent2Color}1a; color: ${settings.urgent2Color}; }
+        .status-overdue { background: ${settings.overdueColor}1a; color: ${settings.overdueColor}; }
+        .status-expired { background: ${settings.expiredColor}1a; color: ${settings.expiredColor}; }
         .status-uploading { background: #f1f5f9; color: #64748b; }
         .status-failed { background: #fee2e2; color: #dc2626; }
 
