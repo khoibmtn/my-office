@@ -363,7 +363,15 @@ async function checkDuplicate(docNumber) {
 
       const status = document.createElement('span');
       status.className = 'dup-status';
-      status.textContent = match.status || 'pending';
+      const statusRaw = match.status || 'pending';
+      status.textContent = statusRaw === 'completed' ? 'Hoàn thành' : 'Chờ xử lý';
+      if (statusRaw === 'completed') {
+        status.style.backgroundColor = '#dcfce7';
+        status.style.color = '#166534';
+      } else {
+        status.style.backgroundColor = '#fef3c7';
+        status.style.color = '#92400e';
+      }
 
       item.appendChild(title);
       item.appendChild(date);
