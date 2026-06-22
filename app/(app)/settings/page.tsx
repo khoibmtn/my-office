@@ -1,10 +1,10 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { doc, getDoc, setDoc } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { Button } from '@/components/ui/button'
-import { Plus, Trash2, Save, Users, Loader2, Palette, AlertTriangle } from 'lucide-react'
+import { Plus, Trash2, Save, Users, Loader2, Palette, AlertTriangle, Check } from 'lucide-react'
 
 interface StaffMember {
   name: string
@@ -26,6 +26,69 @@ const DEFAULT_THRESHOLDS = {
   urgent2Color: '#eab308',
   normalColor: '#22c55e',
   completedColor: '#10b981',
+}
+
+const PRESET_COLORS = [
+  '#ac725e', '#d06b64', '#f83a22', '#fa573c', '#ff7537', '#ffad46', '#fbe983', '#fad165',
+  '#42d692', '#92e1c0', '#9fe1e7', '#9fc6e7', '#4986e7', '#16a765', '#7bd148', '#b3dc6c',
+  '#595959', '#c2c2c2', '#cabdbf', '#cca6ac', '#f691b2', '#cd74e6', '#a47ae2', '#9a9cff'
+]
+
+function ColorPickerDropdown({ value, onChange }: { value: string, onChange: (val: string) => void }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [])
+
+  return (
+    <div className="relative" ref={ref}>
+      <div 
+        className="w-10 h-10 rounded-full border border-slate-200 cursor-pointer shadow-sm transition-transform hover:scale-105"
+        style={{ background: value }}
+        onClick={() => setOpen(!open)}
+      />
+      
+      {open && (
+        <div className="absolute z-10 top-12 left-0 bg-white border border-slate-200 rounded-xl shadow-xl p-3 w-[220px] animate-in fade-in zoom-in-95 duration-200">
+          <div className="grid grid-cols-8 gap-1.5">
+            {PRESET_COLORS.map(c => {
+              const isSelected = value.toLowerCase() === c.toLowerCase()
+              return (
+                <button
+                  key={c}
+                  className="w-[20px] h-[20px] rounded-full flex items-center justify-center hover:scale-110 transition-transform flex-shrink-0"
+                  style={{ background: c, boxShadow: isSelected ? '0 0 0 1px #fff, 0 0 0 2px #3b82f6' : 'none' }}
+                  onClick={() => {
+                    onChange(c)
+                    setOpen(false)
+                  }}
+                >
+                  {isSelected && <Check size={12} className="text-white drop-shadow-md" />}
+                </button>
+              )
+            })}
+          </div>
+          <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between">
+            <span className="text-xs font-medium text-slate-500">Hoặc tự chọn màu:</span>
+            <input 
+              type="color" 
+              value={value} 
+              onChange={e => onChange(e.target.value)}
+              className="w-8 h-8 rounded cursor-pointer p-0 border-0"
+            />
+          </div>
+        </div>
+      )}
+    </div>
+  )
 }
 
 export default function SettingsPage() {
@@ -160,11 +223,9 @@ export default function SettingsPage() {
             <label className="w-40 text-sm font-medium text-slate-700">Quá hạn (&lt; 0 ngày):</label>
             <div className="w-20" />
             <div className="flex items-center gap-2">
-              <input
-                type="color"
+              <ColorPickerDropdown
                 value={thresholds.overdueColor}
-                onChange={e => setThresholds({ ...thresholds, overdueColor: e.target.value })}
-                className="w-10 h-10 rounded-lg border border-slate-200 cursor-pointer p-0.5"
+                onChange={val => setThresholds({ ...thresholds, overdueColor: val })}
               />
               <span className="text-xs text-slate-400">Màu quá hạn</span>
             </div>
@@ -175,11 +236,9 @@ export default function SettingsPage() {
             <label className="w-40 text-sm font-medium text-slate-700">Hết hạn (0 ngày):</label>
             <div className="w-20" />
             <div className="flex items-center gap-2">
-              <input
-                type="color"
+              <ColorPickerDropdown
                 value={thresholds.expiredColor}
-                onChange={e => setThresholds({ ...thresholds, expiredColor: e.target.value })}
-                className="w-10 h-10 rounded-lg border border-slate-200 cursor-pointer p-0.5"
+                onChange={val => setThresholds({ ...thresholds, expiredColor: val })}
               />
               <span className="text-xs text-slate-400">Màu hết hạn</span>
             </div>
@@ -190,11 +249,9 @@ export default function SettingsPage() {
             <label className="w-40 text-sm font-medium text-slate-700">Cận hạn (1-3 ngày):</label>
             <div className="w-20" />
             <div className="flex items-center gap-2">
-              <input
-                type="color"
+              <ColorPickerDropdown
                 value={thresholds.urgent1Color}
-                onChange={e => setThresholds({ ...thresholds, urgent1Color: e.target.value })}
-                className="w-10 h-10 rounded-lg border border-slate-200 cursor-pointer p-0.5"
+                onChange={val => setThresholds({ ...thresholds, urgent1Color: val })}
               />
               <span className="text-xs text-slate-400">Màu cận hạn</span>
             </div>
@@ -205,11 +262,9 @@ export default function SettingsPage() {
             <label className="w-40 text-sm font-medium text-slate-700">Cận hạn (4-7 ngày):</label>
             <div className="w-20" />
             <div className="flex items-center gap-2">
-              <input
-                type="color"
+              <ColorPickerDropdown
                 value={thresholds.urgent2Color}
-                onChange={e => setThresholds({ ...thresholds, urgent2Color: e.target.value })}
-                className="w-10 h-10 rounded-lg border border-slate-200 cursor-pointer p-0.5"
+                onChange={val => setThresholds({ ...thresholds, urgent2Color: val })}
               />
               <span className="text-xs text-slate-400">Màu cận hạn</span>
             </div>
@@ -220,11 +275,9 @@ export default function SettingsPage() {
             <label className="w-40 text-sm font-medium text-slate-700">Còn hạn (&gt; 7 ngày):</label>
             <div className="w-20" />
             <div className="flex items-center gap-2">
-              <input
-                type="color"
+              <ColorPickerDropdown
                 value={thresholds.normalColor}
-                onChange={e => setThresholds({ ...thresholds, normalColor: e.target.value })}
-                className="w-10 h-10 rounded-lg border border-slate-200 cursor-pointer p-0.5"
+                onChange={val => setThresholds({ ...thresholds, normalColor: val })}
               />
               <span className="text-xs text-slate-400">Màu bình thường</span>
             </div>
@@ -235,11 +288,9 @@ export default function SettingsPage() {
             <label className="w-40 text-sm font-medium text-slate-700">Hoàn thành:</label>
             <div className="w-20" />
             <div className="flex items-center gap-2">
-              <input
-                type="color"
+              <ColorPickerDropdown
                 value={thresholds.completedColor}
-                onChange={e => setThresholds({ ...thresholds, completedColor: e.target.value })}
-                className="w-10 h-10 rounded-lg border border-slate-200 cursor-pointer p-0.5"
+                onChange={val => setThresholds({ ...thresholds, completedColor: val })}
               />
               <span className="text-xs text-slate-400">Màu hoàn thành</span>
             </div>
