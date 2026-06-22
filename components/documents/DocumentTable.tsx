@@ -158,7 +158,7 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
   const [retrying, setRetrying] = useState<string | null>(null)
   const [deleting, setDeleting] = useState<string | null>(null)
   const [viewingId, setViewingId] = useState<string | null>(null)
-  const [filterStatus, setFilterStatus] = useState<string>('all')
+  const [filterStatus, setFilterStatus] = useState<string>('pending')
   const [filterPriority, setFilterPriority] = useState<string>('all')
   const [filterPerson, setFilterPerson] = useState<string>('all')
   const [searchQuery, setSearchQuery] = useState('')
@@ -300,18 +300,6 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
     <>
       {/* Search + Filters */}
       <div className="filters-bar">
-        <div className="search-box">
-          <Search size={16} />
-          <input
-            type="text"
-            placeholder="Tìm kiếm văn bản..."
-            value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)}
-          />
-          {searchQuery && (
-            <button className="search-clear" onClick={() => setSearchQuery('')}>×</button>
-          )}
-        </div>
         <div className="filter-group">
           <label>Trạng thái:</label>
           <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
@@ -339,6 +327,21 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
             <option value="all">Tất cả</option>
             {assignees.map(a => <option key={a} value={a}>{a}</option>)}
           </select>
+        </div>
+
+        <div className="flex-1"></div>
+
+        <div className="search-box">
+          <Search size={16} />
+          <input
+            type="text"
+            placeholder="Tìm kiếm văn bản..."
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+          />
+          {searchQuery && (
+            <button className="search-clear" onClick={() => setSearchQuery('')}>×</button>
+          )}
         </div>
         <span className="filter-count">{filteredDocs.length}/{documents.length} văn bản</span>
       </div>
