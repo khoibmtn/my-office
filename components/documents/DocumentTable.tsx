@@ -199,7 +199,7 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
       result = result.filter(d => {
         const searchable = [
           d.title, d.docNumber, d.assignee, d.notes,
-          d.sender, formatDate(d.issueDate), formatDate(d.deadline),
+          d.sender, d.leader, formatDate(d.issueDate), formatDate(d.deadline),
           d.status, ...(d.tags || []),
         ].filter(Boolean).join(' ')
         return wordMatch(searchable, searchQuery)
@@ -398,6 +398,11 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
                         </span>
                       )}
                     </span>
+                    {doc.notes && (
+                      <span className="text-[11px] text-slate-500 italic mt-0.5 line-clamp-2" title={doc.notes}>
+                        📝 <Highlight text={doc.notes} query={searchQuery} />
+                      </span>
+                    )}
                   </span>
                 </TableCell>
                 <TableCell>

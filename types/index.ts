@@ -26,6 +26,7 @@ export interface Document {
   docNumber?: string
   issueDate?: Timestamp
   sender?: string
+  leader?: string
   originalLink: string
   driveFileId: string
   driveViewUrl: string

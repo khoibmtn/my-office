@@ -54,7 +54,7 @@ export async function updateDocumentDriveInfo(
 
 export async function updateDocument(
   docId: string,
-  fields: Partial<{ title: string; originalLink: string; notes: string; status: DocumentStatus; assignee: string; priority: string; tags: string[]; deadline: unknown }>
+  fields: Partial<{ title: string; originalLink: string; notes: string; status: DocumentStatus; assignee: string; priority: string; tags: string[]; deadline: unknown; sender: string; leader: string; driveViewUrl: string; mimeType: string }>
 ): Promise<void> {
   // Firestore rejects undefined — replace with empty string for optional string fields
   const safe = Object.fromEntries(
@@ -129,6 +129,7 @@ export async function submitDocumentWithDriveCopy(
   } catch (err) {
     console.error('[Drive upload failed]', err)
     await updateDocumentStatus(docId, 'upload_failed')
+    throw err
   }
 }
 

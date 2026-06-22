@@ -31,6 +31,8 @@ export default function EditDocumentPage() {
 
   const [title, setTitle] = useState('')
   const [originalLink, setOriginalLink] = useState('')
+  const [sender, setSender] = useState('')
+  const [leader, setLeader] = useState('')
   const [notes, setNotes] = useState('')
   const [status, setStatus] = useState<DocumentStatus>('pending')
   const [deadline, setDeadline] = useState('')
@@ -46,7 +48,9 @@ export default function EditDocumentPage() {
     getDocument(id).then((d) => {
       if (!d) { router.replace('/documents'); return }
       setTitle(d.title)
-      setOriginalLink(d.originalLink ?? '')
+      setOriginalLink(d.driveViewUrl || d.originalLink || '')
+      setSender(d.sender ?? '')
+      setLeader(d.leader ?? '')
       setNotes(d.notes ?? '')
       setStatus((d.status === 'uploading' || d.status === 'upload_failed') ? 'pending' : d.status as DocumentStatus)
       setAssignee(d.assignee ?? '')
@@ -59,7 +63,7 @@ export default function EditDocumentPage() {
       const existingAtts = (d.attachments ?? []).map((a) => ({
         id: uuid(),
         title: a.title ?? '',
-        originalLink: a.originalLink ?? '',
+        originalLink: a.driveViewUrl || a.originalLink || '',
       }))
       setAttachments(existingAtts.length > 0 ? existingAtts : [{ id: uuid(), title: '', originalLink: '' }])
       setLoading(false)
@@ -71,9 +75,32 @@ export default function EditDocumentPage() {
     setSaving(true)
     setError(null)
     try {
+      // Synchronous Drive copy if link changed or upload failed
+      if (originalLinkChanged || status === 'upload_failed') {
+        const atts = attachments
+          .filter((a) => a.originalLink)
+          .map(({ title, originalLink }) => ({ title, originalLink }))
+        try {
+          // If it is NOT a Google Drive link, the backend will try to upload it
+          await submitDocumentWithDriveCopy(id, originalLink, atts)
+        } catch (err) {
+          const keep = confirm('Tải file gốc lên hệ thống Google Drive thất bại.\n\nBạn có muốn giữ nguyên các link (URL) gốc làm link đích (và lưu vào CSDL) không?\n\n- Chọn OK để giữ link gốc và thoát.\n- Chọn Cancel để ở lại màn hình này chỉnh sửa tiếp.')
+          if (!keep) {
+            setSaving(false)
+            return
+          } else {
+            // User chose to keep original links. Update driveViewUrl to point to the external link.
+            await updateDocument(id, { driveViewUrl: originalLink, mimeType: 'url' })
+            // Note: attachments are not updated with driveViewUrl=originalLink here, but they will be accessed via originalLink if driveViewUrl fails
+          }
+        }
+      }
+
       await updateDocument(id, {
         title,
         originalLink,
+        sender: sender || undefined,
+        leader: leader || undefined,
         notes: notes || undefined,
         status,
         assignee: assignee || undefined,
@@ -81,14 +108,6 @@ export default function EditDocumentPage() {
         tags: tags ? tags.split(',').map((t) => t.trim()).filter(Boolean) : [],
         deadline: deadline ? new Date(deadline) : undefined,
       })
-
-      // Re-trigger Drive copy if link changed or upload failed
-      if (originalLinkChanged || status === 'upload_failed') {
-        const atts = attachments
-          .filter((a) => a.originalLink)
-          .map(({ title, originalLink }) => ({ title, originalLink }))
-        submitDocumentWithDriveCopy(id, originalLink, atts)
-      }
 
       router.push('/documents')
     } catch (err) {
@@ -122,9 +141,20 @@ export default function EditDocumentPage() {
           />
         </div>
 
+        <div className="grid grid-cols-2 gap-4">
+          <div className="flex flex-col gap-1">
+            <Label htmlFor="sender">Cơ quan ban hành</Label>
+            <Input id="sender" value={sender} onChange={(e) => setSender(e.target.value)} />
+          </div>
+          <div className="flex flex-col gap-1">
+            <Label htmlFor="leader">Lãnh đạo</Label>
+            <Input id="leader" value={leader} onChange={(e) => setLeader(e.target.value)} />
+          </div>
+        </div>
+
         <div className="flex flex-col gap-1">
-          <Label htmlFor="notes">Ghi chú</Label>
-          <Textarea id="notes" value={notes} onChange={(e) => setNotes(e.target.value)} />
+          <Label htmlFor="notes">Ghi chú cá nhân</Label>
+          <Textarea id="notes" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Ghi chú thêm (không hiển thị trong extension)..." />
         </div>
 
         <div className="flex flex-col gap-1">
