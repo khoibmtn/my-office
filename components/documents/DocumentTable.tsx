@@ -369,7 +369,16 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
       <div className="filters-bar">
         <div className="filter-group">
           <label>Lọc danh sách:</label>
-          <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
+          <select 
+            value={filterStatus} 
+            onChange={e => setFilterStatus(e.target.value)}
+            style={{
+              background: filterStatus === 'completed' ? settings.completedColor : filterStatus === 'pending' ? '#f59e0b' : undefined,
+              color: filterStatus === 'all' ? undefined : '#fff',
+              borderColor: filterStatus === 'completed' ? settings.completedColor : filterStatus === 'pending' ? '#f59e0b' : undefined,
+              fontWeight: filterStatus === 'all' ? undefined : 600,
+            }}
+          >
             <option value="all">Tất cả</option>
             <option value="pending">Chưa hoàn thành</option>
             <option value="completed">Đã hoàn thành</option>
@@ -824,7 +833,7 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
         .row-normal { background: color-mix(in srgb, ${settings.normalColor} 12%, #ffffff) !important; border-left: 3px solid ${settings.normalColor}; }
         .row-normal:hover { background: color-mix(in srgb, ${settings.normalColor} 20%, #ffffff) !important; }
         
-        .row-completed { opacity: 0.7; background: color-mix(in srgb, ${settings.completedColor} 8%, #ffffff) !important; border-left: 3px solid ${settings.completedColor}; }
+        .row-completed { background: color-mix(in srgb, ${settings.completedColor} 8%, #ffffff) !important; border-left: 3px solid ${settings.completedColor}; }
         .row-completed:hover { background: color-mix(in srgb, ${settings.completedColor} 15%, #ffffff) !important; }
         .row-completed .status-chip { text-decoration: none; }
         .row-completed .assign-select { text-decoration: none; }
