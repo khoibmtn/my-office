@@ -144,7 +144,7 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
   const [filterStatus, setFilterStatus] = useState<string>('pending')
   const [filterPriority, setFilterPriority] = useState<string>('all')
   const [filterPerson, setFilterPerson] = useState<string>('all')
-  const [badgeFilter, setBadgeFilter] = useState<string | null>(null)
+  const [badgeFilters, setBadgeFilters] = useState<string[]>([])
   const [searchQuery, setSearchQuery] = useState('')
   const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' } | null>(null)
   
@@ -175,9 +175,40 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
     return queryWords.every(word => t.includes(word))
   }, [])
 
-  // Search + Filter pipeline
-  const filteredDocs = useMemo(() => {
+  // Base docs for counting stats (before search and badge filters)
+  const baseDocs = useMemo(() => {
     let result = documents
+    if (filterStatus !== 'all') {
+      result = result.filter(d => {
+        if (filterStatus === 'completed') return d.status === 'completed'
+        if (filterStatus === 'pending') return d.status !== 'completed'
+        return true
+      })
+    }
+    if (filterPerson !== 'all') result = result.filter(d => d.assignee === filterPerson)
+    if (filterPriority !== 'all') result = result.filter(d => (d.priority || 'normal') === filterPriority)
+    return result
+  }, [documents, filterStatus, filterPerson, filterPriority])
+
+  // Count stats
+  const stats = useMemo(() => {
+    let overdue = 0, expired = 0, urgent1 = 0, urgent2 = 0, normal = 0
+    baseDocs.forEach(d => {
+      if (d.status === 'completed') return
+      const days = getDaysRemaining(d.deadline)
+      if (days === null) { /* no deadline */ }
+      else if (days < 0) overdue++
+      else if (days === 0) expired++
+      else if (days >= 1 && days <= 3) urgent1++
+      else if (days >= 4 && days <= 7) urgent2++
+      else normal++
+    })
+    return { overdue, expired, urgent1, urgent2, normal }
+  }, [baseDocs])
+
+  const filteredDocs = useMemo(() => {
+    let result = baseDocs
+
     // Fuzzy search across all fields
     if (searchQuery.trim()) {
       result = result.filter(d => {
@@ -189,30 +220,20 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
         return wordMatch(searchable, searchQuery)
       })
     }
-    // Status filter
-    if (filterStatus !== 'all') {
-      result = result.filter(d => {
-        if (filterStatus === 'completed') return d.status === 'completed'
-        if (filterStatus === 'pending') return d.status !== 'completed'
-        if (filterStatus === 'overdue') { const days = getDaysRemaining(d.deadline); return days !== null && days < 0 }
-        if (filterStatus === 'urgent') { const days = getDaysRemaining(d.deadline); return days !== null && days >= 0 && days <= 3 }
-        return true
-      })
-    }
-    if (filterPerson !== 'all') result = result.filter(d => d.assignee === filterPerson)
-    if (filterPriority !== 'all') result = result.filter(d => (d.priority || 'normal') === filterPriority)
 
-    // Badge filter
-    if (badgeFilter) {
+    // Badge filters
+    if (badgeFilters.length > 0) {
       result = result.filter(d => {
         if (d.status === 'completed') return false
         const days = getDaysRemaining(d.deadline)
-        if (badgeFilter === 'overdue') return days !== null && days < 0
-        if (badgeFilter === 'expired') return days !== null && days === 0
-        if (badgeFilter === 'urgent1') return days !== null && days >= 1 && days <= 3
-        if (badgeFilter === 'urgent2') return days !== null && days >= 4 && days <= 7
-        if (badgeFilter === 'normal') return days === null || days > 7
-        return true
+        return badgeFilters.some(bf => {
+          if (bf === 'overdue') return days !== null && days < 0
+          if (bf === 'expired') return days !== null && days === 0
+          if (bf === 'urgent1') return days !== null && days >= 1 && days <= 3
+          if (bf === 'urgent2') return days !== null && days >= 4 && days <= 7
+          if (bf === 'normal') return days === null || days > 7
+          return false
+        })
       })
     }
 
@@ -252,23 +273,7 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
     }
 
     return result
-  }, [documents, filterStatus, filterPerson, filterPriority, badgeFilter, searchQuery, wordMatch, sortConfig])
-
-  // Count stats
-  const stats = useMemo(() => {
-    let overdue = 0, expired = 0, urgent1 = 0, urgent2 = 0, normal = 0
-    filteredDocs.forEach(d => {
-      if (d.status === 'completed') return
-      const days = getDaysRemaining(d.deadline)
-      if (days === null) { /* no deadline */ }
-      else if (days < 0) overdue++
-      else if (days === 0) expired++
-      else if (days >= 1 && days <= 3) urgent1++
-      else if (days >= 4 && days <= 7) urgent2++
-      else normal++
-    })
-    return { overdue, expired, urgent1, urgent2, normal }
-  }, [filteredDocs])
+  }, [baseDocs, badgeFilters, searchQuery, wordMatch, sortConfig])
 
   const handleSort = (key: string) => {
     let direction: 'asc' | 'desc' = 'asc'
@@ -331,13 +336,11 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
       {/* Search + Filters */}
       <div className="filters-bar">
         <div className="filter-group">
-          <label>Trạng thái:</label>
+          <label>Lọc danh sách:</label>
           <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
             <option value="all">Tất cả</option>
             <option value="pending">Chưa hoàn thành</option>
-            <option value="completed">Hoàn thành</option>
-            <option value="urgent">Gần hết hạn (≤3 ngày)</option>
-            <option value="overdue">Quá hạn</option>
+            <option value="completed">Đã hoàn thành</option>
           </select>
         </div>
         <div className="filter-group">
@@ -373,30 +376,40 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
             <button className="search-clear" onClick={() => setSearchQuery('')}>×</button>
           )}
         </div>
-        <span className="filter-count">{filteredDocs.length}/{documents.length} văn bản</span>
+        <span className="filter-count">{filteredDocs.length}/{baseDocs.length} văn bản</span>
       </div>
 
-      <div className="flex gap-2 mb-4 text-xs font-semibold text-white flex-wrap">
+      <div className="flex gap-2 mb-4 text-xs font-semibold flex-wrap">
         {[
           { key: 'overdue', count: stats.overdue, color: settings.overdueColor, label: 'Quá hạn' },
           { key: 'expired', count: stats.expired, color: settings.expiredColor, label: 'Hết hạn (0 ngày)' },
           { key: 'urgent1', count: stats.urgent1, color: settings.urgent1Color, label: 'Cận hạn 1-3 ngày' },
           { key: 'urgent2', count: stats.urgent2, color: settings.urgent2Color, label: 'Cận hạn 4-7 ngày' },
           { key: 'normal', count: stats.normal, color: settings.normalColor, label: 'Còn hạn > 7 ngày' }
-        ].map(b => b.count > 0 && (
-          <button
-            key={b.key}
-            onClick={() => setBadgeFilter(badgeFilter === b.key ? null : b.key)}
-            className={`px-2 py-1 rounded shadow-sm flex items-center gap-1 transition-all ${badgeFilter === b.key ? 'scale-105' : 'opacity-90 hover:opacity-100 hover:scale-105'}`}
-            style={{ 
-              background: b.color,
-              boxShadow: badgeFilter === b.key ? `0 0 0 2px #fff, 0 0 0 4px ${b.color}` : 'none'
-            }}
-          >
-            {b.label}: {b.count}
-            {badgeFilter === b.key && <span className="opacity-70 hover:opacity-100 font-normal ml-1 text-sm leading-none">×</span>}
-          </button>
-        ))}
+        ].map(b => {
+          if (b.count === 0) return null
+          const isSelected = badgeFilters.includes(b.key)
+          return (
+            <button
+              key={b.key}
+              onClick={() => {
+                setBadgeFilters(prev => 
+                  prev.includes(b.key) ? prev.filter(x => x !== b.key) : [...prev, b.key]
+                )
+              }}
+              className={`px-2 py-1 rounded shadow-sm flex items-center gap-1 transition-all border`}
+              style={{ 
+                background: isSelected ? b.color : `${b.color}1a`,
+                borderColor: b.color,
+                color: isSelected ? '#fff' : b.color,
+                boxShadow: isSelected ? `0 0 0 2px #fff, 0 0 0 4px ${b.color}` : 'none'
+              }}
+            >
+              {b.label}: {b.count}
+              {isSelected && <span className="opacity-70 hover:opacity-100 font-normal ml-1 text-sm leading-none">×</span>}
+            </button>
+          )
+        })}
       </div>
 
       <Table className="doc-table">
@@ -667,7 +680,6 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
         .row-urgent2:hover { background: ${settings.urgent2Color}2a !important; }
         
         .row-completed { opacity: 0.7; }
-        .row-completed td { text-decoration: line-through; color: #94a3b8; }
         .row-completed .status-chip { text-decoration: none; }
         .row-completed .assign-select { text-decoration: none; }
 
