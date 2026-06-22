@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { Document } from '@/types'
 import { Badge } from '@/components/ui/badge'
 import { AttachmentPanel } from './AttachmentPanel'
-import { parseFileNameFromUrl } from '@/lib/utils'
+import { parseFileNameFromUrl, getStructuredMainFileName } from '@/lib/utils'
 import { IframePreview } from './IframePreview'
 
 interface DocumentViewerProps {
@@ -15,7 +15,7 @@ export function DocumentViewer({ doc }: DocumentViewerProps) {
   const [activeUrl, setActiveUrl] = useState(doc.driveViewUrl ?? '')
 
   const tabs = [
-    { label: doc.originalLink ? parseFileNameFromUrl(doc.originalLink, 'File chính') : 'File chính', driveViewUrl: doc.driveViewUrl ?? '' },
+    { label: doc.originalLink ? parseFileNameFromUrl(doc.originalLink, getStructuredMainFileName(doc)) : getStructuredMainFileName(doc), driveViewUrl: doc.driveViewUrl ?? '' },
     ...(doc.attachments ?? []).map((a, i) => ({
       label: `Đính kèm ${i + 1}`,
       driveViewUrl: a.driveViewUrl,

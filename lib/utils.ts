@@ -21,13 +21,34 @@ export function parseFileNameFromUrl(url: string, defaultName: string = 'File đ
       }
       
       if (lastPart) {
-        const decoded = decodeURIComponent(lastPart);
-        // Remove trailing query params if any somehow got stuck
-        return decoded.split('?')[0];
+        const decoded = decodeURIComponent(lastPart).split('?')[0];
+        // If it looks like a Google Drive ID (25-40 chars, alphanumeric/dash/underscore, no dot)
+        if (/^[a-zA-Z0-9_-]{25,40}$/.test(decoded) && !decoded.includes('.')) {
+          return defaultName;
+        }
+        return decoded;
       }
     }
     return defaultName;
   } catch {
     return defaultName;
   }
+}
+
+export function getStructuredMainFileName(doc: any): string {
+  if (doc.issueDate && doc.docNumber) {
+    const d = doc.issueDate.toDate();
+    const dateStr = `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
+    const safeDocNum = doc.docNumber.replace(/[\/\-]/g, '.');
+    
+    let ext = '';
+    if (doc.mimeType) {
+      if (doc.mimeType.includes('pdf')) ext = '.pdf';
+      else if (doc.mimeType.includes('word')) ext = '.docx';
+      else if (doc.mimeType.includes('excel') || doc.mimeType.includes('spreadsheet')) ext = '.xlsx';
+    }
+    
+    return `${dateStr}-${safeDocNum}${ext}`;
+  }
+  return 'File chính';
 }
