@@ -21,6 +21,7 @@ const els = {
   sender: () => document.getElementById('sender'),
   priority: () => document.getElementById('priority'),
   title: () => document.getElementById('title'),
+  notes: () => document.getElementById('notes'),
   fileList: () => document.getElementById('file-list'),
   btnSubmit: () => document.getElementById('btn-submit'),
   progress: () => document.getElementById('progress'),
@@ -216,6 +217,7 @@ function displayMetadata(data) {
   els.sender().value = data.sender || '';
   els.priority().value = data.priority || 'normal';
   els.title().value = data.summary || '';
+  els.notes().value = data.notes || '';
 
   const fileListEl = els.fileList();
   fileListEl.innerHTML = '';
@@ -276,6 +278,9 @@ async function handleSubmit() {
 
   const editedTitle = els.title().value.trim();
   if (editedTitle) currentMetadata.summary = editedTitle;
+  
+  const editedNotes = els.notes().value.trim();
+  currentMetadata.notes = editedNotes;
 
   const checkboxes = document.querySelectorAll('.file-item input[type="checkbox"]');
   const selectedAttachments = [];

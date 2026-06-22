@@ -253,9 +253,10 @@ header h1 {
 }
 
 .field input,
-.field textarea {
+.field textarea,
+.field select {
   padding: 6px 8px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid #cbd5e1;
   border-radius: 6px;
   font-size: 12px;
   background: #fff;
@@ -265,7 +266,8 @@ header h1 {
 }
 
 .field input:focus,
-.field textarea:focus {
+.field textarea:focus,
+.field select:focus {
   outline: none;
   border-color: #3b82f6;
   box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);

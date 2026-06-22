@@ -133,7 +133,7 @@ async function submitToMyOffice(apiUrl, metadata, mainFileBlob, mainFileName, at
   form.append('leader', metadata.leader || '');
   form.append('originalLink', metadata.pageUrl || '');
   form.append('priority', metadata.priority || 'normal');
-  form.append('notes', '');
+  form.append('notes', metadata.notes || '');
   form.append('tags', '');
   if (userAccessToken) form.append('userAccessToken', userAccessToken);
   
