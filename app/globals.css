@@ -29,3 +29,13 @@
   visibility: visible;
   transform: translateX(-50%) translateY(-8px);
 }
+
+/* Tooltip alignment */
+[data-tooltip-align="right"]::after {
+  left: auto;
+  right: 0;
+  transform: translateX(0) translateY(-4px);
+}
+[data-tooltip-align="right"]:hover::after {
+  transform: translateX(0) translateY(-8px);
+}

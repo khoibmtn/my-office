@@ -25,13 +25,23 @@ function getFileIcon(fileName: string, mimeType?: string, defaultColor: string =
   const name = (fileName || '').toLowerCase()
   const mime = (mimeType || '').toLowerCase()
   
-  if (name.endsWith('.pdf') || mime.includes('pdf')) return <FileText size={14} className="text-red-500 flex-shrink-0 mt-0.5" />
-  if (name.endsWith('.doc') || name.endsWith('.docx') || mime.includes('word')) return <FileText size={14} className="text-blue-600 flex-shrink-0 mt-0.5" />
-  if (name.endsWith('.xls') || name.endsWith('.xlsx') || mime.includes('excel') || mime.includes('spreadsheet')) return <FileSpreadsheet size={14} className="text-green-600 flex-shrink-0 mt-0.5" />
-  if (name.endsWith('.jpg') || name.endsWith('.jpeg') || name.endsWith('.png') || mime.includes('image')) return <FileImage size={14} className="text-purple-500 flex-shrink-0 mt-0.5" />
-  if (name.endsWith('.zip') || name.endsWith('.rar') || mime.includes('zip') || mime.includes('compressed')) return <FileArchive size={14} className="text-amber-600 flex-shrink-0 mt-0.5" />
-  
-  return <FileGeneric size={14} className={`${defaultColor} flex-shrink-0 mt-0.5`} />
+  let color = defaultColor;
+  let text = 'FILE';
+
+  if (name.endsWith('.pdf') || mime.includes('pdf')) { color = 'text-red-500'; text = 'PDF'; }
+  else if (name.endsWith('.doc') || name.endsWith('.docx') || mime.includes('word')) { color = 'text-blue-600'; text = 'DOC'; }
+  else if (name.endsWith('.xls') || name.endsWith('.xlsx') || mime.includes('excel') || mime.includes('spreadsheet')) { color = 'text-green-600'; text = 'XLS'; }
+  else if (name.endsWith('.jpg') || name.endsWith('.jpeg') || name.endsWith('.png') || mime.includes('image')) { color = 'text-purple-500'; text = 'IMG'; }
+  else if (name.endsWith('.zip') || name.endsWith('.rar') || mime.includes('zip') || mime.includes('compressed')) { color = 'text-amber-500'; text = 'ZIP'; }
+
+  return (
+    <svg width="20" height="22" viewBox="0 0 24 28" fill="none" xmlns="http://www.w3.org/2000/svg" className={`flex-shrink-0 ${color}`} style={{ marginTop: '1px' }}>
+      <path d="M14 2H6C4.89543 2 4 2.89543 4 4V24C4 25.1046 4.89543 26 6 26H18C19.1046 26 20 25.1046 20 24V8L14 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+      <path d="M14 2V8H20" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+      <rect x="2" y="14" width="20" height="8" rx="2" fill="currentColor" stroke="currentColor" strokeWidth="1"/>
+      <text x="12" y="18.5" fill="white" fontSize="6.5" fontWeight="900" fontFamily="sans-serif" textAnchor="middle" dominantBaseline="middle">{text}</text>
+    </svg>
+  )
 }
 
 interface DocumentModalProps {
@@ -226,12 +236,13 @@ export function DocumentModal({ docId, onClose }: DocumentModalProps) {
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
                   <h3 style={{ marginBottom: 0 }}>Danh sách tệp ({allFiles.length})</h3>
                   <button
-                    className="icon-btn"
-                    style={{ width: 24, height: 24, padding: 0 }}
+                    className="icon-btn hover:bg-blue-50 hover:text-blue-600 transition-colors"
+                    style={{ width: 26, height: 26, padding: 0 }}
                     onClick={handleCopyAll}
                     data-tooltip="Copy thông tin giao việc"
+                    data-tooltip-align="right"
                   >
-                    {copiedAll ? <Check size={14} className="text-green-500" /> : <Send size={14} />}
+                    {copiedAll ? <Check size={15} className="text-green-500" strokeWidth={2.5} /> : <Send size={15} className="text-slate-700" strokeWidth={2.5} />}
                   </button>
                 </div>
                 <div className="flex flex-col gap-2">
