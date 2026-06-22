@@ -97,6 +97,13 @@ export function DocumentModal({ docId, onClose }: DocumentModalProps) {
     
     const lines = []
     lines.push(`Giao việc cho: ${doc.assignee || ''}`)
+    
+    if (doc.deadline) {
+      const days = getDaysRemaining(doc.deadline)
+      const daysText = days === null ? '' : days < 0 ? ` (quá ${Math.abs(days)} ngày)` : days === 0 ? ' (hôm nay!)' : ` (còn ${days} ngày)`
+      lines.push(`Hạn xử lý: ${doc.deadline.toDate().toLocaleDateString('vi-VN')}${daysText}`)
+    }
+    
     lines.push(`Nội dung văn bản: ${doc.title || ''}`)
     
     const mainFile = allFiles[0]
