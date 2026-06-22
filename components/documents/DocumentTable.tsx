@@ -799,16 +799,6 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
                         {eff.icon}
                         <span>{eff.label}</span>
                       </button>
-                      {doc.completedDate && (() => {
-                        const cd = toDateSafe(doc.completedDate)
-                        if (!cd) return null
-                        return (
-                          <span style={{ fontSize: '10px', fontStyle: 'italic', marginLeft: '4px' }}>
-                            <span style={{ color: '#dc2626' }}>HT:</span>{' '}
-                            <span style={{ color: '#64748b' }}>{cd.toLocaleDateString('vi-VN')}</span>
-                          </span>
-                        )
-                      })()}
                     </div>
                     <div className="flex items-center gap-1 flex-wrap mt-1">
                       {doc.status === 'upload_failed' ? (
@@ -836,6 +826,16 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
                         {deleting === doc.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
                       </Button>
                     </div>
+                    {doc.completedDate && (() => {
+                      const cd = toDateSafe(doc.completedDate)
+                      if (!cd) return null
+                      return (
+                        <div style={{ fontSize: '10px', fontStyle: 'italic', marginTop: '2px' }}>
+                          <span style={{ color: '#dc2626' }}>HT:</span>{' '}
+                          <span style={{ color: '#64748b' }}>{cd.toLocaleDateString('vi-VN')}</span>
+                        </div>
+                      )
+                    })()}
                   </div>
                 </TableCell>
               </TableRow>
