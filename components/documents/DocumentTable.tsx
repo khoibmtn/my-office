@@ -221,6 +221,14 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
     // Sorting
     if (sortConfig) {
       result = [...result].sort((a, b) => {
+        if (sortConfig.key === 'remaining') {
+          const daysA = getDaysRemaining(a.deadline)
+          const daysB = getDaysRemaining(b.deadline)
+          const valA = daysA === null ? Infinity : daysA
+          const valB = daysB === null ? Infinity : daysB
+          return sortConfig.direction === 'asc' ? valB - valA : valA - valB
+        }
+
         let valA: any = (a as any)[sortConfig.key]
         let valB: any = (b as any)[sortConfig.key]
 
@@ -247,6 +255,22 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
 
     return result
   }, [documents, filterStatus, filterPerson, filterPriority, searchQuery, wordMatch, sortConfig])
+
+  // Count stats
+  const stats = useMemo(() => {
+    let overdue = 0, expired = 0, urgent1 = 0, urgent2 = 0, normal = 0
+    filteredDocs.forEach(d => {
+      if (d.status === 'completed') return
+      const days = getDaysRemaining(d.deadline)
+      if (days === null) { /* no deadline */ }
+      else if (days < 0) overdue++
+      else if (days === 0) expired++
+      else if (days >= 1 && days <= 3) urgent1++
+      else if (days >= 4 && days <= 7) urgent2++
+      else normal++
+    })
+    return { overdue, expired, urgent1, urgent2, normal }
+  }, [filteredDocs])
 
   const handleSort = (key: string) => {
     let direction: 'asc' | 'desc' = 'asc'
@@ -346,6 +370,14 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
         <span className="filter-count">{filteredDocs.length}/{documents.length} văn bản</span>
       </div>
 
+      <div className="flex gap-2 mb-4 text-xs font-semibold text-white flex-wrap">
+        {stats.overdue > 0 && <span className="px-2 py-1 rounded shadow-sm" style={{ background: settings.overdueColor }}>Quá hạn: {stats.overdue}</span>}
+        {stats.expired > 0 && <span className="px-2 py-1 rounded shadow-sm" style={{ background: settings.expiredColor }}>Hết hạn (0 ngày): {stats.expired}</span>}
+        {stats.urgent1 > 0 && <span className="px-2 py-1 rounded shadow-sm" style={{ background: settings.urgent1Color }}>Cận hạn 1-3 ngày: {stats.urgent1}</span>}
+        {stats.urgent2 > 0 && <span className="px-2 py-1 rounded shadow-sm" style={{ background: settings.urgent2Color }}>Cận hạn 4-7 ngày: {stats.urgent2}</span>}
+        {stats.normal > 0 && <span className="px-2 py-1 rounded shadow-sm" style={{ background: settings.normalColor }}>Còn hạn &gt; 7 ngày: {stats.normal}</span>}
+      </div>
+
       <Table className="doc-table">
         <TableHeader>
           <TableRow className="doc-table-header">
@@ -355,7 +387,7 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
             <ThResizable width={colWidths.title} minWidth={150} onWidthChange={(w: number) => handleWidthChange('title', w)} className="cursor-pointer hover:bg-slate-700/50" onClick={() => handleSort('title')}>Tiêu đề <ArrowUpDown className="h-3 w-3 inline ml-1"/></ThResizable>
             <ThResizable width={colWidths.status} minWidth={90} onWidthChange={(w: number) => handleWidthChange('status', w)} className="cursor-pointer hover:bg-slate-700/50" onClick={() => handleSort('status')}>Tình trạng <ArrowUpDown className="h-3 w-3 inline ml-1"/></ThResizable>
             <ThResizable width={colWidths.deadline} minWidth={70} onWidthChange={(w: number) => handleWidthChange('deadline', w)} className="cursor-pointer hover:bg-slate-700/50" onClick={() => handleSort('deadline')}>Deadline <ArrowUpDown className="h-3 w-3 inline ml-1"/></ThResizable>
-            <ThResizable width={colWidths.remaining} minWidth={60} onWidthChange={(w: number) => handleWidthChange('remaining', w)} className="cursor-pointer hover:bg-slate-700/50" onClick={() => handleSort('deadline')}>Còn lại <ArrowUpDown className="h-3 w-3 inline ml-1"/></ThResizable>
+            <ThResizable width={colWidths.remaining} minWidth={60} onWidthChange={(w: number) => handleWidthChange('remaining', w)} className="cursor-pointer hover:bg-slate-700/50" onClick={() => handleSort('remaining')}>Còn lại <ArrowUpDown className="h-3 w-3 inline ml-1"/></ThResizable>
             <ThResizable width={colWidths.assignee} minWidth={90} onWidthChange={(w: number) => handleWidthChange('assignee', w)} className="cursor-pointer hover:bg-slate-700/50" onClick={() => handleSort('assignee')}>Người TH <ArrowUpDown className="h-3 w-3 inline ml-1"/></ThResizable>
             <ThResizable width={colWidths.actions} minWidth={100} onWidthChange={(w: number) => handleWidthChange('actions', w)}>Actions</ThResizable>
           </TableRow>
@@ -364,8 +396,15 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
           {filteredDocs.map((doc, idx) => {
             const days = getDaysRemaining(doc.deadline)
             const eff = getEffectiveStatus(doc)
-            const rowDanger = days !== null && days <= 0
-            const rowWarning = days !== null && days === 1
+            
+            let rowClass = ''
+            if (doc.status === 'completed') rowClass = 'row-completed'
+            else if (days !== null) {
+              if (days < 0) rowClass = 'row-overdue'
+              else if (days === 0) rowClass = 'row-expired'
+              else if (days >= 1 && days <= 3) rowClass = 'row-urgent1'
+              else if (days >= 4 && days <= 7) rowClass = 'row-urgent2'
+            }
 
             const priorityLabels: Record<string, { label: string, color: string }> = {
               normal: { label: 'Thường', color: 'bg-slate-100 text-slate-600' },
@@ -379,7 +418,7 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
             return (
               <TableRow
                 key={doc.id}
-                className={`doc-row ${idx % 2 === 0 ? 'row-even' : 'row-odd'} ${rowDanger ? 'row-danger' : rowWarning ? 'row-warning' : ''} ${doc.status === 'completed' ? 'row-completed' : ''}`}
+                className={`doc-row ${idx % 2 === 0 ? 'row-even' : 'row-odd'} ${rowClass}`}
               >
                 <TableCell className="text-center text-slate-400 font-mono text-xs">{idx + 1}</TableCell>
                 <TableCell className="text-xs">
@@ -596,10 +635,19 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
         .row-even { background: #ffffff; }
         .row-odd { background: #f1f5f9; }
         .doc-row:hover { background: #e0e7ff !important; }
-        .row-warning { background: #fffbeb !important; border-left: 3px solid #f59e0b; }
-        .row-warning:hover { background: #fef3c7 !important; }
-        .row-danger { background: #fef2f2 !important; border-left: 3px solid #ef4444; }
-        .row-danger:hover { background: #fee2e2 !important; }
+        
+        .row-overdue { background: ${settings.overdueColor}1a !important; border-left: 3px solid ${settings.overdueColor}; }
+        .row-overdue:hover { background: ${settings.overdueColor}2a !important; }
+        
+        .row-expired { background: ${settings.expiredColor}1a !important; border-left: 3px solid ${settings.expiredColor}; }
+        .row-expired:hover { background: ${settings.expiredColor}2a !important; }
+        
+        .row-urgent1 { background: ${settings.urgent1Color}1a !important; border-left: 3px solid ${settings.urgent1Color}; }
+        .row-urgent1:hover { background: ${settings.urgent1Color}2a !important; }
+        
+        .row-urgent2 { background: ${settings.urgent2Color}1a !important; border-left: 3px solid ${settings.urgent2Color}; }
+        .row-urgent2:hover { background: ${settings.urgent2Color}2a !important; }
+        
         .row-completed { opacity: 0.7; }
         .row-completed td { text-decoration: line-through; color: #94a3b8; }
         .row-completed .status-chip { text-decoration: none; }

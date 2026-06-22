@@ -5,21 +5,21 @@ import { doc, onSnapshot } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 
 export interface AppSettings {
-  warningThreshold: number       // days - orange/warning
-  dangerThreshold: number        // days - red/danger
-  warningColor: string           // hex color
-  dangerColor: string            // hex color
-  normalColor: string            // hex color
-  completedColor: string         // hex color
+  overdueColor: string           // days < 0
+  expiredColor: string           // days = 0
+  urgent1Color: string           // 1 <= days <= 3
+  urgent2Color: string           // 4 <= days <= 7
+  normalColor: string            // days > 7
+  completedColor: string         // status = completed
 }
 
 const DEFAULT_SETTINGS: AppSettings = {
-  warningThreshold: 3,
-  dangerThreshold: 0,
-  warningColor: '#f59e0b',
-  dangerColor: '#ef4444',
-  normalColor: '#22c55e',
-  completedColor: '#10b981',
+  overdueColor: '#ef4444',       // red-500
+  expiredColor: '#f97316',       // orange-500
+  urgent1Color: '#f59e0b',       // amber-500
+  urgent2Color: '#eab308',       // yellow-500
+  normalColor: '#22c55e',        // green-500
+  completedColor: '#10b981',     // emerald-500
 }
 
 export function useSettings(): AppSettings {
@@ -31,10 +31,10 @@ export function useSettings(): AppSettings {
       if (snap.exists()) {
         const data = snap.data()
         setSettings({
-          warningThreshold: data.warningThreshold ?? DEFAULT_SETTINGS.warningThreshold,
-          dangerThreshold: data.dangerThreshold ?? DEFAULT_SETTINGS.dangerThreshold,
-          warningColor: data.warningColor ?? DEFAULT_SETTINGS.warningColor,
-          dangerColor: data.dangerColor ?? DEFAULT_SETTINGS.dangerColor,
+          overdueColor: data.overdueColor ?? DEFAULT_SETTINGS.overdueColor,
+          expiredColor: data.expiredColor ?? DEFAULT_SETTINGS.expiredColor,
+          urgent1Color: data.urgent1Color ?? DEFAULT_SETTINGS.urgent1Color,
+          urgent2Color: data.urgent2Color ?? DEFAULT_SETTINGS.urgent2Color,
           normalColor: data.normalColor ?? DEFAULT_SETTINGS.normalColor,
           completedColor: data.completedColor ?? DEFAULT_SETTINGS.completedColor,
         })

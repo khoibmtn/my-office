@@ -20,10 +20,10 @@ const DEFAULT_STAFF: StaffMember[] = [
 ]
 
 const DEFAULT_THRESHOLDS = {
-  warningThreshold: 3,
-  dangerThreshold: 0,
-  warningColor: '#f59e0b',
-  dangerColor: '#ef4444',
+  overdueColor: '#ef4444',
+  expiredColor: '#f97316',
+  urgent1Color: '#f59e0b',
+  urgent2Color: '#eab308',
   normalColor: '#22c55e',
   completedColor: '#10b981',
 }
@@ -46,10 +46,10 @@ export default function SettingsPage() {
         const data = snap.data()
         setStaff(data.staff || DEFAULT_STAFF)
         setThresholds({
-          warningThreshold: data.warningThreshold ?? DEFAULT_THRESHOLDS.warningThreshold,
-          dangerThreshold: data.dangerThreshold ?? DEFAULT_THRESHOLDS.dangerThreshold,
-          warningColor: data.warningColor ?? DEFAULT_THRESHOLDS.warningColor,
-          dangerColor: data.dangerColor ?? DEFAULT_THRESHOLDS.dangerColor,
+          overdueColor: data.overdueColor ?? DEFAULT_THRESHOLDS.overdueColor,
+          expiredColor: data.expiredColor ?? DEFAULT_THRESHOLDS.expiredColor,
+          urgent1Color: data.urgent1Color ?? DEFAULT_THRESHOLDS.urgent1Color,
+          urgent2Color: data.urgent2Color ?? DEFAULT_THRESHOLDS.urgent2Color,
           normalColor: data.normalColor ?? DEFAULT_THRESHOLDS.normalColor,
           completedColor: data.completedColor ?? DEFAULT_THRESHOLDS.completedColor,
         })
@@ -155,53 +155,69 @@ export default function SettingsPage() {
         </p>
 
         <div className="space-y-4">
-          {/* Warning threshold */}
+          {/* Overdue */}
           <div className="flex items-center gap-4">
-            <label className="w-40 text-sm font-medium text-slate-700">Gần hết hạn (≤ ngày):</label>
-            <input
-              type="number"
-              min="0"
-              max="30"
-              value={thresholds.warningThreshold}
-              onChange={e => setThresholds({ ...thresholds, warningThreshold: parseInt(e.target.value) || 0 })}
-              className="w-20 px-3 py-2 border border-slate-200 rounded-lg text-sm text-center focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
+            <label className="w-40 text-sm font-medium text-slate-700">Quá hạn (&lt; 0 ngày):</label>
+            <div className="w-20" />
             <div className="flex items-center gap-2">
               <input
                 type="color"
-                value={thresholds.warningColor}
-                onChange={e => setThresholds({ ...thresholds, warningColor: e.target.value })}
+                value={thresholds.overdueColor}
+                onChange={e => setThresholds({ ...thresholds, overdueColor: e.target.value })}
                 className="w-10 h-10 rounded-lg border border-slate-200 cursor-pointer p-0.5"
               />
-              <span className="text-xs text-slate-400">Màu cảnh báo</span>
+              <span className="text-xs text-slate-400">Màu quá hạn</span>
             </div>
           </div>
 
-          {/* Danger threshold */}
+          {/* Expired */}
           <div className="flex items-center gap-4">
-            <label className="w-40 text-sm font-medium text-slate-700">Quá hạn (≤ ngày):</label>
-            <input
-              type="number"
-              min="-30"
-              max="30"
-              value={thresholds.dangerThreshold}
-              onChange={e => setThresholds({ ...thresholds, dangerThreshold: parseInt(e.target.value) || 0 })}
-              className="w-20 px-3 py-2 border border-slate-200 rounded-lg text-sm text-center focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
+            <label className="w-40 text-sm font-medium text-slate-700">Hết hạn (0 ngày):</label>
+            <div className="w-20" />
             <div className="flex items-center gap-2">
               <input
                 type="color"
-                value={thresholds.dangerColor}
-                onChange={e => setThresholds({ ...thresholds, dangerColor: e.target.value })}
+                value={thresholds.expiredColor}
+                onChange={e => setThresholds({ ...thresholds, expiredColor: e.target.value })}
                 className="w-10 h-10 rounded-lg border border-slate-200 cursor-pointer p-0.5"
               />
-              <span className="text-xs text-slate-400">Màu nguy hiểm</span>
+              <span className="text-xs text-slate-400">Màu hết hạn</span>
             </div>
           </div>
 
-          {/* Normal color */}
+          {/* Urgent 1-3 */}
           <div className="flex items-center gap-4">
-            <label className="w-40 text-sm font-medium text-slate-700">Còn hạn:</label>
+            <label className="w-40 text-sm font-medium text-slate-700">Cận hạn (1-3 ngày):</label>
+            <div className="w-20" />
+            <div className="flex items-center gap-2">
+              <input
+                type="color"
+                value={thresholds.urgent1Color}
+                onChange={e => setThresholds({ ...thresholds, urgent1Color: e.target.value })}
+                className="w-10 h-10 rounded-lg border border-slate-200 cursor-pointer p-0.5"
+              />
+              <span className="text-xs text-slate-400">Màu cận hạn</span>
+            </div>
+          </div>
+
+          {/* Urgent 4-7 */}
+          <div className="flex items-center gap-4">
+            <label className="w-40 text-sm font-medium text-slate-700">Cận hạn (4-7 ngày):</label>
+            <div className="w-20" />
+            <div className="flex items-center gap-2">
+              <input
+                type="color"
+                value={thresholds.urgent2Color}
+                onChange={e => setThresholds({ ...thresholds, urgent2Color: e.target.value })}
+                className="w-10 h-10 rounded-lg border border-slate-200 cursor-pointer p-0.5"
+              />
+              <span className="text-xs text-slate-400">Màu cận hạn</span>
+            </div>
+          </div>
+
+          {/* Normal */}
+          <div className="flex items-center gap-4">
+            <label className="w-40 text-sm font-medium text-slate-700">Còn hạn (&gt; 7 ngày):</label>
             <div className="w-20" />
             <div className="flex items-center gap-2">
               <input
@@ -234,14 +250,20 @@ export default function SettingsPage() {
         <div className="mt-4 p-3 bg-slate-50 rounded-lg border border-slate-100">
           <p className="text-xs font-medium text-slate-500 mb-2">Xem trước:</p>
           <div className="flex gap-2 flex-wrap">
-            <span className="px-3 py-1 rounded-full text-xs font-semibold text-white" style={{ background: thresholds.dangerColor }}>
-              Quá hạn (≤ {thresholds.dangerThreshold} ngày)
+            <span className="px-3 py-1 rounded-full text-xs font-semibold text-white" style={{ background: thresholds.overdueColor }}>
+              Quá hạn
             </span>
-            <span className="px-3 py-1 rounded-full text-xs font-semibold text-white" style={{ background: thresholds.warningColor }}>
-              Gần hết hạn (≤ {thresholds.warningThreshold} ngày)
+            <span className="px-3 py-1 rounded-full text-xs font-semibold text-white" style={{ background: thresholds.expiredColor }}>
+              Hết hạn (0 ngày)
+            </span>
+            <span className="px-3 py-1 rounded-full text-xs font-semibold text-white" style={{ background: thresholds.urgent1Color }}>
+              Cận hạn 1-3 ngày
+            </span>
+            <span className="px-3 py-1 rounded-full text-xs font-semibold text-white" style={{ background: thresholds.urgent2Color }}>
+              Cận hạn 4-7 ngày
             </span>
             <span className="px-3 py-1 rounded-full text-xs font-semibold text-white" style={{ background: thresholds.normalColor }}>
-              Còn hạn
+              Còn hạn &gt; 7 ngày
             </span>
             <span className="px-3 py-1 rounded-full text-xs font-semibold text-white" style={{ background: thresholds.completedColor }}>
               Hoàn thành
