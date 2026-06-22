@@ -37,9 +37,14 @@ export function DocumentViewer({ doc }: DocumentViewerProps) {
         {doc.deadline && (
           <p className="text-sm text-slate-600 mb-1"><span className="font-semibold text-slate-700">Deadline:</span> {doc.deadline.toDate().toLocaleDateString('vi-VN')}</p>
         )}
-        {doc.assignee && (
-          <p className="text-sm text-slate-600 mb-2"><span className="font-semibold text-slate-700">Người nhận:</span> {doc.assignee}</p>
-        )}
+        <p className="text-sm text-slate-600 mb-2">
+          <span className="font-semibold text-slate-700">Người được giao:</span>{' '}
+          {doc.assignee ? (
+            doc.assignee
+          ) : (
+            <span className="text-slate-400 italic">Chưa giao</span>
+          )}
+        </p>
         {doc.notes && (
           <div className="bg-amber-50 border border-amber-200 rounded p-2 mb-2">
             <p className="text-xs font-semibold text-amber-800 mb-1">📝 Ghi chú cá nhân:</p>

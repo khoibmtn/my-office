@@ -175,12 +175,14 @@ export function DocumentModal({ docId, onClose }: DocumentModalProps) {
                     </div>
                   )
                 })()}
-                {doc.assignee && (
-                  <div className="meta-row">
-                    <span className="meta-label">Người được giao:</span>
+                <div className="meta-row">
+                  <span className="meta-label">Người được giao:</span>
+                  {doc.assignee ? (
                     <span>{doc.assignee}</span>
-                  </div>
-                )}
+                  ) : (
+                    <span className="text-slate-400 italic">Chưa giao</span>
+                  )}
+                </div>
                 {doc.notes && (() => {
                   const lines = doc.notes.split('\n').map(l => l.trim()).filter(Boolean)
                   const filtered = lines.filter(l => {

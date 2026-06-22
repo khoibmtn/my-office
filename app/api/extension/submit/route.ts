@@ -170,11 +170,7 @@ export async function POST(request: NextRequest) {
       deadline: deadlineDate ? deadlineDate : null,
       task: '',
       assignee,
-      notes: [
-        sender ? `CQBH: ${sender}` : '',
-        leader ? `Lãnh đạo: ${leader}` : '',
-        notes && !notes.includes(sender || '___') ? notes : '',
-      ].filter(Boolean).join('\n'),
+      notes,
       tags: tags ? tags.split(',').map((t: string) => t.trim()).filter(Boolean) : [],
       textSnippet: title.slice(0, 500),
       createdAt: FieldValue.serverTimestamp(),
