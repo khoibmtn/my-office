@@ -667,17 +667,17 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
         .row-odd { background: #f1f5f9; }
         .doc-row:hover { background: #e0e7ff !important; }
         
-        .row-overdue { background: ${settings.overdueColor}1a !important; border-left: 3px solid ${settings.overdueColor}; }
-        .row-overdue:hover { background: ${settings.overdueColor}2a !important; }
+        .row-overdue { background: color-mix(in srgb, ${settings.overdueColor} 12%, #ffffff) !important; border-left: 3px solid ${settings.overdueColor}; }
+        .row-overdue:hover { background: color-mix(in srgb, ${settings.overdueColor} 20%, #ffffff) !important; }
         
-        .row-expired { background: ${settings.expiredColor}1a !important; border-left: 3px solid ${settings.expiredColor}; }
-        .row-expired:hover { background: ${settings.expiredColor}2a !important; }
+        .row-expired { background: color-mix(in srgb, ${settings.expiredColor} 12%, #ffffff) !important; border-left: 3px solid ${settings.expiredColor}; }
+        .row-expired:hover { background: color-mix(in srgb, ${settings.expiredColor} 20%, #ffffff) !important; }
         
-        .row-urgent1 { background: ${settings.urgent1Color}1a !important; border-left: 3px solid ${settings.urgent1Color}; }
-        .row-urgent1:hover { background: ${settings.urgent1Color}2a !important; }
+        .row-urgent1 { background: color-mix(in srgb, ${settings.urgent1Color} 12%, #ffffff) !important; border-left: 3px solid ${settings.urgent1Color}; }
+        .row-urgent1:hover { background: color-mix(in srgb, ${settings.urgent1Color} 20%, #ffffff) !important; }
         
-        .row-urgent2 { background: ${settings.urgent2Color}1a !important; border-left: 3px solid ${settings.urgent2Color}; }
-        .row-urgent2:hover { background: ${settings.urgent2Color}2a !important; }
+        .row-urgent2 { background: color-mix(in srgb, ${settings.urgent2Color} 12%, #ffffff) !important; border-left: 3px solid ${settings.urgent2Color}; }
+        .row-urgent2:hover { background: color-mix(in srgb, ${settings.urgent2Color} 20%, #ffffff) !important; }
         
         .row-completed { opacity: 0.7; }
         .row-completed .status-chip { text-decoration: none; }
