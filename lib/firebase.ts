@@ -12,9 +12,17 @@ import { getFirestore } from 'firebase/firestore'
 function getFirebaseApp() {
   if (typeof window === 'undefined') return null
   if (getApps().length > 0) return getApps()[0]
+
+  // On production (non-localhost), use current domain as authDomain
+  // so redirect auth stays on same domain (no third-party cookie issues)
+  const isLocalhost = window.location.hostname === 'localhost'
+  const authDomain = isLocalhost
+    ? process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN!
+    : window.location.host
+
   return initializeApp({
     apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-    authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+    authDomain,
     projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
   })
 }
@@ -34,7 +42,6 @@ export function getFirebaseDb() {
   return getFirestore(app)
 }
 
-// Lazy singletons for client use
 let _auth: ReturnType<typeof getAuth> | null = null
 let _db: ReturnType<typeof getFirestore> | null = null
 
@@ -48,12 +55,9 @@ export function db() {
   return _db
 }
 
-// === Auth redirect result promise (resolved once on app load) ===
+// === Redirect result (resolved once) ===
 let _redirectPromise: Promise<void> | null = null
 
-/**
- * Process redirect result. Safe to call multiple times — only runs once.
- */
 export function waitForRedirectResult(): Promise<void> {
   if (typeof window === 'undefined') return Promise.resolve()
   if (!_redirectPromise) {
@@ -66,34 +70,31 @@ export function waitForRedirectResult(): Promise<void> {
           }
         }
       })
-      .catch(() => {
-        // Ignore — no redirect result
+      .catch((err) => {
+        console.log('Redirect result:', err?.code || err)
       })
   }
   return _redirectPromise
 }
 
 /**
- * Sign in with Google.
- * Tries popup first. If blocked, falls back to redirect.
+ * Sign in: popup on localhost, redirect on production.
  */
 export async function signInWithGoogle() {
-  try {
+  const isLocalhost = typeof window !== 'undefined' && window.location.hostname === 'localhost'
+
+  if (isLocalhost) {
     const result = await signInWithPopup(auth(), provider)
     const credential = GoogleAuthProvider.credentialFromResult(result)
     if (credential?.accessToken) {
       localStorage.setItem('google_access_token', credential.accessToken)
     }
     return result
-  } catch (err: unknown) {
-    const code = (err as { code?: string })?.code
-    if (code === 'auth/popup-blocked' || code === 'auth/popup-closed-by-user') {
-      // Fallback to redirect
-      await signInWithRedirect(auth(), provider)
-      return null
-    }
-    throw err
   }
+
+  // Production: always use redirect (no popup issues)
+  await signInWithRedirect(auth(), provider)
+  return null
 }
 
 export function hasGoogleToken(): boolean {
