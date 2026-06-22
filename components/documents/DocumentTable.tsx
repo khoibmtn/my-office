@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react'
-import { Loader2, Trash2, Eye, RefreshCw, CheckCircle2, Clock, AlertTriangle, XCircle, CircleDot, Search, Pencil, ArrowUpDown } from 'lucide-react'
+import { Loader2, Trash2, Eye, RefreshCw, CheckCircle2, Clock, AlertTriangle, XCircle, CircleDot, Search, Pencil, ArrowUpDown, ClipboardCopy } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
@@ -482,6 +482,60 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
             </button>
           )
         })}
+
+        <button
+          className="badge-filter px-2 py-1 rounded shadow-sm flex items-center gap-1 transition-all border text-xs font-semibold"
+          style={{
+            '--badge-color': '#3b82f6',
+            background: '#eff6ff',
+            borderColor: '#93c5fd',
+            color: '#2563eb',
+          } as React.CSSProperties}
+          title="Copy thống kê theo nhân viên"
+          onClick={() => {
+            const lines: string[] = []
+            let idx = 1
+            // Group baseDocs by assignee
+            const grouped: Record<string, typeof baseDocs> = {}
+            baseDocs.forEach(d => {
+              const name = d.assignee || '(Chưa giao)'
+              if (!grouped[name]) grouped[name] = []
+              grouped[name].push(d)
+            })
+            const sortedNames = Object.keys(grouped).sort()
+            sortedNames.forEach(name => {
+              const docs = grouped[name]
+              const total = docs.length
+              lines.push(`${idx}. ${name}: ${total} văn bản`)
+              // Breakdown by deadline
+              let overdue = 0, expired = 0, u1 = 0, u2 = 0, normal = 0, completed = 0, noDeadline = 0
+              docs.forEach(d => {
+                if (d.status === 'completed') { completed++; return }
+                const days = getDaysRemaining(d.deadline)
+                if (days === null) noDeadline++
+                else if (days < 0) overdue++
+                else if (days === 0) expired++
+                else if (days >= 1 && days <= 3) u1++
+                else if (days >= 4 && days <= 7) u2++
+                else normal++
+              })
+              if (overdue > 0) lines.push(`   - Quá hạn: ${overdue}`)
+              if (expired > 0) lines.push(`   - Hết hạn (0 ngày): ${expired}`)
+              if (u1 > 0) lines.push(`   - Cận hạn 1-3 ngày: ${u1}`)
+              if (u2 > 0) lines.push(`   - Cận hạn 4-7 ngày: ${u2}`)
+              if (normal > 0) lines.push(`   - Còn hạn > 7 ngày: ${normal}`)
+              if (noDeadline > 0) lines.push(`   - Không có hạn: ${noDeadline}`)
+              if (completed > 0) lines.push(`   - Hoàn thành: ${completed}`)
+              idx++
+            })
+            navigator.clipboard.writeText(lines.join('\n'))
+              .then(() => alert('Đã copy thống kê vào clipboard!'))
+              .catch(() => alert('Lỗi copy!'))
+          }}
+        >
+          <ClipboardCopy className="h-3.5 w-3.5" />
+          Copy
+        </button>
       </div>
 
       <Table className="doc-table">
