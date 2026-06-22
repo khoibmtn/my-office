@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { X, Copy, Check, ExternalLink, FileText, Paperclip, Download, FileSpreadsheet, FileImage, FileArchive, File as FileGeneric } from 'lucide-react'
 import { getDocument } from '@/lib/firestore'
+import { parseFileNameFromUrl } from '@/lib/utils'
 import type { Document } from '@/types'
 
 function getDaysRemaining(ts: { toDate(): Date } | undefined): number | null {
@@ -73,7 +74,7 @@ export function DocumentModal({ docId, onClose }: DocumentModalProps) {
   const allFiles = doc ? [
     {
       id: 'main',
-      label: 'File chính',
+      label: doc.originalLink ? parseFileNameFromUrl(doc.originalLink, 'File chính') : 'File chính',
       type: 'main' as const,
       url: doc.driveViewUrl,
       driveId: doc.driveFileId,

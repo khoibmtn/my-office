@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input'
 import type { AttachmentInput as AttachmentInputItem } from '@/types'
 import { X, Plus } from 'lucide-react'
 import { v4 as uuid } from 'uuid'
+import { parseFileNameFromUrl } from '@/lib/utils'
 
 interface Props {
   value: (AttachmentInputItem & { id: string })[]
@@ -18,22 +19,18 @@ export function AttachmentInput({ value, onChange }: Props) {
   const removeRow = (id: string) =>
     onChange(value.filter((item) => item.id !== id))
 
-  const updateRow = (id: string, field: keyof AttachmentInputItem, val: string) =>
-    onChange(value.map((item) => (item.id === id ? { ...item, [field]: val } : item)))
+  const updateRowUrl = (id: string, val: string) =>
+    onChange(value.map((item) => (item.id === id ? { ...item, originalLink: val, title: parseFileNameFromUrl(val) } : item)))
 
   return (
     <div className="flex flex-col gap-2">
       {value.map((item) => (
         <div key={item.id} className="flex gap-2">
           <Input
-            placeholder="Tên đính kèm"
-            value={item.title}
-            onChange={(e) => updateRow(item.id, 'title', e.target.value)}
-          />
-          <Input
             placeholder="Link file đính kèm"
             value={item.originalLink}
-            onChange={(e) => updateRow(item.id, 'originalLink', e.target.value)}
+            onChange={(e) => updateRowUrl(item.id, e.target.value)}
+            className="flex-1"
           />
           <Button
             type="button"
