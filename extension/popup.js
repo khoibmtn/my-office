@@ -10,9 +10,7 @@ const DEFAULT_API_URL = 'http://localhost:3000';
 let currentMetadata = null;
 
 const els = {
-  notQlvb: () => document.getElementById('not-qlvb'),
-  noDoc: () => document.getElementById('no-doc'),
-  loading: () => document.getElementById('loading'),
+  loadingOverlay: () => document.getElementById('loading-overlay'),
   error: () => document.getElementById('error'),
   errorMsg: () => document.getElementById('error-msg'),
   mainForm: () => document.getElementById('main-form'),
@@ -60,11 +58,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     els.btnSubmit().disabled = false;
   });
 
-  // Extract data from current tab first
-  await extractFromCurrentTab();
+  els.loadingOverlay().style.display = 'flex';
 
-  // Show today's history at bottom
-  await renderTodayHistory();
+  // Extract data and render history in parallel
+  await Promise.all([
+    extractFromCurrentTab(),
+    renderTodayHistory()
+  ]);
+
+  els.loadingOverlay().style.display = 'none';
 });
 
 // ========== HISTORY ==========
@@ -91,6 +93,9 @@ async function renderTodayHistory() {
     return true;
   });
   
+  // Sort descending by timestamp
+  items.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+
   if (items.length === 0) {
     els.historySection().style.display = 'none';
     return;
@@ -105,6 +110,14 @@ async function renderTodayHistory() {
     
     const tdIdx = document.createElement('td');
     tdIdx.textContent = i + 1;
+
+    const tdTime = document.createElement('td');
+    if (item.timestamp) {
+      const d = new Date(item.timestamp);
+      tdTime.textContent = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth()+1).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+    } else {
+      tdTime.textContent = '—';
+    }
     
     const tdDoc = document.createElement('td');
     tdDoc.textContent = item.docNumber || '—';
@@ -127,6 +140,7 @@ async function renderTodayHistory() {
     
     tdStatus.appendChild(badge);
     tr.appendChild(tdIdx);
+    tr.appendChild(tdTime);
     tr.appendChild(tdDoc);
     tr.appendChild(tdStatus);
     tbody.appendChild(tr);
@@ -143,14 +157,12 @@ async function isAlreadySentToday(docNumber) {
 // ========== DATA EXTRACTION ==========
 
 async function extractFromCurrentTab() {
-  els.loading().style.display = 'block';
-  
   try {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     
     if (!tab || !tab.url || !tab.url.includes('qlvb.hpnet.vn')) {
-      els.loading().style.display = 'none';
-      els.notQlvb().style.display = 'block';
+      // Not on qlvb page -> Hide form
+      els.mainForm().style.display = 'none';
       return;
     }
 
@@ -167,25 +179,21 @@ async function extractFromCurrentTab() {
         await new Promise(r => setTimeout(r, 300));
         response = await chrome.tabs.sendMessage(tab.id, { action: 'extract-data' });
       } catch (injectErr) {
-        throw new Error('Không thể kết nối. Hãy reload trang (F5) rồi thử lại.');
+        // Injection failed -> Hide form
+        els.mainForm().style.display = 'none';
+        return;
       }
     }
     
-    if (!response || !response.success) {
-      throw new Error(response?.error || 'Không thể đọc dữ liệu.');
-    }
-
-    // Check if no document popup is open (on list page)
-    if (response.data._noDocument) {
-      els.loading().style.display = 'none';
-      els.noDoc().style.display = 'block';
+    if (!response || !response.success || response.data._noDocument) {
+      // No valid document extracted -> Hide form
+      els.mainForm().style.display = 'none';
       return;
     }
 
     currentMetadata = response.data;
     displayMetadata(currentMetadata);
     
-    els.loading().style.display = 'none';
     els.mainForm().style.display = 'block';
 
     // Always check duplicate from database
@@ -193,7 +201,6 @@ async function extractFromCurrentTab() {
       await checkDuplicate(currentMetadata.docNumber);
     }
   } catch (err) {
-    els.loading().style.display = 'none';
     showError(err.message || 'Lỗi khi đọc trang.');
   }
 }
