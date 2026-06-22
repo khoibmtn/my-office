@@ -844,15 +844,15 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
           white-space: nowrap;
         }
         .status-chip:hover { transform: scale(1.05); }
-        .status-completed { background: color-mix(in srgb, ${settings.completedColor} 20%, #ffffff); color: ${settings.completedColor}; }
-        .status-pending { background: #f1f5f9; color: #475569; }
-        .status-progress { background: #dbeafe; color: #1d4ed8; }
-        .status-urgent1 { background: color-mix(in srgb, ${settings.urgent1Color} 20%, #ffffff); color: ${settings.urgent1Color}; }
-        .status-urgent2 { background: color-mix(in srgb, ${settings.urgent2Color} 20%, #ffffff); color: ${settings.urgent2Color}; }
-        .status-overdue { background: color-mix(in srgb, ${settings.overdueColor} 20%, #ffffff); color: ${settings.overdueColor}; }
-        .status-expired { background: color-mix(in srgb, ${settings.expiredColor} 20%, #ffffff); color: ${settings.expiredColor}; }
-        .status-uploading { background: #f1f5f9; color: #64748b; }
-        .status-failed { background: #fee2e2; color: #dc2626; }
+        .status-completed { background: ${settings.completedColor}; color: #fff; }
+        .status-pending { background: #94a3b8; color: #fff; }
+        .status-progress { background: #3b82f6; color: #fff; }
+        .status-urgent1 { background: ${settings.urgent1Color}; color: #fff; }
+        .status-urgent2 { background: ${settings.urgent2Color}; color: #fff; }
+        .status-overdue { background: ${settings.overdueColor}; color: #fff; }
+        .status-expired { background: ${settings.expiredColor}; color: #fff; }
+        .status-uploading { background: #cbd5e1; color: #475569; }
+        .status-failed { background: #dc2626; color: #fff; }
 
         .days-badge {
           display: inline-block;
