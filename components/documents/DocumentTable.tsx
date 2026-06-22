@@ -192,9 +192,9 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
 
   // Count stats
   const stats = useMemo(() => {
-    let overdue = 0, expired = 0, urgent1 = 0, urgent2 = 0, normal = 0
+    let overdue = 0, expired = 0, urgent1 = 0, urgent2 = 0, normal = 0, completed = 0
     baseDocs.forEach(d => {
-      if (d.status === 'completed') return
+      if (d.status === 'completed') { completed++; return }
       const days = getDaysRemaining(d.deadline)
       if (days === null) { /* no deadline */ }
       else if (days < 0) overdue++
@@ -203,7 +203,7 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
       else if (days >= 4 && days <= 7) urgent2++
       else normal++
     })
-    return { overdue, expired, urgent1, urgent2, normal }
+    return { overdue, expired, urgent1, urgent2, normal, completed }
   }, [baseDocs])
 
   const filteredDocs = useMemo(() => {
@@ -224,9 +224,10 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
     // Badge filters
     if (badgeFilters.length > 0) {
       result = result.filter(d => {
-        if (d.status === 'completed') return false
         const days = getDaysRemaining(d.deadline)
         return badgeFilters.some(bf => {
+          if (bf === 'completed') return d.status === 'completed'
+          if (d.status === 'completed') return false
           if (bf === 'overdue') return days !== null && days < 0
           if (bf === 'expired') return days !== null && days === 0
           if (bf === 'urgent1') return days !== null && days >= 1 && days <= 3
@@ -385,7 +386,8 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
           { key: 'expired', count: stats.expired, color: settings.expiredColor, label: 'Hết hạn (0 ngày)' },
           { key: 'urgent1', count: stats.urgent1, color: settings.urgent1Color, label: 'Cận hạn 1-3 ngày' },
           { key: 'urgent2', count: stats.urgent2, color: settings.urgent2Color, label: 'Cận hạn 4-7 ngày' },
-          { key: 'normal', count: stats.normal, color: settings.normalColor, label: 'Còn hạn > 7 ngày' }
+          { key: 'normal', count: stats.normal, color: settings.normalColor, label: 'Còn hạn > 7 ngày' },
+          ...(filterStatus === 'all' ? [{ key: 'completed', count: stats.completed, color: settings.completedColor, label: 'Hoàn thành' }] : [])
         ].map(b => {
           if (b.count === 0) return null
           const isSelected = badgeFilters.includes(b.key)
@@ -399,7 +401,7 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
               }}
               className={`px-2 py-1 rounded shadow-sm flex items-center gap-1 transition-all border`}
               style={{ 
-                background: isSelected ? b.color : `${b.color}1a`,
+                background: isSelected ? b.color : `color-mix(in srgb, ${b.color} 12%, #ffffff)`,
                 borderColor: b.color,
                 color: isSelected ? '#fff' : b.color,
                 boxShadow: isSelected ? `0 0 0 2px #fff, 0 0 0 4px ${b.color}` : 'none'
@@ -437,6 +439,7 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
               else if (days === 0) rowClass = 'row-expired'
               else if (days >= 1 && days <= 3) rowClass = 'row-urgent1'
               else if (days >= 4 && days <= 7) rowClass = 'row-urgent2'
+              else rowClass = 'row-normal'
             }
 
             const priorityLabels: Record<string, { label: string, color: string }> = {
@@ -679,7 +682,11 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
         .row-urgent2 { background: color-mix(in srgb, ${settings.urgent2Color} 12%, #ffffff) !important; border-left: 3px solid ${settings.urgent2Color}; }
         .row-urgent2:hover { background: color-mix(in srgb, ${settings.urgent2Color} 20%, #ffffff) !important; }
         
-        .row-completed { opacity: 0.7; }
+        .row-normal { background: color-mix(in srgb, ${settings.normalColor} 12%, #ffffff) !important; border-left: 3px solid ${settings.normalColor}; }
+        .row-normal:hover { background: color-mix(in srgb, ${settings.normalColor} 20%, #ffffff) !important; }
+        
+        .row-completed { opacity: 0.7; background: color-mix(in srgb, ${settings.completedColor} 8%, #ffffff) !important; border-left: 3px solid ${settings.completedColor}; }
+        .row-completed:hover { background: color-mix(in srgb, ${settings.completedColor} 15%, #ffffff) !important; }
         .row-completed .status-chip { text-decoration: none; }
         .row-completed .assign-select { text-decoration: none; }
 
