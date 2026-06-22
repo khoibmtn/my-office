@@ -122,17 +122,7 @@ export function DocumentModal({ docId, onClose }: DocumentModalProps) {
         {/* Header */}
         <div className="modal-header">
           <div className="modal-header-info">
-            <h2>{doc?.title || 'Đang tải...'}</h2>
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 2 }}>
-              {doc?.docNumber && (
-                <span className="modal-doc-number">{doc.docNumber}</span>
-              )}
-              {doc && (() => {
-                const days = getDaysRemaining(doc.deadline)
-                const si = getStatusInfo(doc, days)
-                return <span className={`modal-status-badge ${si.cls}`}>{si.label}</span>
-              })()}
-            </div>
+            <h2 style={{ fontSize: '1.1rem', lineHeight: '1.4' }}>{doc?.title || 'Đang tải...'}</h2>
           </div>
           <button className="modal-close" onClick={onClose}>
             <X size={20} />
@@ -150,6 +140,29 @@ export function DocumentModal({ docId, onClose }: DocumentModalProps) {
             <div className="modal-sidebar">
               {/* Meta */}
               <div className="modal-meta">
+                <div className="meta-row">
+                  <span className="meta-label">Số VB:</span>
+                  <div className="flex items-center gap-2">
+                    <span>{doc.docNumber || 'Không có'}</span>
+                    {(() => {
+                      const days = getDaysRemaining(doc.deadline)
+                      const si = getStatusInfo(doc, days)
+                      return <span className={`modal-status-badge ${si.cls}`}>{si.label}</span>
+                    })()}
+                  </div>
+                </div>
+                {doc.sender && (
+                  <div className="meta-row">
+                    <span className="meta-label">Cơ quan ban hành:</span>
+                    <span>{doc.sender}</span>
+                  </div>
+                )}
+                {doc.issueDate && (
+                  <div className="meta-row">
+                    <span className="meta-label">Ngày ban hành:</span>
+                    <span>{doc.issueDate.toDate().toLocaleDateString('vi-VN')}</span>
+                  </div>
+                )}
                 {doc.deadline && (() => {
                   const days = getDaysRemaining(doc.deadline)
                   const daysText = days === null ? '' : days < 0 ? ` (quá ${Math.abs(days)} ngày)` : days === 0 ? ' (hôm nay!)' : ` (còn ${days} ngày)`
@@ -162,14 +175,8 @@ export function DocumentModal({ docId, onClose }: DocumentModalProps) {
                 })()}
                 {doc.assignee && (
                   <div className="meta-row">
-                    <span className="meta-label">Người nhận:</span>
+                    <span className="meta-label">Người được giao:</span>
                     <span>{doc.assignee}</span>
-                  </div>
-                )}
-                {doc.sender && (
-                  <div className="meta-row">
-                    <span className="meta-label">CQBH:</span>
-                    <span>{doc.sender}</span>
                   </div>
                 )}
                 {doc.notes && (() => {
@@ -181,9 +188,9 @@ export function DocumentModal({ docId, onClose }: DocumentModalProps) {
                   })
                   if (filtered.length === 0) return null
                   return (
-                    <div className="bg-amber-50 border border-amber-200 rounded p-2 mb-2 mx-4 mt-2">
-                      <p className="text-xs font-semibold text-amber-800 mb-1">📝 Ghi chú cá nhân:</p>
-                      <p className="text-sm text-amber-900 whitespace-pre-wrap">{filtered.join('\n')}</p>
+                    <div className="meta-row" style={{ alignItems: 'flex-start' }}>
+                      <span className="meta-label" style={{ marginTop: 2 }}>Ghi chú:</span>
+                      <span className="whitespace-pre-wrap">{filtered.join('\n')}</span>
                     </div>
                   )
                 })()}
