@@ -185,7 +185,7 @@ async function extractFromCurrentTab() {
       }
     }
     
-    if (!response || !response.success || response.data._noDocument) {
+    if (!response || !response.success || response.data._noDocument || !response.data.docNumber) {
       // No valid document extracted -> Hide form
       els.mainForm().style.display = 'none';
       return;
