@@ -145,6 +145,7 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
   const [filterPriority, setFilterPriority] = useState<string>('all')
   const [filterPerson, setFilterPerson] = useState<string>('all')
   const [badgeFilters, setBadgeFilters] = useState<string[]>([])
+  const [staffBadgeFilter, setStaffBadgeFilter] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' } | null>(null)
   
@@ -206,6 +207,16 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
     return { overdue, expired, urgent1, urgent2, normal, completed }
   }, [baseDocs])
 
+  // Staff stats from baseDocs
+  const staffStats = useMemo(() => {
+    const counts: Record<string, number> = {}
+    baseDocs.forEach(d => {
+      const name = d.assignee || '(Chưa giao)'
+      counts[name] = (counts[name] || 0) + 1
+    })
+    return Object.entries(counts).sort((a, b) => a[0].localeCompare(b[0]))
+  }, [baseDocs])
+
   const filteredDocs = useMemo(() => {
     let result = baseDocs
 
@@ -235,6 +246,14 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
           if (bf === 'normal') return days === null || days > 7
           return false
         })
+      })
+    }
+
+    // Staff badge filter
+    if (staffBadgeFilter) {
+      result = result.filter(d => {
+        if (staffBadgeFilter === '(Chưa giao)') return !d.assignee
+        return d.assignee === staffBadgeFilter
       })
     }
 
@@ -274,7 +293,7 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
     }
 
     return result
-  }, [baseDocs, badgeFilters, searchQuery, wordMatch, sortConfig])
+  }, [baseDocs, badgeFilters, staffBadgeFilter, searchQuery, wordMatch, sortConfig])
 
   const handleSort = (key: string) => {
     let direction: 'asc' | 'desc' = 'asc'
@@ -408,6 +427,28 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
               }}
             >
               {b.label}: {b.count}
+              {isSelected && <span className="opacity-70 hover:opacity-100 font-normal ml-1 text-sm leading-none">×</span>}
+            </button>
+          )
+        })}
+
+        <div className="flex-1" />
+
+        {staffStats.map(([name, count]) => {
+          const isSelected = staffBadgeFilter === name
+          return (
+            <button
+              key={name}
+              onClick={() => setStaffBadgeFilter(staffBadgeFilter === name ? null : name)}
+              className={`px-2 py-1 rounded shadow-sm flex items-center gap-1 transition-all border text-xs font-semibold`}
+              style={{
+                background: isSelected ? '#475569' : '#f1f5f9',
+                borderColor: isSelected ? '#334155' : '#cbd5e1',
+                color: isSelected ? '#fff' : '#475569',
+                boxShadow: isSelected ? '0 0 0 2px #fff, 0 0 0 4px #475569' : 'none'
+              }}
+            >
+              {name}: {count}
               {isSelected && <span className="opacity-70 hover:opacity-100 font-normal ml-1 text-sm leading-none">×</span>}
             </button>
           )
