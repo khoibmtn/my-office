@@ -80,6 +80,7 @@ export async function POST(request: NextRequest) {
     const sender = (form.get('sender') as string) ?? ''
     const leader = (form.get('leader') as string) ?? ''
     const originalLink = (form.get('originalLink') as string) ?? ''
+    const priority = (form.get('priority') as string) ?? 'normal'
     const notes = (form.get('notes') as string) ?? ''
     const tags = (form.get('tags') as string) ?? ''
     const userAccessToken = (form.get('userAccessToken') as string) ?? undefined
@@ -137,6 +138,7 @@ export async function POST(request: NextRequest) {
       mimeType: mainResult.mimeType,
       attachments: attachmentResults,
       status: 'pending',
+      priority,
       deadline: deadlineDate ? deadlineDate : null,
       task: '',
       assignee,

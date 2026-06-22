@@ -93,6 +93,7 @@ async function submitToMyOffice(apiUrl, metadata, mainFileBlob, mainFileName, at
   form.append('sender', metadata.sender || '');
   form.append('leader', metadata.leader || '');
   form.append('originalLink', metadata.pageUrl || '');
+  form.append('priority', metadata.priority || 'normal');
   // Notes: only CQBH and leader, no duplication
   form.append('notes', '');
   form.append('tags', '');

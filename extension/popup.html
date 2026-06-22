@@ -11,19 +11,10 @@
       <h1>📋 My Office - QLVB Helper</h1>
     </header>
 
-    <!-- Status: not on qlvb page -->
-    <div id="not-qlvb" class="status-msg" style="display:none;">
-      <p>⚠️ Hãy mở trang <strong>qlvb.hpnet.vn</strong> và xem một văn bản trước khi sử dụng extension.</p>
-    </div>
-
-    <!-- Status: on qlvb but no document popup -->
-    <div id="no-doc" class="status-msg info" style="display:none;">
-      <p>📄 Bạn đang ở trang danh sách. Hãy <strong>mở một văn bản</strong> (bấm vào tên văn bản) để ghi vào My Office.</p>
-    </div>
-
-    <!-- Loading -->
-    <div id="loading" class="status-msg" style="display:none;">
-      <p>⏳ Đang đọc dữ liệu...</p>
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" class="loading-overlay">
+      <div class="spinner"></div>
+      <p>Đang tải dữ liệu...</p>
     </div>
 
     <!-- Error -->
@@ -53,6 +44,16 @@
         <div class="field">
           <label>CQ ban hành</label>
           <input type="text" id="sender" readonly>
+        </div>
+        <div class="field">
+          <label>Mức độ khẩn</label>
+          <select id="priority">
+            <option value="normal">Thường</option>
+            <option value="urgent">Khẩn</option>
+            <option value="very_urgent">Thượng khẩn</option>
+            <option value="express">Hỏa tốc</option>
+            <option value="express_scheduled">Hỏa tốc hẹn giờ</option>
+          </select>
         </div>
         <div class="field full-width">
           <label>Tiêu đề (Trích yếu)</label>
@@ -97,6 +98,7 @@
         <thead>
           <tr>
             <th>#</th>
+            <th>Thời gian</th>
             <th>Số hiệu</th>
             <th>Trạng thái</th>
           </tr>

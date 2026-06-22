@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useCallback, useMemo } from 'react'
-import { Loader2, Trash2, Eye, RefreshCw, CheckCircle2, Clock, AlertTriangle, XCircle, CircleDot, Search } from 'lucide-react'
+import { Loader2, Trash2, Eye, RefreshCw, CheckCircle2, Clock, AlertTriangle, XCircle, CircleDot, Search, Pencil, ArrowUpDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
@@ -9,6 +9,7 @@ import {
 import type { Document, DocumentStatus } from '@/types'
 import { submitDocumentWithDriveCopy, deleteDocument, updateDocument } from '@/lib/firestore'
 import { DocumentModal } from './DocumentModal'
+import Link from 'next/link'
 import { useStaff } from '@/hooks/useStaff'
 import { useSettings } from '@/hooks/useSettings'
 
@@ -93,8 +94,10 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
   const [deleting, setDeleting] = useState<string | null>(null)
   const [viewingId, setViewingId] = useState<string | null>(null)
   const [filterStatus, setFilterStatus] = useState<string>('all')
+  const [filterPriority, setFilterPriority] = useState<string>('all')
   const [filterPerson, setFilterPerson] = useState<string>('all')
   const [searchQuery, setSearchQuery] = useState('')
+  const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' } | null>(null)
 
   // Fuzzy search helper
   const fuzzyMatch = useCallback((text: string, query: string) => {
@@ -134,8 +137,45 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
       })
     }
     if (filterPerson !== 'all') result = result.filter(d => d.assignee === filterPerson)
+    if (filterPriority !== 'all') result = result.filter(d => (d.priority || 'normal') === filterPriority)
+
+    // Sorting
+    if (sortConfig) {
+      result = [...result].sort((a, b) => {
+        let valA: any = (a as any)[sortConfig.key]
+        let valB: any = (b as any)[sortConfig.key]
+
+        if (sortConfig.key === 'issueDate' || sortConfig.key === 'deadline') {
+          valA = valA?.toMillis ? valA.toMillis() : (valA ? new Date(valA).getTime() : 0)
+          valB = valB?.toMillis ? valB.toMillis() : (valB ? new Date(valB).getTime() : 0)
+        } else if (sortConfig.key === 'createdAt') {
+          valA = a.createdAt?.toMillis ? a.createdAt.toMillis() : 0
+          valB = b.createdAt?.toMillis ? b.createdAt.toMillis() : 0
+        }
+
+        if (valA < valB) return sortConfig.direction === 'asc' ? -1 : 1
+        if (valA > valB) return sortConfig.direction === 'asc' ? 1 : -1
+        return 0
+      })
+    } else {
+      // Default sort
+      result = [...result].sort((a, b) => {
+        const tA = a.createdAt?.toMillis ? a.createdAt.toMillis() : 0
+        const tB = b.createdAt?.toMillis ? b.createdAt.toMillis() : 0
+        return tB - tA
+      })
+    }
+
     return result
-  }, [documents, filterStatus, filterPerson, searchQuery, fuzzyMatch])
+  }, [documents, filterStatus, filterPerson, filterPriority, searchQuery, fuzzyMatch, sortConfig])
+
+  const handleSort = (key: string) => {
+    let direction: 'asc' | 'desc' = 'asc'
+    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc'
+    }
+    setSortConfig({ key, direction })
+  }
 
   const handleRetry = useCallback(async (doc: Document) => {
     setRetrying(doc.id)
@@ -204,6 +244,17 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
           </select>
         </div>
         <div className="filter-group">
+          <label>Mức độ khẩn:</label>
+          <select value={filterPriority} onChange={e => setFilterPriority(e.target.value)}>
+            <option value="all">Tất cả</option>
+            <option value="normal">Thường</option>
+            <option value="urgent">Khẩn</option>
+            <option value="very_urgent">Thượng khẩn</option>
+            <option value="express">Hỏa tốc</option>
+            <option value="express_scheduled">Hỏa tốc hẹn giờ</option>
+          </select>
+        </div>
+        <div className="filter-group">
           <label>Người thực hiện:</label>
           <select value={filterPerson} onChange={e => setFilterPerson(e.target.value)}>
             <option value="all">Tất cả</option>
@@ -216,14 +267,14 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
       <Table className="doc-table">
         <TableHeader>
           <TableRow className="doc-table-header">
-            <TableHead style={{ width: 36 }}>#</TableHead>
-            <TableHead style={{ width: 90 }}>Ngày BH</TableHead>
-            <TableHead style={{ width: 130 }}>Mã hiệu</TableHead>
-            <TableHead className="w-[25%]">Tiêu đề</TableHead>
-            <TableHead style={{ width: 120 }}>Tình trạng</TableHead>
-            <TableHead style={{ width: 90 }}>Deadline</TableHead>
-            <TableHead style={{ width: 80 }}>Còn lại</TableHead>
-            <TableHead style={{ width: 130 }}>Người TH</TableHead>
+            <TableHead style={{ width: 36 }} className="cursor-pointer hover:bg-slate-100" onClick={() => setSortConfig(null)}>#</TableHead>
+            <TableHead style={{ width: 90 }} className="cursor-pointer hover:bg-slate-100" onClick={() => handleSort('issueDate')}>Ngày BH <ArrowUpDown className="h-3 w-3 inline ml-1"/></TableHead>
+            <TableHead style={{ width: 130 }} className="cursor-pointer hover:bg-slate-100" onClick={() => handleSort('docNumber')}>Mã hiệu <ArrowUpDown className="h-3 w-3 inline ml-1"/></TableHead>
+            <TableHead className="w-[25%] cursor-pointer hover:bg-slate-100" onClick={() => handleSort('title')}>Tiêu đề <ArrowUpDown className="h-3 w-3 inline ml-1"/></TableHead>
+            <TableHead style={{ width: 120 }} className="cursor-pointer hover:bg-slate-100" onClick={() => handleSort('status')}>Tình trạng <ArrowUpDown className="h-3 w-3 inline ml-1"/></TableHead>
+            <TableHead style={{ width: 90 }} className="cursor-pointer hover:bg-slate-100" onClick={() => handleSort('deadline')}>Deadline <ArrowUpDown className="h-3 w-3 inline ml-1"/></TableHead>
+            <TableHead style={{ width: 80 }} className="cursor-pointer hover:bg-slate-100" onClick={() => handleSort('deadline')}>Còn lại <ArrowUpDown className="h-3 w-3 inline ml-1"/></TableHead>
+            <TableHead style={{ width: 130 }} className="cursor-pointer hover:bg-slate-100" onClick={() => handleSort('assignee')}>Người TH <ArrowUpDown className="h-3 w-3 inline ml-1"/></TableHead>
             <TableHead style={{ width: 130 }}>Actions</TableHead>
           </TableRow>
         </TableHeader>
@@ -234,6 +285,15 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
             const rowDanger = days !== null && days <= 0
             const rowWarning = days !== null && days === 1
 
+            const priorityLabels: Record<string, { label: string, color: string }> = {
+              normal: { label: 'Thường', color: 'bg-slate-100 text-slate-600' },
+              urgent: { label: 'Khẩn', color: 'bg-amber-100 text-amber-700' },
+              very_urgent: { label: 'Thượng khẩn', color: 'bg-orange-100 text-orange-700' },
+              express: { label: 'Hỏa tốc', color: 'bg-red-100 text-red-700' },
+              express_scheduled: { label: 'Hỏa tốc hẹn giờ', color: 'bg-rose-100 text-rose-700' }
+            }
+            const prio = priorityLabels[doc.priority || 'normal']
+
             return (
               <TableRow
                 key={doc.id}
@@ -243,13 +303,20 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
                 <TableCell className="text-xs">{formatDate(doc.issueDate)}</TableCell>
                 <TableCell className="font-semibold text-slate-800 text-xs">{doc.docNumber || '—'}</TableCell>
                 <TableCell style={{ maxWidth: 280 }}>
-                  <span className="text-xs">
-                    {doc.title}
-                    {doc.attachments && doc.attachments.length > 0 && (
-                      <span className="text-slate-500 ml-1 font-medium whitespace-nowrap">
-                        ({doc.attachments.length} 📎)
+                  <span className="text-xs flex flex-col gap-1 items-start">
+                    {prio && doc.priority && doc.priority !== 'normal' && (
+                      <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium ${prio.color}`}>
+                        {prio.label}
                       </span>
                     )}
+                    <span>
+                      {doc.title}
+                      {doc.attachments && doc.attachments.length > 0 && (
+                        <span className="text-slate-500 ml-1 font-medium whitespace-nowrap">
+                          ({doc.attachments.length} 📎)
+                        </span>
+                      )}
+                    </span>
                   </span>
                 </TableCell>
                 <TableCell>
@@ -285,9 +352,16 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
                         {retrying === doc.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
                       </Button>
                     ) : doc.status !== 'uploading' && (
-                      <Button size="sm" variant="default" onClick={() => setViewingId(doc.id)} title="Xem">
-                        <Eye className="h-3 w-3 mr-1" /> Xem
-                      </Button>
+                      <>
+                        <Button size="icon" variant="outline" className="h-8 w-8" onClick={() => setViewingId(doc.id)} title="Xem">
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                        <Button size="icon" variant="outline" className="h-8 w-8" asChild title="Sửa">
+                          <Link href={`/documents/${doc.id}/edit`}>
+                            <Pencil className="h-4 w-4 text-slate-600" />
+                          </Link>
+                        </Button>
+                      </>
                     )}
                     <Button
                       size="sm" variant="ghost"

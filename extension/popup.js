@@ -19,6 +19,7 @@ const els = {
   deadline: () => document.getElementById('deadline'),
   handler: () => document.getElementById('handler'),
   sender: () => document.getElementById('sender'),
+  priority: () => document.getElementById('priority'),
   title: () => document.getElementById('title'),
   fileList: () => document.getElementById('file-list'),
   btnSubmit: () => document.getElementById('btn-submit'),
@@ -213,6 +214,7 @@ function displayMetadata(data) {
   els.deadline().value = data.deadline || '';
   els.handler().value = data.handler || '';
   els.sender().value = data.sender || '';
+  els.priority().value = data.priority || 'normal';
   els.title().value = data.summary || '';
 
   const fileListEl = els.fileList();
@@ -286,7 +288,13 @@ async function handleSubmit() {
     }
   });
 
-  const submissionMetadata = { ...currentMetadata, attachments: selectedAttachments };
+  const selectedPriority = els.priority().value;
+
+  const submissionMetadata = { 
+    ...currentMetadata, 
+    attachments: selectedAttachments,
+    priority: selectedPriority
+  };
 
   try {
     const settings = await chrome.storage.local.get(['apiUrl']);

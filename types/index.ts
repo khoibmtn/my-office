@@ -35,6 +35,7 @@ export interface Document {
   deadline?: Timestamp
   task?: string
   assignee?: string
+  priority?: string
   notes?: string
   tags?: string[]
   textSnippet?: string
@@ -53,6 +54,7 @@ export interface CreateDocumentInput {
   originalLink: string
   task?: string
   assignee?: string
+  priority?: string
   notes?: string
   tags?: string[]
   deadline?: Timestamp

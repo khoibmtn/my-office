@@ -34,6 +34,7 @@ export default function EditDocumentPage() {
   const [notes, setNotes] = useState('')
   const [status, setStatus] = useState<DocumentStatus>('pending')
   const [deadline, setDeadline] = useState('')
+  const [priority, setPriority] = useState('normal')
   const [assignee, setAssignee] = useState('')
   const [tags, setTags] = useState('')
   const [attachments, setAttachments] = useState<AttachmentRow[]>([
@@ -49,6 +50,7 @@ export default function EditDocumentPage() {
       setNotes(d.notes ?? '')
       setStatus((d.status === 'uploading' || d.status === 'upload_failed') ? 'pending' : d.status as DocumentStatus)
       setAssignee(d.assignee ?? '')
+      setPriority(d.priority ?? 'normal')
       setTags((d.tags ?? []).join(', '))
       if (d.deadline) {
         const date = (d.deadline as { toDate(): Date }).toDate()
@@ -75,6 +77,7 @@ export default function EditDocumentPage() {
         notes: notes || undefined,
         status,
         assignee: assignee || undefined,
+        priority: priority || 'normal',
         tags: tags ? tags.split(',').map((t) => t.trim()).filter(Boolean) : [],
         deadline: deadline ? new Date(deadline) : undefined,
       })
@@ -141,6 +144,22 @@ export default function EditDocumentPage() {
         <div className="flex flex-col gap-1">
           <Label htmlFor="deadline">Deadline</Label>
           <Input id="deadline" type="date" value={deadline} onChange={(e) => setDeadline(e.target.value)} />
+        </div>
+
+        <div className="flex flex-col gap-1">
+          <Label htmlFor="priority">Mức độ khẩn</Label>
+          <select
+            id="priority"
+            value={priority}
+            onChange={(e) => setPriority(e.target.value)}
+            className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
+          >
+            <option value="normal">Thường</option>
+            <option value="urgent">Khẩn</option>
+            <option value="very_urgent">Thượng khẩn</option>
+            <option value="express">Hỏa tốc</option>
+            <option value="express_scheduled">Hỏa tốc hẹn giờ</option>
+          </select>
         </div>
 
         <div className="flex flex-col gap-1">
