@@ -50,7 +50,7 @@ input[type="search"],
 textarea {
   transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
 }
-select:hover,
+select:not(.select-colored):hover,
 input[type="text"]:hover,
 input[type="date"]:hover,
 input[type="number"]:hover,
@@ -59,6 +59,9 @@ input[type="search"]:hover,
 textarea:hover {
   background-color: #eef1f5 !important;
   border-color: #94a3b8 !important;
+}
+.select-colored:hover {
+  filter: brightness(0.85) !important;
 }
 select:focus,
 input[type="text"]:focus,

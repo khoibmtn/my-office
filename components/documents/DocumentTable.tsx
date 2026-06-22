@@ -372,6 +372,7 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
           <select 
             value={filterStatus} 
             onChange={e => { setFilterStatus(e.target.value); e.target.blur() }}
+            className={filterStatus !== 'all' ? 'select-colored' : ''}
             style={{
               background: filterStatus === 'completed' ? settings.completedColor : filterStatus === 'pending' ? '#f59e0b' : undefined,
               color: filterStatus === 'all' ? undefined : '#fff',
