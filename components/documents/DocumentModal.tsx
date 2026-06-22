@@ -42,6 +42,7 @@ export function DocumentModal({ docId, onClose }: DocumentModalProps) {
   const [loading, setLoading] = useState(true)
   const [activeUrl, setActiveUrl] = useState('')
   const [copiedId, setCopiedId] = useState<string | null>(null)
+  const [copiedAll, setCopiedAll] = useState(false)
 
   useEffect(() => {
     if (!docId) return
@@ -89,6 +90,20 @@ export function DocumentModal({ docId, onClose }: DocumentModalProps) {
       mimeType: a.mimeType,
     })),
   ] : []
+
+  const handleCopyAll = useCallback(async () => {
+    if (!allFiles.length) return
+    const links = allFiles.map(f => {
+      if (f.driveId) {
+        return `https://drive.google.com/uc?export=download&id=${f.driveId}`
+      }
+      return f.url
+    }).filter(Boolean).join('\n')
+    
+    await navigator.clipboard.writeText(links)
+    setCopiedAll(true)
+    setTimeout(() => setCopiedAll(false), 2000)
+  }, [allFiles])
 
   return (
     <div className="modal-backdrop" onClick={handleBackdropClick}>
@@ -165,7 +180,17 @@ export function DocumentModal({ docId, onClose }: DocumentModalProps) {
 
               {/* File list */}
               <div className="modal-file-list">
-                <h3>Danh sách tệp ({allFiles.length})</h3>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                  <h3 style={{ marginBottom: 0 }}>Danh sách tệp ({allFiles.length})</h3>
+                  <button
+                    className="icon-btn"
+                    style={{ width: 24, height: 24, padding: 0 }}
+                    onClick={handleCopyAll}
+                    title="Copy tất cả link tải trực tiếp"
+                  >
+                    {copiedAll ? <Check size={14} className="text-green-500" /> : <Copy size={14} />}
+                  </button>
+                </div>
                 <div className="flex flex-col gap-2">
                   {allFiles.map((f) => (
                     <div
