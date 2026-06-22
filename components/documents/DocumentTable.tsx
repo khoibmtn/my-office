@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react'
-import { Loader2, Trash2, Eye, RefreshCw, CheckCircle2, Clock, AlertTriangle, XCircle, CircleDot, Search, Pencil, ArrowUpDown, ClipboardCopy } from 'lucide-react'
+import { Loader2, Trash2, Eye, RefreshCw, CheckCircle2, Clock, AlertTriangle, XCircle, CircleDot, Search, Pencil, ArrowUpDown, ClipboardCopy, Calendar } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
@@ -114,12 +114,13 @@ function getDaysLabel(d: number | null): string {
 }
 
 // Determine effective display status based on deadline
-function getEffectiveStatus(doc: Document): { icon: React.ReactNode; label: string; cls: string } {
-  if (doc.status === 'completed') return {
+function getEffectiveStatus(doc: Document, overrideStatus?: string): { icon: React.ReactNode; label: string; cls: string } {
+  const status = overrideStatus || doc.status
+  if (status === 'completed') return {
     icon: <CheckCircle2 className="h-4 w-4" />,
     label: 'Hoàn thành', cls: 'status-completed'
   }
-  if (doc.status === 'uploading') return {
+  if (status === 'uploading') return {
     icon: <Loader2 className="h-4 w-4 animate-spin text-slate-400" />,
     label: 'Đang tải...', cls: 'status-uploading'
   }
@@ -131,6 +132,40 @@ function getEffectiveStatus(doc: Document): { icon: React.ReactNode; label: stri
     icon: <Clock className="h-4 w-4 text-slate-400" />,
     label: 'Chưa giao', cls: 'status-pending'
   }
+}
+
+// Helper: get reporting week range (Fri-Thu)
+function getReportingWeekRange(): { from: Date; to: Date } {
+  const now = new Date()
+  now.setHours(0, 0, 0, 0)
+  const day = now.getDay() // 0=Sun, 1=Mon, ..., 5=Fri, 6=Sat
+  // Find previous Friday: if today is Fri(5), go back 7 days; else go back to last Fri
+  const daysSinceFri = day >= 5 ? day - 5 : day + 2
+  const prevFri = new Date(now)
+  prevFri.setDate(now.getDate() - daysSinceFri)
+  if (day === 5) prevFri.setDate(now.getDate() - 7) // If today is Friday, prev Friday
+  // Thu = prevFri + 6 days
+  const nextThu = new Date(prevFri)
+  nextThu.setDate(prevFri.getDate() + 6)
+  nextThu.setHours(23, 59, 59, 999)
+  return { from: prevFri, to: nextThu }
+}
+
+// Helper: get last month range
+function getLastMonthRange(): { from: Date; to: Date } {
+  const now = new Date()
+  const from = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+  const to = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999)
+  return { from, to }
+}
+
+// Helper: toDateSafe
+function toDateSafe(ts: any): Date | null {
+  if (!ts) return null
+  if (typeof ts.toDate === 'function') return ts.toDate()
+  if (ts instanceof Date) return ts
+  if (ts.seconds) return new Date(ts.seconds * 1000)
+  return null
 }
 
 // === Component ===
@@ -146,6 +181,9 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
   const [priorityBadgeFilters, setPriorityBadgeFilters] = useState<string[]>([])
   const [staffBadgeFilter, setStaffBadgeFilter] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
+  const [timePeriod, setTimePeriod] = useState<string>('today')
+  const [customFrom, setCustomFrom] = useState('')
+  const [customTo, setCustomTo] = useState('')
   const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' } | null>(null)
   
   const [colWidths, setColWidths] = useState<Record<string, number>>({
@@ -175,24 +213,65 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
     return queryWords.every(word => t.includes(word))
   }, [])
 
+  // Compute period range
+  const periodRange = useMemo((): { from: Date; to: Date } | null => {
+    if (timePeriod === 'today') return null
+    if (timePeriod === 'week') return getReportingWeekRange()
+    if (timePeriod === 'last_month') return getLastMonthRange()
+    if (timePeriod === 'custom' && customFrom && customTo) {
+      const f = new Date(customFrom); f.setHours(0, 0, 0, 0)
+      const t = new Date(customTo); t.setHours(23, 59, 59, 999)
+      return { from: f, to: t }
+    }
+    return null
+  }, [timePeriod, customFrom, customTo])
+
+  // Get effective status for a doc given period range
+  const getDocEffectiveStatus = useCallback((doc: Document): string => {
+    if (!periodRange || timePeriod === 'today') return doc.status
+    const completedD = toDateSafe(doc.completedDate)
+    if (!completedD) return doc.status === 'completed' ? doc.status : (doc.assignee ? 'in_progress' : 'pending')
+    if (completedD > periodRange.to) return doc.assignee ? 'in_progress' : 'pending'
+    return 'completed'
+  }, [periodRange, timePeriod])
+
   // Base docs for counting stats (before search and badge filters)
   const baseDocs = useMemo(() => {
     let result = documents
+    
+    // Time period filter
+    if (timePeriod !== 'today' && periodRange) {
+      const A = periodRange.from
+      const B = periodRange.to
+      result = result.filter(d => {
+        const issueD = toDateSafe(d.issueDate)
+        const completedD = toDateSafe(d.completedDate)
+        // Case 1: issueDate in [A, B]
+        if (issueD && issueD >= A && issueD <= B) return true
+        // Case 2: issueDate < A but completedDate >= A
+        if (issueD && issueD < A && completedD && completedD >= A) return true
+        return false
+      })
+    }
+    
+    // Status filter (using effective status for period)
     if (filterStatus !== 'all') {
       result = result.filter(d => {
-        if (filterStatus === 'completed') return d.status === 'completed'
-        if (filterStatus === 'pending') return d.status !== 'completed'
+        const effSt = getDocEffectiveStatus(d)
+        if (filterStatus === 'completed') return effSt === 'completed'
+        if (filterStatus === 'pending') return effSt !== 'completed'
         return true
       })
     }
     return result
-  }, [documents, filterStatus])
+  }, [documents, filterStatus, timePeriod, periodRange, getDocEffectiveStatus])
 
-  // Count stats
+  // Count stats (using effective status)
   const stats = useMemo(() => {
     let overdue = 0, expired = 0, urgent1 = 0, urgent2 = 0, normal = 0, completed = 0
     baseDocs.forEach(d => {
-      if (d.status === 'completed') { completed++; return }
+      const effSt = getDocEffectiveStatus(d)
+      if (effSt === 'completed') { completed++; return }
       const days = getDaysRemaining(d.deadline)
       if (days === null) { /* no deadline */ }
       else if (days < 0) overdue++
@@ -202,7 +281,7 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
       else normal++
     })
     return { overdue, expired, urgent1, urgent2, normal, completed }
-  }, [baseDocs])
+  }, [baseDocs, getDocEffectiveStatus])
 
   // Staff stats from baseDocs
   const staffStats = useMemo(() => {
@@ -370,6 +449,40 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
       {/* Search + Filters */}
       <div className="filters-bar">
         <div className="filter-group">
+          <Calendar size={16} className="text-slate-500" />
+          <select
+            value={timePeriod}
+            onChange={e => {
+              const val = e.target.value
+              setTimePeriod(val)
+              if (val === 'today') {
+                setFilterStatus('pending')
+              } else {
+                setFilterStatus('all')
+              }
+              e.target.blur()
+            }}
+          >
+            <option value="today">Đến hôm nay</option>
+            <option value="week">Tuần này</option>
+            <option value="last_month">Tháng trước</option>
+            <option value="custom">Bất kỳ</option>
+          </select>
+        </div>
+        {timePeriod === 'custom' && (
+          <div className="filter-group" style={{ gap: '4px' }}>
+            <label style={{ fontSize: '11px' }}>Từ</label>
+            <input type="date" value={customFrom} onChange={e => setCustomFrom(e.target.value)} style={{ fontSize: '12px', padding: '4px 6px' }} />
+            <label style={{ fontSize: '11px' }}>Đến</label>
+            <input type="date" value={customTo} min={customFrom || undefined} onChange={e => setCustomTo(e.target.value)} style={{ fontSize: '12px', padding: '4px 6px' }} />
+          </div>
+        )}
+        {periodRange && timePeriod !== 'today' && (
+          <span style={{ fontSize: '11px', color: '#64748b', fontStyle: 'italic' }}>
+            {periodRange.from.toLocaleDateString('vi-VN')} — {periodRange.to.toLocaleDateString('vi-VN')}
+          </span>
+        )}
+        <div className="filter-group">
           <label>Lọc danh sách:</label>
           <select 
             value={filterStatus} 
@@ -506,6 +619,21 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
           title="Copy thống kê theo nhân viên"
           onClick={() => {
             const lines: string[] = []
+            
+            // Header: period info
+            const now = new Date()
+            if (timePeriod === 'today' || !periodRange) {
+              lines.push(`Thống kê văn bản tính đến ngày ${now.toLocaleDateString('vi-VN')}`)
+            } else {
+              lines.push(`Thống kê văn bản từ ngày ${periodRange.from.toLocaleDateString('vi-VN')} đến ${periodRange.to.toLocaleDateString('vi-VN')}`)
+            }
+            // Summary line
+            let totalAll = baseDocs.length
+            let totalCompleted = 0
+            baseDocs.forEach(d => { if (getDocEffectiveStatus(d) === 'completed') totalCompleted++ })
+            lines.push(`TS văn bản: ${totalAll}, Đã hoàn thành: ${totalCompleted}, Chưa hoàn thành: ${totalAll - totalCompleted}`)
+            lines.push('')
+            
             let idx = 1
             // Group baseDocs by assignee
             const grouped: Record<string, typeof baseDocs> = {}
@@ -519,10 +647,11 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
               const docs = grouped[name]
               const total = docs.length
               lines.push(`${idx}. ${name}: ${total} văn bản`)
-              // Breakdown by deadline
+              // Breakdown by deadline using effective status
               let overdue = 0, expired = 0, u1 = 0, u2 = 0, normal = 0, completed = 0, noDeadline = 0
               docs.forEach(d => {
-                if (d.status === 'completed') { completed++; return }
+                const effSt = getDocEffectiveStatus(d)
+                if (effSt === 'completed') { completed++; return }
                 const days = getDaysRemaining(d.deadline)
                 if (days === null) noDeadline++
                 else if (days < 0) overdue++
@@ -566,7 +695,8 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
         <TableBody>
           {filteredDocs.map((doc, idx) => {
             const days = getDaysRemaining(doc.deadline)
-            const eff = getEffectiveStatus(doc)
+            const docEffStatus = getDocEffectiveStatus(doc)
+            const eff = getEffectiveStatus(doc, docEffStatus)
             
             let rowClass = ''
             if (doc.status === 'completed') rowClass = 'row-completed'
@@ -648,39 +778,51 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
                   </select>
                 </TableCell>
                 <TableCell>
-                  <div className="flex items-center gap-1 flex-wrap">
-                    <button
-                      className={`status-chip mr-2 ${eff.cls}`}
-                      onClick={() => handleToggleComplete(doc)}
-                      title={doc.status === 'completed' ? 'Bấm để chuyển về trạng thái chờ' : 'Bấm để đánh dấu hoàn thành'}
-                    >
-                      {eff.icon}
-                      <span>{eff.label}</span>
-                    </button>
-                    {doc.status === 'upload_failed' ? (
-                      <Button size="sm" variant="outline" onClick={() => handleRetry(doc)} disabled={retrying === doc.id}>
-                        {retrying === doc.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+                  <div className="flex flex-col">
+                    <div className="flex items-center gap-1 flex-wrap">
+                      <button
+                        className={`status-chip mr-2 ${eff.cls}`}
+                        onClick={() => handleToggleComplete(doc)}
+                        title={doc.status === 'completed' ? 'Bấm để chuyển về trạng thái chờ' : 'Bấm để đánh dấu hoàn thành'}
+                      >
+                        {eff.icon}
+                        <span>{eff.label}</span>
+                      </button>
+                      {doc.status === 'upload_failed' ? (
+                        <Button size="sm" variant="outline" onClick={() => handleRetry(doc)} disabled={retrying === doc.id}>
+                          {retrying === doc.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+                        </Button>
+                      ) : doc.status !== 'uploading' && (
+                        <>
+                          <Button size="icon" variant="ghost" className="h-8 w-8 hover:bg-slate-100" onClick={() => setViewingId(doc.id)} title="Xem">
+                            <Eye className="h-4 w-4 text-slate-500" />
+                          </Button>
+                          <Button size="icon" variant="ghost" className="h-8 w-8 hover:bg-slate-100" asChild title="Sửa">
+                            <Link href={`/documents/${doc.id}/edit`}>
+                              <Pencil className="h-4 w-4 text-slate-500" />
+                            </Link>
+                          </Button>
+                        </>
+                      )}
+                      <Button
+                        size="sm" variant="ghost"
+                        className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                        onClick={() => handleDelete(doc.id, doc.title)}
+                        disabled={deleting === doc.id}
+                      >
+                        {deleting === doc.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
                       </Button>
-                    ) : doc.status !== 'uploading' && (
-                      <>
-                        <Button size="icon" variant="ghost" className="h-8 w-8 hover:bg-slate-100" onClick={() => setViewingId(doc.id)} title="Xem">
-                          <Eye className="h-4 w-4 text-slate-500" />
-                        </Button>
-                        <Button size="icon" variant="ghost" className="h-8 w-8 hover:bg-slate-100" asChild title="Sửa">
-                          <Link href={`/documents/${doc.id}/edit`}>
-                            <Pencil className="h-4 w-4 text-slate-500" />
-                          </Link>
-                        </Button>
-                      </>
-                    )}
-                    <Button
-                      size="sm" variant="ghost"
-                      className="text-red-500 hover:text-red-700 hover:bg-red-50"
-                      onClick={() => handleDelete(doc.id, doc.title)}
-                      disabled={deleting === doc.id}
-                    >
-                      {deleting === doc.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
-                    </Button>
+                    </div>
+                    {doc.completedDate && (() => {
+                      const cd = toDateSafe(doc.completedDate)
+                      if (!cd) return null
+                      return (
+                        <span style={{ fontSize: '10px', fontStyle: 'italic', marginTop: '2px' }}>
+                          <span style={{ color: '#dc2626' }}>HT:</span>{' '}
+                          <span style={{ color: '#64748b' }}>{cd.toLocaleDateString('vi-VN')}</span>
+                        </span>
+                      )
+                    })()}
                   </div>
                 </TableCell>
               </TableRow>
