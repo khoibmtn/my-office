@@ -150,7 +150,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 });
 
 async function handleSubmitInBackground(request) {
-  const { metadata, apiUrl } = request;
+  const { metadata } = request;
+  const apiUrl = (request.apiUrl || '').replace(/\/+$/, '');
   const docLabel = metadata.docNumber || 'văn bản';
   const todayKey = getTodayKey();
   

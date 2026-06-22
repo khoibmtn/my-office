@@ -45,7 +45,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   els.apiUrl().value = settings.apiUrl || DEFAULT_API_URL;
 
   els.btnSaveSettings().addEventListener('click', async () => {
-    await chrome.storage.local.set({ apiUrl: els.apiUrl().value });
+    const url = els.apiUrl().value.replace(/\/+$/, ''); // trim trailing slash
+    els.apiUrl().value = url;
+    await chrome.storage.local.set({ apiUrl: url });
     els.btnSaveSettings().textContent = '✓ Đã lưu';
     setTimeout(() => { els.btnSaveSettings().textContent = 'Lưu'; }, 1500);
   });
@@ -281,7 +283,7 @@ async function handleSubmit() {
 
   try {
     const settings = await chrome.storage.local.get(['apiUrl']);
-    const apiUrl = settings.apiUrl || DEFAULT_API_URL;
+    const apiUrl = (settings.apiUrl || DEFAULT_API_URL).replace(/\/+$/, '');
 
     chrome.runtime.sendMessage({
       action: 'submit-document',
@@ -306,7 +308,7 @@ async function handleSubmit() {
 async function checkDuplicate(docNumber) {
   try {
     const settings = await chrome.storage.local.get(['apiUrl']);
-    const apiUrl = settings.apiUrl || DEFAULT_API_URL;
+    const apiUrl = (settings.apiUrl || DEFAULT_API_URL).replace(/\/+$/, '');
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 5000);

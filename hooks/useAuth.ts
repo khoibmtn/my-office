@@ -9,22 +9,24 @@ export function useAuth() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // Handle redirect result (from signInWithRedirect on production)
-    handleRedirectResult().then(() => {
-      // Auth state listener
-      const unsubscribe = onAuthStateChanged(auth(), (u) => {
+    let unsubscribe: (() => void) | null = null
+
+    async function init() {
+      // First: handle redirect result (if coming back from Google)
+      await handleRedirectResult()
+
+      // Then: listen to auth state
+      unsubscribe = onAuthStateChanged(auth(), (u) => {
         setUser(u)
         setLoading(false)
       })
-      return unsubscribe
-    })
+    }
 
-    // Also listen immediately in case redirect check takes time
-    const unsubscribe = onAuthStateChanged(auth(), (u) => {
-      setUser(u)
-      setLoading(false)
-    })
-    return unsubscribe
+    init()
+
+    return () => {
+      if (unsubscribe) unsubscribe()
+    }
   }, [])
 
   return { user, loading }
