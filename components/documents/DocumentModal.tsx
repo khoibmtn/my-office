@@ -123,10 +123,12 @@ export function DocumentModal({ docId, onClose }: DocumentModalProps) {
     }
     
     if (allFiles.length > 1) {
-      lines.push('Các văn bản đính kèm:')
+      const attCount = allFiles.length - 1
+      lines.push(`Các văn bản đính kèm (${attCount}):`)
       for (let i = 1; i < allFiles.length; i++) {
         const att = allFiles[i]
         lines.push(att.url)
+        if (i < allFiles.length - 1) lines.push('') // Dòng trắng giữa các link
       }
     }
     
