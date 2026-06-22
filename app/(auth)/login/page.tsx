@@ -4,7 +4,7 @@ export const dynamic = 'force-dynamic'
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { signInWithGoogle } from '@/lib/firebase'
+import { signInWithGoogle, auth } from '@/lib/firebase'
 import { useAuth } from '@/hooks/useAuth'
 import { Button } from '@/components/ui/button'
 import { Loader2 } from 'lucide-react'
@@ -14,6 +14,17 @@ export default function LoginPage() {
   const { user, loading: authLoading } = useAuth()
   const [error, setError] = useState<string | null>(null)
   const [signingIn, setSigningIn] = useState(false)
+  const [ready, setReady] = useState(false)
+
+  // Pre-warm Firebase Auth on mount so popup opens instantly on click
+  useEffect(() => {
+    try {
+      auth() // Initialize Firebase Auth eagerly
+      setReady(true)
+    } catch {
+      setReady(true) // Still allow button
+    }
+  }, [])
 
   // If user is already logged in, go to home
   useEffect(() => {
@@ -26,19 +37,15 @@ export default function LoginPage() {
     setError(null)
     setSigningIn(true)
     try {
-      await signInWithGoogle()
-      // signInWithPopup resolves after successful auth
-      // onAuthStateChanged in useAuth will detect the user
-      // and the useEffect above will redirect
+      const result = await signInWithGoogle()
+      // If popup succeeded (result !== null), redirect
+      if (result) {
+        router.push('/')
+      }
+      // If null, redirect-based auth is happening — page will reload
     } catch (err: unknown) {
       const code = (err as { code?: string })?.code ?? ''
-      if (code === 'auth/popup-blocked') {
-        setError('Popup bị chặn! Bấm biểu tượng 🔒 trên thanh địa chỉ → Cho phép popup → Thử lại.')
-      } else if (code === 'auth/popup-closed-by-user') {
-        setError('Đã đóng popup. Thử lại.')
-      } else {
-        setError(code || 'Lỗi đăng nhập')
-      }
+      setError(code || 'Lỗi đăng nhập. Vui lòng thử lại.')
       setSigningIn(false)
     }
   }
@@ -51,11 +58,11 @@ export default function LoginPage() {
       <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-8 w-full max-w-sm">
         <h1 className="text-2xl font-semibold text-slate-900 mb-2">Quản lý Văn bản</h1>
         <p className="text-sm text-slate-500 mb-6">Đăng nhập để tiếp tục</p>
-        <Button className="w-full" onClick={handleLogin} disabled={signingIn}>
+        <Button className="w-full" onClick={handleLogin} disabled={signingIn || !ready}>
           {signingIn ? (
             <>
               <Loader2 className="h-4 w-4 animate-spin mr-2" />
-              Đang đăng nhập...
+              Đang chuyển đến Google...
             </>
           ) : (
             'Đăng nhập với Google'

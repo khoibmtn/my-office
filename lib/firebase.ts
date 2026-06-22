@@ -3,6 +3,8 @@ import {
   getAuth,
   GoogleAuthProvider,
   signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   signOut,
 } from 'firebase/auth'
 import { getFirestore } from 'firebase/firestore'
@@ -46,22 +48,54 @@ export function db() {
   return _db
 }
 
+// === Auth redirect result promise (resolved once on app load) ===
+let _redirectPromise: Promise<void> | null = null
+
 /**
- * Sign in with Google using popup.
- * Always uses popup — redirect doesn't work well with custom domains.
+ * Process redirect result. Safe to call multiple times — only runs once.
  */
-export async function signInWithGoogle() {
-  const result = await signInWithPopup(auth(), provider)
-  const credential = GoogleAuthProvider.credentialFromResult(result)
-  if (credential?.accessToken) {
-    localStorage.setItem('google_access_token', credential.accessToken)
+export function waitForRedirectResult(): Promise<void> {
+  if (typeof window === 'undefined') return Promise.resolve()
+  if (!_redirectPromise) {
+    _redirectPromise = getRedirectResult(auth())
+      .then((result) => {
+        if (result) {
+          const credential = GoogleAuthProvider.credentialFromResult(result)
+          if (credential?.accessToken) {
+            localStorage.setItem('google_access_token', credential.accessToken)
+          }
+        }
+      })
+      .catch(() => {
+        // Ignore — no redirect result
+      })
   }
-  return result
+  return _redirectPromise
 }
 
 /**
- * Check if google_access_token is in localStorage.
+ * Sign in with Google.
+ * Tries popup first. If blocked, falls back to redirect.
  */
+export async function signInWithGoogle() {
+  try {
+    const result = await signInWithPopup(auth(), provider)
+    const credential = GoogleAuthProvider.credentialFromResult(result)
+    if (credential?.accessToken) {
+      localStorage.setItem('google_access_token', credential.accessToken)
+    }
+    return result
+  } catch (err: unknown) {
+    const code = (err as { code?: string })?.code
+    if (code === 'auth/popup-blocked' || code === 'auth/popup-closed-by-user') {
+      // Fallback to redirect
+      await signInWithRedirect(auth(), provider)
+      return null
+    }
+    throw err
+  }
+}
+
 export function hasGoogleToken(): boolean {
   if (typeof window === 'undefined') return false
   return !!localStorage.getItem('google_access_token')
