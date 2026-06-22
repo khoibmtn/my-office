@@ -585,6 +585,11 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
           background: #f8fafc;
           color: #334155;
           cursor: pointer;
+          transition: all 0.15s ease;
+        }
+        .filter-group select:hover {
+          background: #eef1f5;
+          border-color: #94a3b8;
         }
         .filter-group select:focus {
           outline: none;
@@ -600,7 +605,11 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
           border-radius: 8px;
           background: #f8fafc;
           min-width: 220px;
-          transition: all 0.2s;
+          transition: all 0.15s ease;
+        }
+        .search-box:hover {
+          background: #eef1f5;
+          border-color: #94a3b8;
         }
         .search-box:focus-within {
           border-color: #3b82f6;

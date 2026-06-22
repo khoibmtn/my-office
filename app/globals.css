@@ -39,3 +39,35 @@
 [data-tooltip-align="right"]:hover::after {
   transform: translateX(0) translateY(-8px);
 }
+
+/* Global form control hover */
+select,
+input[type="text"],
+input[type="date"],
+input[type="number"],
+input[type="email"],
+input[type="search"],
+textarea {
+  transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+select:hover,
+input[type="text"]:hover,
+input[type="date"]:hover,
+input[type="number"]:hover,
+input[type="email"]:hover,
+input[type="search"]:hover,
+textarea:hover {
+  background-color: #eef1f5 !important;
+  border-color: #94a3b8 !important;
+}
+select:focus,
+input[type="text"]:focus,
+input[type="date"]:focus,
+input[type="number"]:focus,
+input[type="email"]:focus,
+input[type="search"]:focus,
+textarea:focus {
+  background-color: #fff !important;
+  border-color: #3b82f6 !important;
+  box-shadow: 0 0 0 2px rgba(59,130,246,0.15);
+}
