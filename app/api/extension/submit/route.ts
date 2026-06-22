@@ -24,25 +24,51 @@ async function uploadFileToDrive(
   folderId: string
 ) {
   const buffer = Buffer.from(await file.arrayBuffer())
-  const created = await drive.files.create({
-    requestBody: { name: file.name, parents: [folderId] },
-    media: {
-      mimeType: file.type || 'application/octet-stream',
-      body: Readable.from(buffer),
-    },
-    fields: 'id,mimeType',
-  })
+  let id: string
+  let mimeType: string
 
-  const id = created.data.id!
-  await drive.permissions.create({
-    fileId: id,
-    requestBody: { role: 'reader', type: 'anyone' },
-  })
+  try {
+    const created = await drive.files.create({
+      requestBody: { name: file.name, parents: [folderId] },
+      media: {
+        mimeType: file.type || 'application/octet-stream',
+        body: Readable.from(buffer),
+      },
+      fields: 'id,mimeType',
+    })
+    id = created.data.id!
+    mimeType = created.data.mimeType ?? file.type
+    await drive.permissions.create({
+      fileId: id,
+      requestBody: { role: 'reader', type: 'anyone' },
+    })
+  } catch (err: any) {
+    if (err.message && err.message.includes('Invalid Credentials')) {
+      // Fallback to service account
+      const fallbackDrive = getDriveClient(undefined)
+      const created = await fallbackDrive.files.create({
+        requestBody: { name: file.name, parents: [folderId] },
+        media: {
+          mimeType: file.type || 'application/octet-stream',
+          body: Readable.from(buffer),
+        },
+        fields: 'id,mimeType',
+      })
+      id = created.data.id!
+      mimeType = created.data.mimeType ?? file.type
+      await fallbackDrive.permissions.create({
+        fileId: id,
+        requestBody: { role: 'reader', type: 'anyone' },
+      })
+    } else {
+      throw err
+    }
+  }
 
   return {
     driveFileId: id,
     driveViewUrl: `https://drive.google.com/file/d/${id}/preview`,
-    mimeType: created.data.mimeType ?? file.type,
+    mimeType: mimeType,
   }
 }
 
