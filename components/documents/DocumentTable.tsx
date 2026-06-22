@@ -799,8 +799,6 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
                         {eff.icon}
                         <span>{eff.label}</span>
                       </button>
-                    </div>
-                    <div className="flex items-center gap-1 flex-wrap mt-1">
                       {doc.status === 'upload_failed' ? (
                         <Button size="sm" variant="outline" onClick={() => handleRetry(doc)} disabled={retrying === doc.id}>
                           {retrying === doc.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
