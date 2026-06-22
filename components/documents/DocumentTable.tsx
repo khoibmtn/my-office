@@ -246,10 +246,14 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
       result = result.filter(d => {
         const issueD = toDateSafe(d.issueDate)
         const completedD = toDateSafe(d.completedDate)
-        // Case 1: issueDate in [A, B]
-        if (issueD && issueD >= A && issueD <= B) return true
-        // Case 2: issueDate < A but completedDate >= A
-        if (issueD && issueD < A && completedD && completedD >= A) return true
+        if (!issueD || issueD > B) return false
+        
+        // At this point, issueD <= B.
+        // Include if it's still pending (no completedDate) 
+        // OR completed during/after the period (completedDate >= A)
+        if (!completedD) return true
+        if (completedD >= A) return true
+        
         return false
       })
     }
