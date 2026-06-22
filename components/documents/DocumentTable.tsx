@@ -393,13 +393,14 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
                 onClick={() => setPriorityBadgeFilters(prev =>
                   prev.includes(p.key) ? prev.filter(x => x !== p.key) : [...prev, p.key]
                 )}
-                className="px-2 py-0.5 rounded shadow-sm flex items-center gap-1 transition-all border text-xs font-semibold"
+                className="badge-filter px-2 py-0.5 rounded shadow-sm flex items-center gap-1 transition-all border text-xs font-semibold"
                 style={{
+                  '--badge-color': p.color,
                   background: isSelected ? p.color : `color-mix(in srgb, ${p.color} 12%, #ffffff)`,
                   borderColor: p.color,
                   color: isSelected ? '#fff' : p.color,
                   boxShadow: isSelected ? `0 0 0 2px #fff, 0 0 0 3px ${p.color}` : 'none'
-                }}
+                } as React.CSSProperties}
               >
                 {p.label} ({count})
                 {isSelected && <span className="opacity-70 hover:opacity-100 font-normal ml-0.5 text-sm leading-none">×</span>}
@@ -444,13 +445,14 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
                   prev.includes(b.key) ? prev.filter(x => x !== b.key) : [...prev, b.key]
                 )
               }}
-              className={`px-2 py-1 rounded shadow-sm flex items-center gap-1 transition-all border`}
+              className={`badge-filter px-2 py-1 rounded shadow-sm flex items-center gap-1 transition-all border`}
               style={{ 
+                '--badge-color': b.color,
                 background: isSelected ? b.color : `color-mix(in srgb, ${b.color} 12%, #ffffff)`,
                 borderColor: b.color,
                 color: isSelected ? '#fff' : b.color,
                 boxShadow: isSelected ? `0 0 0 2px #fff, 0 0 0 4px ${b.color}` : 'none'
-              }}
+              } as React.CSSProperties}
             >
               {b.label}: {b.count}
               {isSelected && <span className="opacity-70 hover:opacity-100 font-normal ml-1 text-sm leading-none">×</span>}
@@ -466,13 +468,14 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
             <button
               key={name}
               onClick={() => setStaffBadgeFilter(staffBadgeFilter === name ? null : name)}
-              className={`px-2 py-1 rounded shadow-sm flex items-center gap-1 transition-all border text-xs font-semibold`}
+              className={`badge-filter px-2 py-1 rounded shadow-sm flex items-center gap-1 transition-all border text-xs font-semibold`}
               style={{
+                '--badge-color': isSelected ? '#475569' : '#475569',
                 background: isSelected ? '#475569' : '#f1f5f9',
                 borderColor: isSelected ? '#334155' : '#cbd5e1',
                 color: isSelected ? '#fff' : '#475569',
                 boxShadow: isSelected ? '0 0 0 2px #fff, 0 0 0 4px #475569' : 'none'
-              }}
+              } as React.CSSProperties}
             >
               {name}: {count}
               {isSelected && <span className="opacity-70 hover:opacity-100 font-normal ml-1 text-sm leading-none">×</span>}
@@ -632,6 +635,12 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
           background: #fff;
           border: 1px solid #e2e8f0;
           border-radius: 10px;
+        }
+        .badge-filter:hover {
+          background: var(--badge-color) !important;
+          color: #fff !important;
+          box-shadow: 0 0 0 2px #fff, 0 0 0 3px var(--badge-color) !important;
+          transform: translateY(-1px);
         }
         .filter-group {
           display: flex;
