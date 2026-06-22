@@ -89,8 +89,13 @@ async function uploadSingleFile(apiUrl, blob, fileName, userAccessToken) {
     body: form,
   });
   if (!res.ok) {
-    const errText = await res.text();
-    throw new Error(`Upload API error ${res.status}: ${errText}`);
+    let errText = await res.text();
+    try {
+      const parsed = JSON.parse(errText);
+      if (parsed.message) errText = parsed.message;
+      else if (parsed.error) errText = parsed.error;
+    } catch(e) {}
+    throw new Error(`${errText}`);
   }
   return res.json();
 }
@@ -144,8 +149,13 @@ async function submitToMyOffice(apiUrl, metadata, mainFileBlob, mainFileName, at
   });
   
   if (!res.ok) {
-    const errText = await res.text();
-    throw new Error(`API error ${res.status}: ${errText}`);
+    let errText = await res.text();
+    try {
+      const parsed = JSON.parse(errText);
+      if (parsed.message) errText = parsed.message;
+      else if (parsed.error) errText = parsed.error;
+    } catch(e) {}
+    throw new Error(`${errText}`);
   }
   
   return res.json();

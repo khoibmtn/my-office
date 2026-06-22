@@ -47,25 +47,9 @@ export async function POST(request: NextRequest) {
       })
     } catch (err: any) {
       if (err.message && err.message.includes('Invalid Credentials')) {
-        // Fallback to service account if user token is expired
-        drive = getDriveClient(undefined)
-        const created = await drive.files.create({
-          requestBody: { name: file.name, parents: [folderId] },
-          media: {
-            mimeType: file.type || 'application/octet-stream',
-            body: Readable.from(buffer),
-          },
-          fields: 'id,mimeType',
-        })
-        id = created.data.id!
-        mimeType = created.data.mimeType ?? file.type
-        await drive.permissions.create({
-          fileId: id,
-          requestBody: { role: 'reader', type: 'anyone' },
-        })
-      } else {
-        throw err
+        return NextResponse.json({ error: 'TOKEN_EXPIRED', message: 'Phiên đăng nhập đã hết hạn. Vui lòng mở lại trang My Office để đăng nhập.' }, { status: 401, headers: { 'Access-Control-Allow-Origin': '*' } })
       }
+      throw err
     }
 
     return NextResponse.json({

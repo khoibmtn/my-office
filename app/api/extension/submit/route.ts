@@ -44,25 +44,9 @@ async function uploadFileToDrive(
     })
   } catch (err: any) {
     if (err.message && err.message.includes('Invalid Credentials')) {
-      // Fallback to service account
-      const fallbackDrive = getDriveClient(undefined)
-      const created = await fallbackDrive.files.create({
-        requestBody: { name: file.name, parents: [folderId] },
-        media: {
-          mimeType: file.type || 'application/octet-stream',
-          body: Readable.from(buffer),
-        },
-        fields: 'id,mimeType',
-      })
-      id = created.data.id!
-      mimeType = created.data.mimeType ?? file.type
-      await fallbackDrive.permissions.create({
-        fileId: id,
-        requestBody: { role: 'reader', type: 'anyone' },
-      })
-    } else {
-      throw err
+      throw new Error('TOKEN_EXPIRED')
     }
+    throw err
   }
 
   return {
@@ -227,6 +211,12 @@ export async function POST(request: NextRequest) {
     )
   } catch (e: unknown) {
     console.error('[extension/submit] Error:', e)
+    if (e instanceof Error && e.message === 'TOKEN_EXPIRED') {
+      return NextResponse.json(
+        { error: 'TOKEN_EXPIRED', message: 'Phiên đăng nhập đã hết hạn. Vui lòng mở lại trang My Office để đăng nhập.' },
+        { status: 401, headers: corsHeaders() }
+      )
+    }
     return NextResponse.json(
       { error: e instanceof Error ? e.message : String(e) },
       { status: 500, headers: corsHeaders() }
