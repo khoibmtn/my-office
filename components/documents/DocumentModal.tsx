@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { X, Copy, Check, ExternalLink, FileText, Paperclip, Download } from 'lucide-react'
+import { X, Copy, Check, ExternalLink, FileText, Paperclip, Download, FileSpreadsheet, FileImage, FileArchive, File as FileGeneric } from 'lucide-react'
 import { getDocument } from '@/lib/firestore'
 import type { Document } from '@/types'
 
@@ -17,6 +17,19 @@ function getStatusInfo(doc: Document, days: number | null) {
   if (days !== null && days < 0) return { label: '🔴 Quá hạn', cls: 'status-overdue' }
   if (days !== null && days <= 1) return { label: '🟠 Sắp hết hạn', cls: 'status-urgent' }
   return { label: '⏳ Chờ xử lý', cls: 'status-pending' }
+}
+
+function getFileIcon(fileName: string, mimeType?: string, defaultColor: string = 'text-slate-500') {
+  const name = (fileName || '').toLowerCase()
+  const mime = (mimeType || '').toLowerCase()
+  
+  if (name.endsWith('.pdf') || mime.includes('pdf')) return <FileText size={14} className="text-red-500 flex-shrink-0 mt-0.5" />
+  if (name.endsWith('.doc') || name.endsWith('.docx') || mime.includes('word')) return <FileText size={14} className="text-blue-600 flex-shrink-0 mt-0.5" />
+  if (name.endsWith('.xls') || name.endsWith('.xlsx') || mime.includes('excel') || mime.includes('spreadsheet')) return <FileSpreadsheet size={14} className="text-green-600 flex-shrink-0 mt-0.5" />
+  if (name.endsWith('.jpg') || name.endsWith('.jpeg') || name.endsWith('.png') || mime.includes('image')) return <FileImage size={14} className="text-purple-500 flex-shrink-0 mt-0.5" />
+  if (name.endsWith('.zip') || name.endsWith('.rar') || mime.includes('zip') || mime.includes('compressed')) return <FileArchive size={14} className="text-amber-600 flex-shrink-0 mt-0.5" />
+  
+  return <FileGeneric size={14} className={`${defaultColor} flex-shrink-0 mt-0.5`} />
 }
 
 interface DocumentModalProps {
@@ -65,6 +78,7 @@ export function DocumentModal({ docId, onClose }: DocumentModalProps) {
       type: 'main' as const,
       url: doc.driveViewUrl,
       driveId: doc.driveFileId,
+      mimeType: doc.mimeType,
     },
     ...(doc.attachments ?? []).map((a, i) => ({
       id: `att-${i}`,
@@ -72,6 +86,7 @@ export function DocumentModal({ docId, onClose }: DocumentModalProps) {
       type: 'attachment' as const,
       url: a.driveViewUrl,
       driveId: a.driveFileId,
+      mimeType: a.mimeType,
     })),
   ] : []
 
@@ -131,18 +146,12 @@ export function DocumentModal({ docId, onClose }: DocumentModalProps) {
                     <span>{doc.sender}</span>
                   </div>
                 )}
-                {doc.notes && (() => {
-                  // Deduplicate lines in notes
-                  const lines = doc.notes.split('\n').map(l => l.trim()).filter(Boolean)
-                  const unique = [...new Set(lines)]
-                  // Also remove lines that duplicate sender info already shown above
-                  const filtered = unique.filter(l => {
-                    if (doc.sender && l.includes(doc.sender) && /^(CQBH|CQ ban hành)/i.test(l)) return false
-                    return true
-                  })
-                  if (filtered.length === 0) return null
-                  return <p className="modal-notes">{filtered.join('\n')}</p>
-                })()}
+                {doc.notes && (
+                  <div className="bg-amber-50 border border-amber-200 rounded p-2 mb-2 mx-4 mt-2">
+                    <p className="text-xs font-semibold text-amber-800 mb-1">📝 Ghi chú cá nhân:</p>
+                    <p className="text-sm text-amber-900 whitespace-pre-wrap">{doc.notes}</p>
+                  </div>
+                )}
               </div>
 
               {/* File list */}
@@ -158,11 +167,7 @@ export function DocumentModal({ docId, onClose }: DocumentModalProps) {
                       onClick={() => setActiveUrl(f.url)}
                       title="Xem file này"
                     >
-                      {f.type === 'main' ? (
-                        <FileText size={14} className="text-blue-600" />
-                      ) : (
-                        <Paperclip size={14} className="text-purple-500" />
-                      )}
+                      {getFileIcon(f.label, f.mimeType, f.type === 'main' ? 'text-blue-600' : 'text-purple-500')}
                       <span className="file-label">{f.label}</span>
                       <span className={`file-type-badge ${f.type}`}>
                         {f.type === 'main' ? 'Chính' : 'Đính kèm'}
@@ -379,7 +384,7 @@ export function DocumentModal({ docId, onClose }: DocumentModalProps) {
         .file-select-btn {
           flex: 1;
           display: flex;
-          align-items: center;
+          align-items: flex-start;
           gap: 8px;
           padding: 8px 10px;
           background: none;
@@ -392,9 +397,9 @@ export function DocumentModal({ docId, onClose }: DocumentModalProps) {
         }
         .file-label {
           flex: 1;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          white-space: nowrap;
+          word-break: break-word;
+          line-height: 1.4;
+          padding-top: 1px;
         }
         .file-type-badge {
           font-size: 9px;
