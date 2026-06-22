@@ -131,6 +131,27 @@ function extractDocumentData() {
     mainFileName = allFiles[0].fileName;
   }
 
+  // Extract priority by looking back at the main table (if available)
+  let priority = 'normal';
+  try {
+    const parentDoc = window.parent ? window.parent.document : document;
+    if (docNumber && parentDoc) {
+      const rows = parentDoc.querySelectorAll('tr');
+      for (const row of rows) {
+        if (row.textContent.includes(docNumber)) {
+          const rowText = row.textContent.toLowerCase();
+          if (rowText.includes('hỏa tốc hẹn giờ')) priority = 'express_scheduled';
+          else if (rowText.includes('hỏa tốc')) priority = 'express';
+          else if (rowText.includes('thượng khẩn')) priority = 'very_urgent';
+          else if (rowText.includes('khẩn')) priority = 'urgent';
+          break;
+        }
+      }
+    }
+  } catch(e) {
+    // Ignore cross-origin errors if any
+  }
+
   return {
     docNumber,
     issueDate,
@@ -139,6 +160,7 @@ function extractDocumentData() {
     handler,
     leader,
     sender,
+    priority,
     mainFileUrl,
     mainFileName,
     attachments,

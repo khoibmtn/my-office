@@ -60,6 +60,29 @@ document.addEventListener('DOMContentLoaded', async () => {
     els.btnSubmit().disabled = false;
   });
 
+  const updatePriorityBg = () => {
+    const prio = els.priority();
+    const val = prio.value;
+    prio.style.color = '#1a1a2e';
+    if (val === 'express' || val === 'express_scheduled') {
+      prio.style.backgroundColor = '#fef08a';
+      prio.style.borderColor = '#eab308';
+    } else if (val === 'very_urgent') {
+      prio.style.backgroundColor = '#fed7aa';
+      prio.style.borderColor = '#f97316';
+    } else if (val === 'urgent') {
+      prio.style.backgroundColor = '#fecaca';
+      prio.style.borderColor = '#ef4444';
+    } else {
+      prio.style.backgroundColor = '#fff';
+      prio.style.borderColor = '#cbd5e1';
+    }
+  };
+  els.priority().addEventListener('change', updatePriorityBg);
+  
+  // Expose it globally so displayMetadata can call it
+  window.updatePriorityBg = updatePriorityBg;
+
   els.loadingOverlay().style.display = 'flex';
 
   // Extract data and render history in parallel
@@ -216,6 +239,8 @@ function displayMetadata(data) {
   els.handler().value = data.handler || '';
   els.sender().value = data.sender || '';
   els.priority().value = data.priority || 'normal';
+  if (window.updatePriorityBg) window.updatePriorityBg();
+  
   els.title().value = data.summary || '';
   els.notes().value = data.notes || '';
 
