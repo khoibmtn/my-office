@@ -364,10 +364,29 @@ async function checkDuplicate(docNumber) {
       const status = document.createElement('span');
       status.className = 'dup-status';
       const statusRaw = match.status || 'pending';
-      status.textContent = statusRaw === 'completed' ? 'Hoàn thành' : 'Chờ xử lý';
+      let statusText = statusRaw === 'completed' ? 'Hoàn thành' : 'Chờ xử lý';
+
+      if (statusRaw !== 'completed' && match.deadline) {
+        const dl = new Date(match.deadline);
+        dl.setHours(0,0,0,0);
+        const now = new Date();
+        now.setHours(0,0,0,0);
+        if (dl < now) {
+          statusText = 'Quá hạn';
+        }
+      }
+
+      const assigneeName = match.assignee ? match.assignee : 'chưa giao';
+      statusText += ` (${assigneeName})`;
+      
+      status.textContent = statusText;
+
       if (statusRaw === 'completed') {
         status.style.backgroundColor = '#dcfce7';
         status.style.color = '#166534';
+      } else if (statusText.startsWith('Quá hạn')) {
+        status.style.backgroundColor = '#fee2e2';
+        status.style.color = '#991b1b';
       } else {
         status.style.backgroundColor = '#fef3c7';
         status.style.color = '#92400e';

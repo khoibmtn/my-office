@@ -54,6 +54,8 @@ export async function POST(request: NextRequest) {
         title: data.title || '',
         docNumber: data.docNumber || '',
         status: data.status || '',
+        assignee: data.assignee || '',
+        deadline: data.deadline?.toDate?.()?.toISOString?.() || null,
         createdAt: data.createdAt?.toDate?.()?.toISOString?.() || '',
       }
     })
