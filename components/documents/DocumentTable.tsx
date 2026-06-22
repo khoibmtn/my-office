@@ -339,10 +339,12 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
   }, [])
 
   const handleToggleComplete = useCallback(async (doc: Document) => {
-    const newStatus: DocumentStatus = doc.status === 'completed' 
-      ? (doc.assignee ? 'in_progress' : 'pending') 
-      : 'completed'
-    await updateDocument(doc.id, { status: newStatus })
+    if (doc.status === 'completed') {
+      const newStatus: DocumentStatus = doc.assignee ? 'in_progress' : 'pending'
+      await updateDocument(doc.id, { status: newStatus, completedDate: null })
+    } else {
+      await updateDocument(doc.id, { status: 'completed', completedDate: new Date() })
+    }
   }, [])
 
   const handleAssign = useCallback(async (docId: string, person: string) => {

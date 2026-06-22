@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { X, Copy, Check, ExternalLink, FileText, Paperclip, Download, FileSpreadsheet, FileImage, FileArchive, File as FileGeneric, Send } from 'lucide-react'
-import { getDocument } from '@/lib/firestore'
+import { getDocument, updateDocument } from '@/lib/firestore'
 import { parseFileNameFromUrl, getStructuredMainFileName } from '@/lib/utils'
 import { useAuth } from '@/hooks/useAuth'
 import type { Document } from '@/types'
@@ -206,6 +206,28 @@ export function DocumentModal({ docId, onClose }: DocumentModalProps) {
                     </div>
                   )
                 })()}
+                <div className="meta-row">
+                  <span className="meta-label">Hoàn thành:</span>
+                  <input
+                    type="date"
+                    value={doc.completedDate ? doc.completedDate.toDate().toISOString().split('T')[0] : ''}
+                    min={doc.issueDate ? doc.issueDate.toDate().toISOString().split('T')[0] : undefined}
+                    onChange={async (e) => {
+                      const val = e.target.value
+                      if (val) {
+                        await updateDocument(doc.id, { completedDate: new Date(val), status: 'completed' })
+                        setDoc(prev => prev ? { ...prev, completedDate: { toDate: () => new Date(val) } as any, status: 'completed' } : prev)
+                      } else {
+                        const newStatus = doc.assignee ? 'in_progress' : 'pending'
+                        await updateDocument(doc.id, { completedDate: null, status: newStatus })
+                        setDoc(prev => prev ? { ...prev, completedDate: undefined, status: newStatus } as any : prev)
+                      }
+                    }}
+                    style={{ fontSize: '13px', padding: '2px 6px', border: '1px solid transparent', borderRadius: '4px', background: 'transparent', cursor: 'pointer', transition: 'all 0.15s' }}
+                    onMouseEnter={e => { e.currentTarget.style.background = '#f1f5f9'; e.currentTarget.style.borderColor = '#cbd5e1' }}
+                    onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderColor = 'transparent' }}
+                  />
+                </div>
                 <div className="meta-row">
                   <span className="meta-label">Người được giao:</span>
                   {(!doc.assignee || doc.assignee === user?.displayName || doc.assignee === 'Bùi Minh Khôi') ? (

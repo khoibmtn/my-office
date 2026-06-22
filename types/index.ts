@@ -34,6 +34,7 @@ export interface Document {
   attachments: Attachment[]
   status: DocumentStatus
   deadline?: Timestamp
+  completedDate?: Timestamp
   task?: string
   assignee?: string
   priority?: string

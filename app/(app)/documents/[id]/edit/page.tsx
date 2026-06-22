@@ -36,6 +36,8 @@ export default function EditDocumentPage() {
   const [notes, setNotes] = useState('')
   const [status, setStatus] = useState<DocumentStatus>('pending')
   const [deadline, setDeadline] = useState('')
+  const [completedDate, setCompletedDate] = useState('')
+  const [issueDate, setIssueDate] = useState('')
   const [priority, setPriority] = useState('normal')
   const [assignee, setAssignee] = useState('')
   const [tags, setTags] = useState('')
@@ -59,6 +61,14 @@ export default function EditDocumentPage() {
       if (d.deadline) {
         const date = (d.deadline as { toDate(): Date }).toDate()
         setDeadline(date.toISOString().split('T')[0])
+      }
+      if (d.completedDate) {
+        const date = (d.completedDate as { toDate(): Date }).toDate()
+        setCompletedDate(date.toISOString().split('T')[0])
+      }
+      if (d.issueDate) {
+        const date = (d.issueDate as { toDate(): Date }).toDate()
+        setIssueDate(date.toISOString().split('T')[0])
       }
       const existingAtts = (d.attachments ?? []).map((a) => ({
         id: uuid(),
@@ -96,17 +106,20 @@ export default function EditDocumentPage() {
         }
       }
 
+      const effectiveStatus = completedDate ? 'completed' : (status === 'completed' ? 'pending' : status)
+
       await updateDocument(id, {
         title,
         originalLink,
         sender: sender || undefined,
         leader: leader || undefined,
         notes: notes || undefined,
-        status,
+        status: effectiveStatus,
         assignee: assignee || undefined,
         priority: priority || 'normal',
         tags: tags ? tags.split(',').map((t) => t.trim()).filter(Boolean) : [],
         deadline: deadline ? new Date(deadline) : undefined,
+        completedDate: completedDate ? new Date(completedDate) : null,
       })
 
       router.push('/documents')
@@ -174,6 +187,27 @@ export default function EditDocumentPage() {
         <div className="flex flex-col gap-1">
           <Label htmlFor="deadline">Deadline</Label>
           <Input id="deadline" type="date" value={deadline} onChange={(e) => setDeadline(e.target.value)} />
+        </div>
+
+        <div className="flex flex-col gap-1">
+          <Label htmlFor="completedDate">Ngày hoàn thành</Label>
+          <Input 
+            id="completedDate" 
+            type="date" 
+            value={completedDate} 
+            min={issueDate || undefined}
+            onChange={(e) => {
+              setCompletedDate(e.target.value)
+              if (e.target.value) {
+                setStatus('completed')
+              } else if (status === 'completed') {
+                setStatus(assignee ? 'in_progress' : 'pending')
+              }
+            }} 
+          />
+          {completedDate && issueDate && completedDate < issueDate && (
+            <span className="text-red-500 text-xs">Ngày hoàn thành phải &gt;= ngày ban hành</span>
+          )}
         </div>
 
         <div className="flex flex-col gap-1">
