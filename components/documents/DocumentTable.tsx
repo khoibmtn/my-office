@@ -142,9 +142,8 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
   const [deleting, setDeleting] = useState<string | null>(null)
   const [viewingId, setViewingId] = useState<string | null>(null)
   const [filterStatus, setFilterStatus] = useState<string>('pending')
-  const [filterPriority, setFilterPriority] = useState<string>('all')
-  const [filterPerson, setFilterPerson] = useState<string>('all')
   const [badgeFilters, setBadgeFilters] = useState<string[]>([])
+  const [priorityBadgeFilters, setPriorityBadgeFilters] = useState<string[]>([])
   const [staffBadgeFilter, setStaffBadgeFilter] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' } | null>(null)
@@ -186,10 +185,8 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
         return true
       })
     }
-    if (filterPerson !== 'all') result = result.filter(d => d.assignee === filterPerson)
-    if (filterPriority !== 'all') result = result.filter(d => (d.priority || 'normal') === filterPriority)
     return result
-  }, [documents, filterStatus, filterPerson, filterPriority])
+  }, [documents, filterStatus])
 
   // Count stats
   const stats = useMemo(() => {
@@ -215,6 +212,16 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
       counts[name] = (counts[name] || 0) + 1
     })
     return Object.entries(counts).sort((a, b) => a[0].localeCompare(b[0]))
+  }, [baseDocs])
+
+  // Priority stats from baseDocs
+  const priorityStats = useMemo(() => {
+    const counts: Record<string, number> = {}
+    baseDocs.forEach(d => {
+      const p = d.priority || 'normal'
+      counts[p] = (counts[p] || 0) + 1
+    })
+    return counts
   }, [baseDocs])
 
   const filteredDocs = useMemo(() => {
@@ -247,6 +254,11 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
           return false
         })
       })
+    }
+
+    // Priority badge filters
+    if (priorityBadgeFilters.length > 0) {
+      result = result.filter(d => priorityBadgeFilters.includes(d.priority || 'normal'))
     }
 
     // Staff badge filter
@@ -293,7 +305,7 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
     }
 
     return result
-  }, [baseDocs, badgeFilters, staffBadgeFilter, searchQuery, wordMatch, sortConfig])
+  }, [baseDocs, badgeFilters, priorityBadgeFilters, staffBadgeFilter, searchQuery, wordMatch, sortConfig])
 
   const handleSort = (key: string) => {
     let direction: 'asc' | 'desc' = 'asc'
@@ -365,21 +377,35 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
         </div>
         <div className="filter-group">
           <label>Mức độ khẩn:</label>
-          <select value={filterPriority} onChange={e => setFilterPriority(e.target.value)}>
-            <option value="all">Tất cả</option>
-            <option value="normal">Thường</option>
-            <option value="urgent">Khẩn</option>
-            <option value="very_urgent">Thượng khẩn</option>
-            <option value="express">Hỏa tốc</option>
-            <option value="express_scheduled">Hỏa tốc hẹn giờ</option>
-          </select>
-        </div>
-        <div className="filter-group">
-          <label>Người thực hiện:</label>
-          <select value={filterPerson} onChange={e => setFilterPerson(e.target.value)}>
-            <option value="all">Tất cả</option>
-            {assignees.map(a => <option key={a} value={a}>{a}</option>)}
-          </select>
+          {[
+            { key: 'normal', label: 'Thường', color: '#64748b' },
+            { key: 'urgent', label: 'Khẩn', color: '#f59e0b' },
+            { key: 'very_urgent', label: 'Thượng khẩn', color: '#f97316' },
+            { key: 'express', label: 'Hỏa tốc', color: '#ef4444' },
+            { key: 'express_scheduled', label: 'Hỏa tốc hẹn giờ', color: '#e11d48' }
+          ].map(p => {
+            const count = priorityStats[p.key] || 0
+            if (count === 0) return null
+            const isSelected = priorityBadgeFilters.includes(p.key)
+            return (
+              <button
+                key={p.key}
+                onClick={() => setPriorityBadgeFilters(prev =>
+                  prev.includes(p.key) ? prev.filter(x => x !== p.key) : [...prev, p.key]
+                )}
+                className="px-2 py-0.5 rounded shadow-sm flex items-center gap-1 transition-all border text-xs font-semibold"
+                style={{
+                  background: isSelected ? p.color : `color-mix(in srgb, ${p.color} 12%, #ffffff)`,
+                  borderColor: p.color,
+                  color: isSelected ? '#fff' : p.color,
+                  boxShadow: isSelected ? `0 0 0 2px #fff, 0 0 0 3px ${p.color}` : 'none'
+                }}
+              >
+                {p.label} ({count})
+                {isSelected && <span className="opacity-70 hover:opacity-100 font-normal ml-0.5 text-sm leading-none">×</span>}
+              </button>
+            )
+          })}
         </div>
 
         <div className="flex-1"></div>
