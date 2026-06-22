@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { Loader2 } from 'lucide-react'
 import { v4 as uuid } from 'uuid'
+import { toLocalISODate } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -59,16 +60,13 @@ export default function EditDocumentPage() {
       setPriority(d.priority ?? 'normal')
       setTags((d.tags ?? []).join(', '))
       if (d.deadline) {
-        const date = (d.deadline as { toDate(): Date }).toDate()
-        setDeadline(date.toISOString().split('T')[0])
+        setDeadline(toLocalISODate(d.deadline))
       }
       if (d.completedDate) {
-        const date = (d.completedDate as { toDate(): Date }).toDate()
-        setCompletedDate(date.toISOString().split('T')[0])
+        setCompletedDate(toLocalISODate(d.completedDate))
       }
       if (d.issueDate) {
-        const date = (d.issueDate as { toDate(): Date }).toDate()
-        setIssueDate(date.toISOString().split('T')[0])
+        setIssueDate(toLocalISODate(d.issueDate))
       }
       const existingAtts = (d.attachments ?? []).map((a) => ({
         id: uuid(),
@@ -118,8 +116,9 @@ export default function EditDocumentPage() {
         assignee: assignee || undefined,
         priority: priority || 'normal',
         tags: tags ? tags.split(',').map((t) => t.trim()).filter(Boolean) : [],
-        deadline: deadline ? new Date(deadline) : undefined,
-        completedDate: completedDate ? new Date(completedDate) : null,
+        deadline: deadline ? new Date(deadline + 'T00:00:00') : null,
+        completedDate: completedDate ? new Date(completedDate + 'T00:00:00') : null,
+        issueDate: issueDate ? new Date(issueDate + 'T00:00:00') : null,
       })
 
       router.push('/documents')

@@ -5,6 +5,16 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
+export function toLocalISODate(d: any): string {
+  if (!d) return ''
+  const dt = d?.toDate ? d.toDate() : (d instanceof Date ? d : new Date(d))
+  if (isNaN(dt.getTime())) return ''
+  const y = dt.getFullYear()
+  const m = String(dt.getMonth() + 1).padStart(2, '0')
+  const day = String(dt.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
 export function parseFileNameFromUrl(url: string, defaultName: string = 'File đính kèm'): string {
   if (!url) return defaultName;
   try {

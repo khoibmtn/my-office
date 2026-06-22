@@ -21,6 +21,16 @@ function getStatusInfo(doc: Document, days: number | null) {
   return { label: '⏳ Chờ xử lý', cls: 'status-pending' }
 }
 
+function toLocalISODate(d: any): string {
+  if (!d) return ''
+  const dt = d?.toDate ? d.toDate() : (d instanceof Date ? d : new Date(d))
+  if (isNaN(dt.getTime())) return ''
+  const y = dt.getFullYear()
+  const m = String(dt.getMonth() + 1).padStart(2, '0')
+  const day = String(dt.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
 function getFileIcon(fileName: string, mimeType?: string, defaultColor: string = 'text-slate-500') {
   const name = (fileName || '').toLowerCase()
   const mime = (mimeType || '').toLowerCase()
@@ -210,13 +220,14 @@ export function DocumentModal({ docId, onClose }: DocumentModalProps) {
                   <span className="meta-label">Hoàn thành:</span>
                   <input
                     type="date"
-                    value={doc.completedDate ? doc.completedDate.toDate().toISOString().split('T')[0] : ''}
-                    min={doc.issueDate ? doc.issueDate.toDate().toISOString().split('T')[0] : undefined}
+                    value={toLocalISODate(doc.completedDate)}
+                    min={toLocalISODate(doc.issueDate) || undefined}
                     onChange={async (e) => {
                       const val = e.target.value
                       if (val) {
-                        await updateDocument(doc.id, { completedDate: new Date(val), status: 'completed' })
-                        setDoc(prev => prev ? { ...prev, completedDate: { toDate: () => new Date(val) } as any, status: 'completed' } : prev)
+                        const localMidnight = new Date(val + 'T00:00:00')
+                        await updateDocument(doc.id, { completedDate: localMidnight, status: 'completed' })
+                        setDoc(prev => prev ? { ...prev, completedDate: { toDate: () => localMidnight } as any, status: 'completed' } : prev)
                       } else {
                         const newStatus = doc.assignee ? 'in_progress' : 'pending'
                         await updateDocument(doc.id, { completedDate: null, status: newStatus })
