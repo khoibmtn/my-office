@@ -98,14 +98,14 @@ export function DocumentModal({ docId, onClose }: DocumentModalProps) {
     
     const mainFile = allFiles[0]
     if (mainFile) {
-      lines.push(mainFile.driveId ? `https://drive.google.com/uc?export=download&id=${mainFile.driveId}` : mainFile.url)
+      lines.push(mainFile.url)
     }
     
     if (allFiles.length > 1) {
       lines.push('Các văn bản đính kèm:')
       for (let i = 1; i < allFiles.length; i++) {
         const att = allFiles[i]
-        lines.push(att.driveId ? `https://drive.google.com/uc?export=download&id=${att.driveId}` : att.url)
+        lines.push(att.url)
       }
     }
     
