@@ -85,41 +85,59 @@ export async function POST(request: NextRequest) {
     const tags = (form.get('tags') as string) ?? ''
     const userAccessToken = (form.get('userAccessToken') as string) ?? undefined
 
-    // Extract files
+    // Check for pre-uploaded files (from the new background upload approach)
+    const mainFileId = form.get('mainFileId') as string | null
+    const mainFileUrl = form.get('mainFileUrl') as string | null
+    const mainMimeType = form.get('mainMimeType') as string | null
+    const attachmentsJson = form.get('attachmentsJson') as string | null
+
+    // Extract files (legacy approach)
     const mainFile = form.get('mainFile') as File | null
-    if (!mainFile) {
+    if (!mainFile && !mainFileId) {
       return NextResponse.json(
-        { error: 'mainFile is required' },
+        { error: 'mainFile or mainFileId is required' },
         { status: 400, headers: corsHeaders() }
       )
     }
 
     const attachmentFiles: File[] = []
-    for (let i = 0; i < 20; i++) {
-      const att = form.get(`attachment_${i}`) as File | null
-      if (att) attachmentFiles.push(att)
-      else break
+    if (!attachmentsJson) {
+      for (let i = 0; i < 20; i++) {
+        const att = form.get(`attachment_${i}`) as File | null
+        if (att) attachmentFiles.push(att)
+        else break
+      }
     }
 
     const folderId = process.env.DRIVE_FOLDER_ID!
     const drive = getDriveClient(userAccessToken)
 
-    // Upload main file to Drive
-    const mainResult = await uploadFileToDrive(drive, mainFile, folderId)
+    // Upload main file to Drive (if not pre-uploaded)
+    let mainResult
+    if (mainFileId && mainFileUrl && mainMimeType) {
+      mainResult = { driveFileId: mainFileId, driveViewUrl: mainFileUrl, mimeType: mainMimeType }
+    } else {
+      mainResult = await uploadFileToDrive(drive, mainFile!, folderId)
+    }
 
-    // Upload attachments
-    const attachmentResults = await Promise.all(
-      attachmentFiles.map(async (file, i) => {
-        const result = await uploadFileToDrive(drive, file, folderId)
-        return {
-          id: file.name,
-          title: file.name,
-          originalLink: '',
-          ...result,
-          uploadedAt: new Date(),
-        }
-      })
-    )
+    // Upload attachments (if not pre-uploaded)
+    let attachmentResults
+    if (attachmentsJson) {
+      attachmentResults = JSON.parse(attachmentsJson)
+    } else {
+      attachmentResults = await Promise.all(
+        attachmentFiles.map(async (file, i) => {
+          const result = await uploadFileToDrive(drive, file, folderId)
+          return {
+            id: file.name,
+            title: file.name,
+            originalLink: '',
+            ...result,
+            uploadedAt: new Date(),
+          }
+        })
+      )
+    }
 
     // Create Firestore document
     initAdmin()
@@ -173,7 +191,7 @@ export async function POST(request: NextRequest) {
         docId,
         driveFileId: mainResult.driveFileId,
         driveViewUrl: mainResult.driveViewUrl,
-        attachments: attachmentResults.map((a) => ({
+        attachments: attachmentResults.map((a: any) => ({
           driveFileId: a.driveFileId,
           driveViewUrl: a.driveViewUrl,
         })),

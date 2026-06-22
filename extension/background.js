@@ -79,12 +79,46 @@ async function getUserToken() {
   return data.myoffice_token || null;
 }
 
+async function uploadSingleFile(apiUrl, blob, fileName, userAccessToken) {
+  const form = new FormData();
+  form.append('file', new File([blob], fileName, { type: blob.type || 'application/octet-stream' }));
+  if (userAccessToken) form.append('userAccessToken', userAccessToken);
+  
+  const res = await fetch(`${apiUrl}/api/extension/upload`, {
+    method: 'POST',
+    body: form,
+  });
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error(`Upload API error ${res.status}: ${errText}`);
+  }
+  return res.json();
+}
+
 /**
  * Submit document + files to my-office API
  */
 async function submitToMyOffice(apiUrl, metadata, mainFileBlob, mainFileName, attachmentBlobs, userAccessToken) {
-  const form = new FormData();
+  // 1. Upload main file individually
+  const mainResult = await uploadSingleFile(apiUrl, mainFileBlob, mainFileName, userAccessToken);
   
+  // 2. Upload attachments individually
+  const attachmentResults = [];
+  for (const att of attachmentBlobs) {
+    const res = await uploadSingleFile(apiUrl, att.blob, att.fileName, userAccessToken);
+    attachmentResults.push({
+      id: att.fileName,
+      title: att.fileName,
+      originalLink: '',
+      driveFileId: res.driveFileId,
+      driveViewUrl: res.driveViewUrl,
+      mimeType: res.mimeType,
+      uploadedAt: new Date().toISOString()
+    });
+  }
+  
+  // 3. Submit metadata
+  const form = new FormData();
   form.append('title', metadata.summary || '');
   form.append('docNumber', metadata.docNumber || '');
   form.append('issueDate', metadata.issueDate || '');
@@ -94,19 +128,15 @@ async function submitToMyOffice(apiUrl, metadata, mainFileBlob, mainFileName, at
   form.append('leader', metadata.leader || '');
   form.append('originalLink', metadata.pageUrl || '');
   form.append('priority', metadata.priority || 'normal');
-  // Notes: only CQBH and leader, no duplication
   form.append('notes', '');
   form.append('tags', '');
+  if (userAccessToken) form.append('userAccessToken', userAccessToken);
   
-  if (userAccessToken) {
-    form.append('userAccessToken', userAccessToken);
-  }
-  
-  form.append('mainFile', new File([mainFileBlob], mainFileName, { type: mainFileBlob.type || 'application/octet-stream' }));
-  
-  attachmentBlobs.forEach((att, i) => {
-    form.append(`attachment_${i}`, new File([att.blob], att.fileName, { type: att.blob.type || 'application/octet-stream' }));
-  });
+  // Attach pre-uploaded references
+  form.append('mainFileId', mainResult.driveFileId);
+  form.append('mainFileUrl', mainResult.driveViewUrl);
+  form.append('mainMimeType', mainResult.mimeType);
+  form.append('attachmentsJson', JSON.stringify(attachmentResults));
   
   const res = await fetch(`${apiUrl}/api/extension/submit`, {
     method: 'POST',
