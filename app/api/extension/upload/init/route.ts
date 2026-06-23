@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { initAdmin } from '@/lib/firebase-admin'
+import { initAdmin, verifyIdTokenREST } from '@/lib/firebase-admin'
 
 export async function POST(request: NextRequest) {
   try {
     const { google } = await import('googleapis')
-    const { getAuth } = await import('firebase-admin/auth')
 
     const { fileName, mimeType, firebaseIdToken } = await request.json()
     
@@ -13,8 +12,7 @@ export async function POST(request: NextRequest) {
     }
 
     try {
-      initAdmin()
-      await getAuth().verifyIdToken(firebaseIdToken)
+      await verifyIdTokenREST(firebaseIdToken)
     } catch (authErr) {
       return NextResponse.json({ error: 'TOKEN_EXPIRED', message: 'Phiên đăng nhập đã hết hạn. Vui lòng mở lại trang My Office để đăng nhập.' }, { status: 401, headers: { 'Access-Control-Allow-Origin': '*' } })
     }

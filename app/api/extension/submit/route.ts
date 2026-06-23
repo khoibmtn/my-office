@@ -2,8 +2,7 @@ import * as fs from 'fs';
 import { NextRequest, NextResponse } from 'next/server'
 import { Readable } from 'stream'
 import { google } from 'googleapis'
-import { initAdmin, getAdminFirestore } from '@/lib/firebase-admin'
-import { getAuth } from 'firebase-admin/auth'
+import { initAdmin, getAdminFirestore, verifyIdTokenREST } from '@/lib/firebase-admin'
 import { syncToAlgolia } from '@/lib/algolia-server'
 import { FieldValue } from 'firebase-admin/firestore'
 
@@ -18,7 +17,7 @@ function getDriveClient() {
   }
 
   const auth = new google.auth.GoogleAuth({
-    credentials: JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_KEY!),
+    credentials: JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_KEY || '{}'),
     scopes: ['https://www.googleapis.com/auth/drive'],
   })
   return google.drive({ version: 'v3', auth })
@@ -134,8 +133,7 @@ export async function POST(request: NextRequest) {
     }
 
     try {
-      initAdmin()
-      await getAuth().verifyIdToken(firebaseIdToken)
+      await verifyIdTokenREST(firebaseIdToken)
     } catch (authErr) {
       return NextResponse.json(
         { error: 'TOKEN_EXPIRED', message: 'Phiên đăng nhập đã hết hạn. Vui lòng mở lại trang My Office để đăng nhập.' },
