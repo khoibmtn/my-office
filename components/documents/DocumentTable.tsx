@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react'
-import { Loader2, Trash2, Eye, RefreshCw, CheckCircle2, Clock, AlertTriangle, XCircle, CircleDot, Search, Pencil, ArrowUpDown, ClipboardCopy, Calendar } from 'lucide-react'
+import { Loader2, Trash2, Eye, RefreshCw, CheckCircle2, Clock, CircleDot, Search, Pencil, ArrowUpDown, ClipboardCopy, Calendar, ChevronLeft, ChevronRight, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
@@ -70,7 +70,7 @@ function ThResizable({ width, minWidth = 30, onWidthChange, children, className,
     >
       {children}
       <div 
-        className="absolute right-0 top-0 bottom-0 w-2 cursor-col-resize hover:bg-slate-400 opacity-0 group-hover:opacity-100 z-10 transition-opacity"
+        className="absolute right-0 top-0 bottom-0 w-2 cursor-col-resize hover:bg-slate-400 opacity-0 group-hover:opacity-100 z-10 transition-opacity hidden lg:block"
         onMouseDown={handleMouseDown}
         onClick={(e) => e.stopPropagation()} 
       />
@@ -98,6 +98,17 @@ function formatDate(ts: any): string {
   return `${String(d!.getDate()).padStart(2, '0')}/${String(d!.getMonth() + 1).padStart(2, '0')}/${d!.getFullYear()}`
 }
 
+function formatDateShort(ts: any): string {
+  if (!ts) return '—'
+  let d: Date
+  if (typeof ts.toDate === 'function') d = ts.toDate()
+  else if (ts instanceof Date) d = ts
+  else if (ts.seconds) d = new Date(ts.seconds * 1000)
+  else return '—'
+  if (isNaN(d!.getTime())) return '—'
+  return `${String(d!.getDate()).padStart(2, '0')}/${String(d!.getMonth() + 1).padStart(2, '0')}`
+}
+
 
 function getDaysRemaining(ts: { toDate(): Date } | undefined): number | null {
   if (!ts) return null
@@ -121,15 +132,15 @@ function getEffectiveStatus(doc: Document, overrideStatus?: string): { icon: Rea
     label: 'Hoàn thành', cls: 'status-completed'
   }
   if (status === 'uploading') return {
-    icon: <Loader2 className="h-4 w-4 animate-spin text-slate-400" />,
+    icon: <Loader2 className="h-4 w-4 animate-spin" />,
     label: 'Đang tải...', cls: 'status-uploading'
   }
   if (doc.assignee) return {
-    icon: <CircleDot className="h-4 w-4 text-blue-500" />,
+    icon: <CircleDot className="h-4 w-4" />,
     label: 'Đang xử lý', cls: 'status-progress'
   }
   return {
-    icon: <Clock className="h-4 w-4 text-slate-400" />,
+    icon: <Clock className="h-4 w-4" />,
     label: 'Chưa giao', cls: 'status-pending'
   }
 }
@@ -168,7 +179,211 @@ function toDateSafe(ts: any): Date | null {
   return null
 }
 
-// === Component ===
+// === Mobile Card Component ===
+function DocumentCard({
+  doc, idx, days, eff, rowClass, prio, searchQuery,
+  onToggleComplete, onView, onDelete, onRetry, onAssign,
+  retrying, deleting, staffList, settings,
+}: {
+  doc: Document; idx: number; days: number | null;
+  eff: { icon: React.ReactNode; label: string; cls: string };
+  rowClass: string; prio: { label: string; color: string } | null;
+  searchQuery: string;
+  onToggleComplete: (doc: Document) => void;
+  onView: (id: string) => void;
+  onDelete: (id: string, title: string) => void;
+  onRetry: (doc: Document) => void;
+  onAssign: (id: string, person: string) => void;
+  retrying: string | null; deleting: string | null;
+  staffList: string[]; settings: any;
+}) {
+  const urgencyColor = rowClass === 'row-overdue' ? settings.overdueColor
+    : rowClass === 'row-expired' ? settings.expiredColor
+    : rowClass === 'row-urgent1' ? settings.urgent1Color
+    : rowClass === 'row-urgent2' ? settings.urgent2Color
+    : rowClass === 'row-normal' ? settings.normalColor
+    : rowClass === 'row-completed' ? settings.completedColor
+    : '#e2e8f0'
+
+  return (
+    <div
+      className="doc-card"
+      style={{ borderLeftColor: urgencyColor }}
+    >
+      {/* Header: doc number + priority */}
+      <div className="flex items-start justify-between gap-2 mb-1.5">
+        <div className="min-w-0">
+          <div className="font-semibold text-slate-800 text-sm">
+            <Highlight text={doc.docNumber || '—'} query={searchQuery} />
+          </div>
+          {doc.sender && (
+            <div className="text-[11px] text-slate-400 italic truncate">
+              <Highlight text={doc.sender} query={searchQuery} />
+            </div>
+          )}
+        </div>
+        {prio && doc.priority && doc.priority !== 'normal' && (
+          <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium whitespace-nowrap shrink-0 ${prio.color}`}>
+            {prio.label}
+          </span>
+        )}
+      </div>
+
+      {/* Title */}
+      <div className="text-xs text-slate-700 mb-1.5 leading-relaxed">
+        <Highlight text={doc.title} query={searchQuery} />
+        {doc.attachments && doc.attachments.length > 0 && (
+          <span className="text-slate-500 ml-1 font-medium whitespace-nowrap">
+            ({doc.attachments.length} 📎)
+          </span>
+        )}
+      </div>
+
+      {doc.notes && (
+        <div className="text-[11px] text-slate-500 italic mb-2 line-clamp-2" title={doc.notes}>
+          📝 <Highlight text={doc.notes} query={searchQuery} />
+        </div>
+      )}
+
+      {/* Metadata row */}
+      <div className="flex items-center gap-3 text-[11px] text-slate-500 mb-2.5 flex-wrap">
+        <span className="flex items-center gap-1">
+          📅 {formatDateShort(doc.issueDate)}
+        </span>
+        {days !== null && (
+          <span className={`days-badge ${days <= 0 ? 'days-danger' : days === 1 ? 'days-warning' : days <= 3 ? 'days-caution' : ''}`}>
+            ⏳ {getDaysLabel(days)}
+          </span>
+        )}
+        <span className="flex items-center gap-1">
+          👤 
+          <select
+            className="assign-select !w-auto !p-0 !bg-transparent font-medium focus:!bg-white"
+            value={doc.assignee || ''}
+            onChange={e => onAssign(doc.id, e.target.value)}
+          >
+            <option value="">Chưa giao</option>
+            {staffList.map(s => <option key={s} value={s}>{s}</option>)}
+          </select>
+        </span>
+      </div>
+
+      {/* Actions row */}
+      <div className="flex items-center gap-1.5 flex-wrap">
+        <button
+          className={`status-chip ${eff.cls} !p-1.5 sm:!py-1 sm:!px-2`}
+          onClick={() => onToggleComplete(doc)}
+          title={doc.status === 'completed' ? 'Bấm để chuyển về trạng thái chờ' : 'Bấm để đánh dấu hoàn thành'}
+        >
+          {eff.icon}
+        </button>
+
+        <div className="flex-1" />
+
+        {doc.status === 'upload_failed' ? (
+          <Button size="sm" variant="outline" onClick={() => onRetry(doc)} disabled={retrying === doc.id}>
+            {retrying === doc.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+          </Button>
+        ) : doc.status !== 'uploading' && (
+          <>
+            <button
+              onClick={() => onView(doc.id)}
+              className="p-2 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+              title="Xem"
+            >
+              <Eye className="h-4 w-4" />
+            </button>
+            <Link
+              href={`/documents/${doc.id}/edit`}
+              className="p-2 rounded-lg text-slate-400 hover:text-amber-600 hover:bg-amber-50 transition-colors"
+              title="Sửa"
+            >
+              <Pencil className="h-4 w-4" />
+            </Link>
+          </>
+        )}
+        <button
+          className="p-2 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+          onClick={() => onDelete(doc.id, doc.title)}
+          disabled={deleting === doc.id}
+          title="Xóa"
+        >
+          {deleting === doc.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+        </button>
+      </div>
+
+      {doc.completedDate && (() => {
+        const cd = toDateSafe(doc.completedDate)
+        if (!cd) return null
+        return (
+          <div className="text-[10px] italic mt-1.5">
+            <span className="text-red-600">HT:</span>{' '}
+            <span className="text-slate-500">{cd.toLocaleDateString('vi-VN')}</span>
+          </div>
+        )
+      })()}
+    </div>
+  )
+}
+
+// === Pagination Component ===
+function Pagination({
+  currentPage, totalPages, pageSize, totalItems,
+  onPageChange, onPageSizeChange,
+}: {
+  currentPage: number; totalPages: number; pageSize: number; totalItems: number;
+  onPageChange: (page: number) => void; onPageSizeChange: (size: number) => void;
+}) {
+  return (
+    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mt-4 px-1 text-sm text-slate-500">
+      <div className="flex items-center gap-2">
+        <span className="text-xs">Hiển thị</span>
+        <select
+          value={pageSize}
+          onChange={(e) => onPageSizeChange(Number(e.target.value))}
+          className="pl-2 pr-7 py-1 border border-slate-200 rounded-lg bg-white text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+          {[10, 20, 50].map((n) => <option key={n} value={n}>{n} dòng</option>)}
+        </select>
+      </div>
+      <div className="flex items-center gap-1.5">
+        <button
+          onClick={() => onPageChange(Math.max(1, currentPage - 1))}
+          disabled={currentPage <= 1}
+          className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+        >
+          <ChevronLeft className="w-4 h-4" />
+        </button>
+        <span className="text-xs">Trang</span>
+        <input
+          type="text"
+          inputMode="numeric"
+          value={currentPage}
+          onChange={(e) => {
+            const v = e.target.value.replace(/\D/g, '')
+            if (v === '') return
+            const n = Math.min(Math.max(1, parseInt(v, 10)), totalPages)
+            onPageChange(n)
+          }}
+          className="w-10 text-center py-1 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
+        <span className="text-xs">/ {totalPages}</span>
+        <button
+          onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))}
+          disabled={currentPage >= totalPages}
+          className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+        >
+          <ChevronRight className="w-4 h-4" />
+        </button>
+      </div>
+      <span className="text-slate-400 text-xs tabular-nums">
+        {(currentPage - 1) * pageSize + 1}–{Math.min(currentPage * pageSize, totalItems)} / {totalItems} văn bản
+      </span>
+    </div>
+  )
+}
+
+// === Main Component ===
 
 export function DocumentTable({ documents }: { documents: Document[] }) {
   const staffList = useStaff()
@@ -185,6 +400,8 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
   const [customFrom, setCustomFrom] = useState('')
   const [customTo, setCustomTo] = useState('')
   const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' } | null>(null)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [pageSize, setPageSize] = useState(20)
   
   const [colWidths, setColWidths] = useState<Record<string, number>>({
     stt: 36, issueDate: 90, docNumber: 130, title: 250, status: 120, deadline: 90, remaining: 80, assignee: 130, actions: 130
@@ -390,6 +607,17 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
     return result
   }, [baseDocs, badgeFilters, priorityBadgeFilters, staffBadgeFilter, searchQuery, wordMatch, sortConfig])
 
+  // Reset page on filter change
+  useEffect(() => { setCurrentPage(1) }, [searchQuery, badgeFilters, priorityBadgeFilters, staffBadgeFilter, filterStatus, timePeriod])
+
+  // Pagination
+  const showPagination = filteredDocs.length >= 10
+  const totalPages = showPagination ? Math.max(1, Math.ceil(filteredDocs.length / pageSize)) : 1
+  const safePage = Math.min(currentPage, totalPages)
+  const pagedDocs = showPagination
+    ? filteredDocs.slice((safePage - 1) * pageSize, safePage * pageSize)
+    : filteredDocs
+
   const handleSort = (key: string) => {
     let direction: 'asc' | 'desc' = 'asc'
     if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
@@ -448,12 +676,35 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
     return Array.from(set).sort()
   }, [documents, staffList])
 
+  // Priority labels
+  const priorityLabels: Record<string, { label: string, color: string }> = {
+    normal: { label: 'Thường', color: 'bg-slate-100 text-slate-600' },
+    urgent: { label: 'Khẩn', color: 'bg-amber-100 text-amber-700' },
+    very_urgent: { label: 'Thượng khẩn', color: 'bg-orange-100 text-orange-700' },
+    express: { label: 'Hỏa tốc', color: 'bg-red-100 text-red-700' },
+    express_scheduled: { label: 'Hỏa tốc hẹn giờ', color: 'bg-rose-100 text-rose-700' }
+  }
+
+  // Row class helper
+  const getRowClass = (doc: Document) => {
+    const days = getDaysRemaining(doc.deadline)
+    if (doc.status === 'completed') return 'row-completed'
+    if (days !== null) {
+      if (days < 0) return 'row-overdue'
+      if (days === 0) return 'row-expired'
+      if (days >= 1 && days <= 3) return 'row-urgent1'
+      if (days >= 4 && days <= 7) return 'row-urgent2'
+      return 'row-normal'
+    }
+    return ''
+  }
+
   return (
     <>
-      {/* Search + Filters */}
+      {/* === FILTERS === */}
       <div className="flex flex-col gap-2 mb-3">
         {(timePeriod === 'today' || periodRange) && (
-          <div className="text-blue-600 font-bold text-[15px] px-1">
+          <div className="text-blue-600 font-bold text-sm lg:text-[15px] px-1">
             {timePeriod === 'today' ? (
               <>Thống kê văn bản đến hôm nay, ngày {new Date().toLocaleDateString('vi-VN')}</>
             ) : (
@@ -461,85 +712,90 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
             )}
           </div>
         )}
-        <div className="filters-bar" style={{ marginBottom: 0 }}>
-          <div className="filter-group">
-            <Calendar size={16} className="text-slate-500" />
-            <select
-              value={timePeriod}
-              onChange={e => {
-                const val = e.target.value
-                setTimePeriod(val)
-                if (val === 'today') {
-                  setFilterStatus('pending')
-                } else {
-                  setFilterStatus('all')
-                }
-                e.target.blur()
-              }}
-            >
-              <option value="today">Đến hôm nay</option>
-              <option value="week">Tuần này</option>
-              <option value="last_month">Tháng trước</option>
-              <option value="custom">Bất kỳ</option>
-            </select>
-          </div>
-          
-          <div className="filter-group">
-            <label>Lọc danh sách:</label>
-            <select 
-              value={filterStatus} 
-              onChange={e => { setFilterStatus(e.target.value); e.target.blur() }}
-              className={filterStatus !== 'all' ? 'select-colored' : ''}
-              style={{
-                background: filterStatus === 'completed' ? settings.completedColor : filterStatus === 'pending' ? '#f59e0b' : undefined,
-                color: filterStatus === 'all' ? undefined : '#fff',
-                borderColor: filterStatus === 'completed' ? settings.completedColor : filterStatus === 'pending' ? '#f59e0b' : undefined,
-                fontWeight: filterStatus === 'all' ? undefined : 600,
-              }}
-            >
-              <option value="all">Tất cả</option>
-              <option value="pending">Chưa hoàn thành</option>
-              <option value="completed">Đã hoàn thành</option>
-            </select>
+
+        {/* Filter bar - responsive */}
+        <div className="filters-bar">
+          {/* Row 1: Time + Status + Priority */}
+          <div className="flex items-center gap-2 sm:gap-4 flex-wrap flex-1 min-w-0">
+            <div className="filter-group">
+              <Calendar size={16} className="text-slate-500 hidden sm:block" />
+              <select
+                value={timePeriod}
+                onChange={e => {
+                  const val = e.target.value
+                  setTimePeriod(val)
+                  if (val === 'today') {
+                    setFilterStatus('pending')
+                  } else {
+                    setFilterStatus('all')
+                  }
+                  e.target.blur()
+                }}
+              >
+                <option value="today">Đến hôm nay</option>
+                <option value="week">Tuần này</option>
+                <option value="last_month">Tháng trước</option>
+                <option value="custom">Bất kỳ</option>
+              </select>
+            </div>
+
+            <div className="filter-group">
+              <label className="hidden sm:inline">Lọc danh sách:</label>
+              <select 
+                value={filterStatus} 
+                onChange={e => { setFilterStatus(e.target.value); e.target.blur() }}
+                className={filterStatus !== 'all' ? 'select-colored' : ''}
+                style={{
+                  background: filterStatus === 'completed' ? settings.completedColor : filterStatus === 'pending' ? '#f59e0b' : undefined,
+                  color: filterStatus === 'all' ? undefined : '#fff',
+                  borderColor: filterStatus === 'completed' ? settings.completedColor : filterStatus === 'pending' ? '#f59e0b' : undefined,
+                  fontWeight: filterStatus === 'all' ? undefined : 600,
+                }}
+              >
+                <option value="all">Tất cả</option>
+                <option value="pending">Chưa hoàn thành</option>
+                <option value="completed">Đã hoàn thành</option>
+              </select>
+            </div>
+
+            {/* Priority filters - scroll on mobile */}
+            <div className="filter-group overflow-x-auto flex-nowrap hidden sm:flex">
+              <label className="hidden md:inline">Mức độ khẩn:</label>
+              {[
+                { key: 'normal', label: 'Thường', color: '#64748b' },
+                { key: 'urgent', label: 'Khẩn', color: '#f59e0b' },
+                { key: 'very_urgent', label: 'Thượng khẩn', color: '#f97316' },
+                { key: 'express', label: 'Hỏa tốc', color: '#ef4444' },
+                { key: 'express_scheduled', label: 'Hỏa tốc hẹn giờ', color: '#e11d48' }
+              ].map(p => {
+                const count = priorityStats[p.key] || 0
+                if (count === 0) return null
+                const isSelected = priorityBadgeFilters.includes(p.key)
+                return (
+                  <button
+                    key={p.key}
+                    onClick={() => setPriorityBadgeFilters(prev =>
+                      prev.includes(p.key) ? prev.filter(x => x !== p.key) : [...prev, p.key]
+                    )}
+                    className="badge-filter px-2 py-0.5 rounded shadow-sm flex items-center gap-1 transition-all border text-xs font-semibold whitespace-nowrap shrink-0"
+                    style={{
+                      '--badge-color': p.color,
+                      background: isSelected ? p.color : `color-mix(in srgb, ${p.color} 25%, #ffffff)`,
+                      borderColor: p.color,
+                      color: isSelected ? '#fff' : p.color,
+                      boxShadow: isSelected ? `0 0 0 2px #fff, 0 0 0 3px ${p.color}` : 'none'
+                    } as React.CSSProperties}
+                  >
+                    {p.label} ({count})
+                    {isSelected && <span className="opacity-70 hover:opacity-100 font-normal ml-0.5 text-sm leading-none">×</span>}
+                  </button>
+                )
+              })}
+            </div>
           </div>
 
-          <div className="filter-group">
-            <label>Mức độ khẩn:</label>
-            {[
-              { key: 'normal', label: 'Thường', color: '#64748b' },
-              { key: 'urgent', label: 'Khẩn', color: '#f59e0b' },
-              { key: 'very_urgent', label: 'Thượng khẩn', color: '#f97316' },
-              { key: 'express', label: 'Hỏa tốc', color: '#ef4444' },
-              { key: 'express_scheduled', label: 'Hỏa tốc hẹn giờ', color: '#e11d48' }
-            ].map(p => {
-              const count = priorityStats[p.key] || 0
-              if (count === 0) return null
-              const isSelected = priorityBadgeFilters.includes(p.key)
-              return (
-                <button
-                  key={p.key}
-                  onClick={() => setPriorityBadgeFilters(prev =>
-                    prev.includes(p.key) ? prev.filter(x => x !== p.key) : [...prev, p.key]
-                  )}
-                  className="badge-filter px-2 py-0.5 rounded shadow-sm flex items-center gap-1 transition-all border text-xs font-semibold"
-                  style={{
-                    '--badge-color': p.color,
-                    background: isSelected ? p.color : `color-mix(in srgb, ${p.color} 25%, #ffffff)`,
-                    borderColor: p.color,
-                    color: isSelected ? '#fff' : p.color,
-                    boxShadow: isSelected ? `0 0 0 2px #fff, 0 0 0 3px ${p.color}` : 'none'
-                  } as React.CSSProperties}
-                >
-                  {p.label} ({count})
-                  {isSelected && <span className="opacity-70 hover:opacity-100 font-normal ml-0.5 text-sm leading-none">×</span>}
-                </button>
-              )
-            })}
-          </div>
-
-          <div className="flex-1"></div>
-
-          <div className="search-box">
+          {/* Search box */}
+          <div className="search-box w-full sm:w-auto sm:min-w-[200px]">
             <Search size={16} />
             <input
               type="text"
@@ -548,14 +804,49 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
               onChange={e => setSearchQuery(e.target.value)}
             />
             {searchQuery && (
-              <button className="search-clear" onClick={() => setSearchQuery('')}>×</button>
+              <button className="search-clear" onClick={() => setSearchQuery('')}>
+                <X className="w-3 h-3" />
+              </button>
             )}
           </div>
-          <span className="filter-count">{filteredDocs.length}/{baseDocs.length} văn bản</span>
+          <span className="filter-count hidden sm:inline">{filteredDocs.length}/{baseDocs.length} văn bản</span>
+        </div>
+
+        {/* Mobile priority filters */}
+        <div className="sm:hidden scroll-x-badges px-1">
+          {[
+            { key: 'normal', label: 'Thường', color: '#64748b' },
+            { key: 'urgent', label: 'Khẩn', color: '#f59e0b' },
+            { key: 'very_urgent', label: 'T.khẩn', color: '#f97316' },
+            { key: 'express', label: 'Hỏa tốc', color: '#ef4444' },
+            { key: 'express_scheduled', label: 'HT hẹn giờ', color: '#e11d48' }
+          ].map(p => {
+            const count = priorityStats[p.key] || 0
+            if (count === 0) return null
+            const isSelected = priorityBadgeFilters.includes(p.key)
+            return (
+              <button
+                key={p.key}
+                onClick={() => setPriorityBadgeFilters(prev =>
+                  prev.includes(p.key) ? prev.filter(x => x !== p.key) : [...prev, p.key]
+                )}
+                className="badge-filter px-2 py-0.5 rounded shadow-sm flex items-center gap-1 transition-all border text-[11px] font-semibold whitespace-nowrap shrink-0"
+                style={{
+                  '--badge-color': p.color,
+                  background: isSelected ? p.color : `color-mix(in srgb, ${p.color} 25%, #ffffff)`,
+                  borderColor: p.color,
+                  color: isSelected ? '#fff' : p.color,
+                  boxShadow: isSelected ? `0 0 0 2px #fff, 0 0 0 3px ${p.color}` : 'none'
+                } as React.CSSProperties}
+              >
+                {p.label} ({count})
+              </button>
+            )
+          })}
         </div>
 
         {timePeriod === 'custom' && (
-          <div className="flex items-center gap-4 px-4 text-sm">
+          <div className="flex items-center gap-4 px-1 sm:px-4 text-sm">
             <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-md border border-slate-200 shadow-sm">
               <label className="text-slate-500 font-medium text-xs">Từ</label>
               <input type="date" value={customFrom} onChange={e => setCustomFrom(e.target.value)} className="text-xs outline-none bg-transparent" />
@@ -565,285 +856,341 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
           </div>
         )}
       </div>
-      <div className="flex gap-2 mb-4 text-xs font-semibold flex-wrap">
-        {[
-          { key: 'overdue', count: stats.overdue, color: settings.overdueColor, label: 'Quá hạn' },
-          { key: 'expired', count: stats.expired, color: settings.expiredColor, label: 'Hết hạn (0 ngày)' },
-          { key: 'urgent1', count: stats.urgent1, color: settings.urgent1Color, label: 'Cận hạn 1-3 ngày' },
-          { key: 'urgent2', count: stats.urgent2, color: settings.urgent2Color, label: 'Cận hạn 4-7 ngày' },
-          { key: 'normal', count: stats.normal, color: settings.normalColor, label: 'Còn hạn > 7 ngày' },
-          ...(filterStatus === 'all' ? [{ key: 'completed', count: stats.completed, color: settings.completedColor, label: 'Hoàn thành' }] : [])
-        ].map(b => {
-          if (b.count === 0) return null
-          const isSelected = badgeFilters.includes(b.key)
-          return (
-            <button
-              key={b.key}
-              onClick={() => {
-                setBadgeFilters(prev => 
-                  prev.includes(b.key) ? prev.filter(x => x !== b.key) : [...prev, b.key]
-                )
-              }}
-              className={`badge-filter px-2 py-1 rounded shadow-sm flex items-center gap-1 transition-all border`}
-              style={{ 
-                '--badge-color': b.color,
-                background: isSelected ? b.color : `color-mix(in srgb, ${b.color} 25%, #ffffff)`,
-                borderColor: b.color,
-                color: isSelected ? '#fff' : b.color,
-                boxShadow: isSelected ? `0 0 0 2px #fff, 0 0 0 4px ${b.color}` : 'none'
-              } as React.CSSProperties}
-            >
-              {b.label}: {b.count}
-              {isSelected && <span className="opacity-70 hover:opacity-100 font-normal ml-1 text-sm leading-none">×</span>}
-            </button>
-          )
-        })}
 
-        <div className="flex-1" />
-
-        {staffStats.map(([name, count]) => {
-          const isSelected = staffBadgeFilter === name
-          return (
-            <button
-              key={name}
-              onClick={() => setStaffBadgeFilter(staffBadgeFilter === name ? null : name)}
-              className={`badge-filter px-2 py-1 rounded shadow-sm flex items-center gap-1 transition-all border text-xs font-semibold`}
-              style={{
-                '--badge-color': isSelected ? '#475569' : '#475569',
-                background: isSelected ? '#475569' : '#f1f5f9',
-                borderColor: isSelected ? '#334155' : '#cbd5e1',
-                color: isSelected ? '#fff' : '#475569',
-                boxShadow: isSelected ? '0 0 0 2px #fff, 0 0 0 4px #475569' : 'none'
-              } as React.CSSProperties}
-            >
-              {name}: {count}
-              {isSelected && <span className="opacity-70 hover:opacity-100 font-normal ml-1 text-sm leading-none">×</span>}
-            </button>
-          )
-        })}
-
-        <button
-          className="badge-filter px-2 py-1 rounded shadow-sm flex items-center gap-1 transition-all border text-xs font-semibold"
-          style={{
-            '--badge-color': '#3b82f6',
-            background: '#eff6ff',
-            borderColor: '#93c5fd',
-            color: '#2563eb',
-          } as React.CSSProperties}
-          title="Copy thống kê theo nhân viên"
-          onClick={() => {
-            const lines: string[] = []
-            
-            // Header: period info
-            const now = new Date()
-            if (timePeriod === 'today' || !periodRange) {
-              lines.push(`Thống kê văn bản tính đến ngày ${now.toLocaleDateString('vi-VN')}`)
-            } else {
-              lines.push(`Thống kê văn bản từ ngày ${periodRange.from.toLocaleDateString('vi-VN')} đến ${periodRange.to.toLocaleDateString('vi-VN')}`)
-            }
-            // Summary line
-            let totalAll = baseDocs.length
-            let totalCompleted = 0
-            baseDocs.forEach(d => { if (getDocEffectiveStatus(d) === 'completed') totalCompleted++ })
-            lines.push(`TS văn bản: ${totalAll}, Đã hoàn thành: ${totalCompleted}, Chưa hoàn thành: ${totalAll - totalCompleted}`)
-            lines.push('')
-            
-            let idx = 1
-            // Group baseDocs by assignee
-            const grouped: Record<string, typeof baseDocs> = {}
-            baseDocs.forEach(d => {
-              const name = d.assignee || '(Chưa giao)'
-              if (!grouped[name]) grouped[name] = []
-              grouped[name].push(d)
-            })
-            const sortedNames = Object.keys(grouped).sort()
-            sortedNames.forEach(name => {
-              const docs = grouped[name]
-              const total = docs.length
-              lines.push(`${idx}. ${name}: ${total} văn bản`)
-              // Breakdown by deadline using effective status
-              let overdue = 0, expired = 0, u1 = 0, u2 = 0, normal = 0, completed = 0, noDeadline = 0
-              docs.forEach(d => {
-                const effSt = getDocEffectiveStatus(d)
-                if (effSt === 'completed') { completed++; return }
-                const days = getDaysRemaining(d.deadline)
-                if (days === null) noDeadline++
-                else if (days < 0) overdue++
-                else if (days === 0) expired++
-                else if (days >= 1 && days <= 3) u1++
-                else if (days >= 4 && days <= 7) u2++
-                else normal++
-              })
-              if (overdue > 0) lines.push(`   - Quá hạn: ${overdue}`)
-              if (expired > 0) lines.push(`   - Hết hạn (0 ngày): ${expired}`)
-              if (u1 > 0) lines.push(`   - Cận hạn 1-3 ngày: ${u1}`)
-              if (u2 > 0) lines.push(`   - Cận hạn 4-7 ngày: ${u2}`)
-              if (normal > 0) lines.push(`   - Còn hạn > 7 ngày: ${normal}`)
-              if (noDeadline > 0) lines.push(`   - Không có hạn: ${noDeadline}`)
-              if (completed > 0) lines.push(`   - Hoàn thành: ${completed}`)
-              idx++
-            })
-            navigator.clipboard.writeText(lines.join('\n'))
-              .then(() => alert('Đã copy thống kê vào clipboard!'))
-              .catch(() => alert('Lỗi copy!'))
-          }}
-        >
-          <ClipboardCopy className="h-3.5 w-3.5" />
-          Copy
-        </button>
-      </div>
-
-      <Table className="doc-table">
-        <TableHeader>
-          <TableRow className="doc-table-header">
-            <ThResizable width={colWidths.stt} minWidth={30} onWidthChange={(w: number) => handleWidthChange('stt', w)} className="cursor-pointer hover:bg-slate-700/50" onClick={() => setSortConfig(null)}>#</ThResizable>
-            <ThResizable width={colWidths.issueDate} minWidth={60} onWidthChange={(w: number) => handleWidthChange('issueDate', w)} className="cursor-pointer hover:bg-slate-700/50" onClick={() => handleSort('issueDate')}>Ngày ban hành <ArrowUpDown className="h-3 w-3 inline ml-1"/></ThResizable>
-            <ThResizable width={colWidths.docNumber} minWidth={80} onWidthChange={(w: number) => handleWidthChange('docNumber', w)} className="cursor-pointer hover:bg-slate-700/50" onClick={() => handleSort('docNumber')}>Mã hiệu <ArrowUpDown className="h-3 w-3 inline ml-1"/></ThResizable>
-            <ThResizable width={colWidths.title} minWidth={150} onWidthChange={(w: number) => handleWidthChange('title', w)} className="cursor-pointer hover:bg-slate-700/50" onClick={() => handleSort('title')}>Tiêu đề <ArrowUpDown className="h-3 w-3 inline ml-1"/></ThResizable>
-            <ThResizable width={colWidths.deadline} minWidth={70} onWidthChange={(w: number) => handleWidthChange('deadline', w)} className="cursor-pointer hover:bg-slate-700/50" onClick={() => handleSort('deadline')}>Deadline <ArrowUpDown className="h-3 w-3 inline ml-1"/></ThResizable>
-            <ThResizable width={colWidths.remaining} minWidth={60} onWidthChange={(w: number) => handleWidthChange('remaining', w)} className="cursor-pointer hover:bg-slate-700/50" onClick={() => handleSort('remaining')}>Còn lại <ArrowUpDown className="h-3 w-3 inline ml-1"/></ThResizable>
-            <ThResizable width={colWidths.assignee} minWidth={90} onWidthChange={(w: number) => handleWidthChange('assignee', w)} className="cursor-pointer hover:bg-slate-700/50" onClick={() => handleSort('assignee')}>Người TH <ArrowUpDown className="h-3 w-3 inline ml-1"/></ThResizable>
-            <TableHead className="doc-table-header border-0">Actions</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {filteredDocs.map((doc, idx) => {
-            const days = getDaysRemaining(doc.deadline)
-            const docEffStatus = getDocEffectiveStatus(doc)
-            const eff = getEffectiveStatus(doc, docEffStatus)
-            
-            let rowClass = ''
-            if (doc.status === 'completed') rowClass = 'row-completed'
-            else if (days !== null) {
-              if (days < 0) rowClass = 'row-overdue'
-              else if (days === 0) rowClass = 'row-expired'
-              else if (days >= 1 && days <= 3) rowClass = 'row-urgent1'
-              else if (days >= 4 && days <= 7) rowClass = 'row-urgent2'
-              else rowClass = 'row-normal'
-            }
-
-            const priorityLabels: Record<string, { label: string, color: string }> = {
-              normal: { label: 'Thường', color: 'bg-slate-100 text-slate-600' },
-              urgent: { label: 'Khẩn', color: 'bg-amber-100 text-amber-700' },
-              very_urgent: { label: 'Thượng khẩn', color: 'bg-orange-100 text-orange-700' },
-              express: { label: 'Hỏa tốc', color: 'bg-red-100 text-red-700' },
-              express_scheduled: { label: 'Hỏa tốc hẹn giờ', color: 'bg-rose-100 text-rose-700' }
-            }
-            const prio = priorityLabels[doc.priority || 'normal']
-
+      {/* Urgency + Staff badges */}
+      <div className="flex flex-col xl:flex-row gap-2 mb-4 text-xs font-semibold items-start justify-between">
+        {/* Row 1: Urgency Badges */}
+        <div className="scroll-x-badges sm:flex sm:flex-wrap sm:gap-2 sm:overflow-visible items-start w-full xl:w-auto xl:flex-1 min-w-0">
+          {[
+            { key: 'overdue', count: stats.overdue, color: settings.overdueColor, label: 'Quá hạn' },
+            { key: 'expired', count: stats.expired, color: settings.expiredColor, label: 'Hết hạn (0 ngày)' },
+            { key: 'urgent1', count: stats.urgent1, color: settings.urgent1Color, label: 'Cận hạn 1-3 ngày' },
+            { key: 'urgent2', count: stats.urgent2, color: settings.urgent2Color, label: 'Cận hạn 4-7 ngày' },
+            { key: 'normal', count: stats.normal, color: settings.normalColor, label: 'Còn hạn > 7 ngày' },
+            ...(filterStatus === 'all' ? [{ key: 'completed', count: stats.completed, color: settings.completedColor, label: 'Hoàn thành' }] : [])
+          ].map(b => {
+            if (b.count === 0) return null
+            const isSelected = badgeFilters.includes(b.key)
             return (
-              <TableRow
-                key={doc.id}
-                className={`doc-row ${idx % 2 === 0 ? 'row-even' : 'row-odd'} ${rowClass}`}
+              <button
+                key={b.key}
+                onClick={() => {
+                  setBadgeFilters(prev => 
+                    prev.includes(b.key) ? prev.filter(x => x !== b.key) : [...prev, b.key]
+                  )
+                }}
+                className="badge-filter px-2 py-1 rounded shadow-sm flex items-center gap-1 transition-all border whitespace-nowrap shrink-0"
+                style={{ 
+                  '--badge-color': b.color,
+                  background: isSelected ? b.color : `color-mix(in srgb, ${b.color} 25%, #ffffff)`,
+                  borderColor: b.color,
+                  color: isSelected ? '#fff' : b.color,
+                  boxShadow: isSelected ? `0 0 0 2px #fff, 0 0 0 4px ${b.color}` : 'none'
+                } as React.CSSProperties}
               >
-                <TableCell className="text-center text-slate-400 font-mono text-xs">{idx + 1}</TableCell>
-                <TableCell className="text-xs">
-                  <div className="font-medium">{formatDate(doc.issueDate)}</div>
-                  {doc.issueDate && (doc.issueDate.toDate().getHours() !== 0 || doc.issueDate.toDate().getMinutes() !== 0) && (
-                    <div className="text-[10px] text-slate-400 mt-0.5">
-                      {doc.issueDate.toDate().getHours()}:{String(doc.issueDate.toDate().getMinutes()).padStart(2, '0')}
-                    </div>
-                  )}
-                </TableCell>
-                <TableCell className="font-semibold text-slate-800 text-xs">
-                  <Highlight text={doc.docNumber || '—'} query={searchQuery} />
-                  {doc.sender && (
-                    <div className="text-[10px] text-slate-400 italic font-normal mt-0.5">
-                      <Highlight text={doc.sender} query={searchQuery} />
-                    </div>
-                  )}
-                </TableCell>
-                <TableCell style={{ maxWidth: colWidths.title || 250 }}>
-                  <span className="text-xs flex flex-col gap-1 items-start">
-                    {prio && doc.priority && doc.priority !== 'normal' && (
-                      <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium ${prio.color}`}>
-                        {prio.label}
-                      </span>
-                    )}
-                    <span>
-                      <Highlight text={doc.title} query={searchQuery} />
-                      {doc.attachments && doc.attachments.length > 0 && (
-                        <span className="text-slate-500 ml-1 font-medium whitespace-nowrap">
-                          ({doc.attachments.length} 📎)
-                        </span>
-                      )}
-                    </span>
-                    {doc.notes && (
-                      <span className="text-[11px] text-slate-500 italic mt-0.5 line-clamp-2" title={doc.notes}>
-                        📝 <Highlight text={doc.notes} query={searchQuery} />
-                      </span>
-                    )}
-                  </span>
-                </TableCell>
-                <TableCell className="text-xs">{formatDate(doc.deadline)}</TableCell>
-                <TableCell>
-                  <span className={`days-badge ${days !== null && days <= 0 ? 'days-danger' : days !== null && days === 1 ? 'days-warning' : days !== null && days <= 3 ? 'days-caution' : ''}`}>
-                    {getDaysLabel(days)}
-                  </span>
-                </TableCell>
-                <TableCell>
-                  <select
-                    className="assign-select"
-                    value={doc.assignee || ''}
-                    onChange={e => handleAssign(doc.id, e.target.value)}
-                  >
-                    <option value="">— Chưa giao —</option>
-                    {staffList.map(s => <option key={s} value={s}>{s}</option>)}
-                  </select>
-                </TableCell>
-                <TableCell>
-                  <div className="flex flex-col">
-                    <div className="flex items-center gap-1 flex-wrap">
-                      <button
-                        className={`status-chip mr-2 ${eff.cls}`}
-                        onClick={() => handleToggleComplete(doc)}
-                        title={doc.status === 'completed' ? 'Bấm để chuyển về trạng thái chờ' : 'Bấm để đánh dấu hoàn thành'}
-                      >
-                        {eff.icon}
-                        <span>{eff.label}</span>
-                      </button>
-                      {doc.status === 'upload_failed' ? (
-                        <Button size="sm" variant="outline" onClick={() => handleRetry(doc)} disabled={retrying === doc.id}>
-                          {retrying === doc.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
-                        </Button>
-                      ) : doc.status !== 'uploading' && (
-                        <>
-                          <Button size="icon" variant="ghost" className="h-8 w-8 hover:bg-slate-100" onClick={() => setViewingId(doc.id)} title="Xem">
-                            <Eye className="h-4 w-4 text-slate-500" />
-                          </Button>
-                          <Button size="icon" variant="ghost" className="h-8 w-8 hover:bg-slate-100" asChild title="Sửa">
-                            <Link href={`/documents/${doc.id}/edit`}>
-                              <Pencil className="h-4 w-4 text-slate-500" />
-                            </Link>
-                          </Button>
-                        </>
-                      )}
-                      <Button
-                        size="sm" variant="ghost"
-                        className="text-red-500 hover:text-red-700 hover:bg-red-50"
-                        onClick={() => handleDelete(doc.id, doc.title)}
-                        disabled={deleting === doc.id}
-                      >
-                        {deleting === doc.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
-                      </Button>
-                    </div>
-                    {doc.completedDate && (() => {
-                      const cd = toDateSafe(doc.completedDate)
-                      if (!cd) return null
-                      return (
-                        <div style={{ fontSize: '10px', fontStyle: 'italic', marginTop: '2px' }}>
-                          <span style={{ color: '#dc2626' }}>HT:</span>{' '}
-                          <span style={{ color: '#64748b' }}>{cd.toLocaleDateString('vi-VN')}</span>
-                        </div>
-                      )
-                    })()}
-                  </div>
-                </TableCell>
-              </TableRow>
+                {b.label}: {b.count}
+                {isSelected && <span className="opacity-70 hover:opacity-100 font-normal ml-1 text-sm leading-none">×</span>}
+              </button>
             )
           })}
-        </TableBody>
-      </Table>
+        </div>
+
+        {/* Row 2: Staff Badges & Actions */}
+        <div className="flex items-start gap-2 w-full xl:w-auto min-w-0">
+          <div className="scroll-x-badges flex-1 min-w-0 sm:flex sm:flex-wrap sm:gap-2 sm:overflow-visible items-start xl:justify-end">
+            {staffStats.map(([name, count]) => {
+              const isSelected = staffBadgeFilter === name
+              return (
+                <button
+                  key={name}
+                  onClick={() => setStaffBadgeFilter(staffBadgeFilter === name ? null : name)}
+                  className="badge-filter px-2 py-1 rounded shadow-sm flex items-center gap-1 transition-all border text-xs font-semibold whitespace-nowrap shrink-0"
+                  style={{
+                    '--badge-color': isSelected ? '#475569' : '#475569',
+                    background: isSelected ? '#475569' : '#f1f5f9',
+                    borderColor: isSelected ? '#334155' : '#cbd5e1',
+                    color: isSelected ? '#fff' : '#475569',
+                    boxShadow: isSelected ? '0 0 0 2px #fff, 0 0 0 4px #475569' : 'none'
+                  } as React.CSSProperties}
+                >
+                  {name}: {count}
+                  {isSelected && <span className="opacity-70 hover:opacity-100 font-normal ml-1 text-sm leading-none">×</span>}
+                </button>
+              )
+            })}
+          </div>
+
+          <button
+            className="badge-filter px-2 py-1 rounded shadow-sm flex items-center gap-1 transition-all border text-xs font-semibold shrink-0"
+            style={{
+              '--badge-color': '#3b82f6',
+              background: '#eff6ff',
+              borderColor: '#93c5fd',
+              color: '#2563eb',
+            } as React.CSSProperties}
+            title="Copy thống kê theo nhân viên"
+            onClick={() => {
+              const lines: string[] = []
+              
+              // Header: period info
+              const now = new Date()
+              if (timePeriod === 'today' || !periodRange) {
+                lines.push(`Thống kê văn bản tính đến ngày ${now.toLocaleDateString('vi-VN')}`)
+              } else {
+                lines.push(`Thống kê văn bản từ ngày ${periodRange.from.toLocaleDateString('vi-VN')} đến ${periodRange.to.toLocaleDateString('vi-VN')}`)
+              }
+              // Summary line
+              let totalAll = baseDocs.length
+              let totalCompleted = 0
+              baseDocs.forEach(d => { if (getDocEffectiveStatus(d) === 'completed') totalCompleted++ })
+              lines.push(`TS văn bản: ${totalAll}, Đã hoàn thành: ${totalCompleted}, Chưa hoàn thành: ${totalAll - totalCompleted}`)
+              lines.push('')
+              
+              let idx = 1
+              // Group baseDocs by assignee
+              const grouped: Record<string, typeof baseDocs> = {}
+              baseDocs.forEach(d => {
+                const name = d.assignee || '(Chưa giao)'
+                if (!grouped[name]) grouped[name] = []
+                grouped[name].push(d)
+              })
+              const sortedNames = Object.keys(grouped).sort()
+              sortedNames.forEach(name => {
+                const docs = grouped[name]
+                const total = docs.length
+                lines.push(`${idx}. ${name}: ${total} văn bản`)
+                // Breakdown by deadline using effective status
+                let overdue = 0, expired = 0, u1 = 0, u2 = 0, normal = 0, completed = 0, noDeadline = 0
+                docs.forEach(d => {
+                  const effSt = getDocEffectiveStatus(d)
+                  if (effSt === 'completed') { completed++; return }
+                  const days = getDaysRemaining(d.deadline)
+                  if (days === null) noDeadline++
+                  else if (days < 0) overdue++
+                  else if (days === 0) expired++
+                  else if (days >= 1 && days <= 3) u1++
+                  else if (days >= 4 && days <= 7) u2++
+                  else normal++
+                })
+                if (overdue > 0) lines.push(`   - Quá hạn: ${overdue}`)
+                if (expired > 0) lines.push(`   - Hết hạn (0 ngày): ${expired}`)
+                if (u1 > 0) lines.push(`   - Cận hạn 1-3 ngày: ${u1}`)
+                if (u2 > 0) lines.push(`   - Cận hạn 4-7 ngày: ${u2}`)
+                if (normal > 0) lines.push(`   - Còn hạn > 7 ngày: ${normal}`)
+                if (noDeadline > 0) lines.push(`   - Không có hạn: ${noDeadline}`)
+                if (completed > 0) lines.push(`   - Hoàn thành: ${completed}`)
+                idx++
+              })
+              navigator.clipboard.writeText(lines.join('\n'))
+                .then(() => alert('Đã copy thống kê vào clipboard!'))
+                .catch(() => alert('Lỗi copy!'))
+            }}
+          >
+            <ClipboardCopy className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Copy</span>
+          </button>
+
+          {/* Mobile count */}
+          <span className="sm:hidden text-xs text-slate-400 font-normal self-center ml-auto shrink-0">
+            {filteredDocs.length}/{baseDocs.length}
+          </span>
+        </div>
+      </div>
+
+      {/* === DESKTOP TABLE (hidden on mobile) === */}
+      <div className="hidden sm:block">
+        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+          <div className="overflow-x-auto">
+            <Table className="doc-table" style={{ minWidth: '900px' }}>
+              <TableHeader>
+                <TableRow className="doc-table-header">
+                  <ThResizable width={colWidths.stt} minWidth={30} onWidthChange={(w: number) => handleWidthChange('stt', w)} className="cursor-pointer hover:bg-slate-700/50" onClick={() => setSortConfig(null)}>#</ThResizable>
+                  <ThResizable width={colWidths.issueDate} minWidth={60} onWidthChange={(w: number) => handleWidthChange('issueDate', w)} className="cursor-pointer hover:bg-slate-700/50 hidden md:table-cell" onClick={() => handleSort('issueDate')}>Ngày ban hành <ArrowUpDown className="h-3 w-3 inline ml-1"/></ThResizable>
+                  <ThResizable width={colWidths.docNumber} minWidth={80} onWidthChange={(w: number) => handleWidthChange('docNumber', w)} className="cursor-pointer hover:bg-slate-700/50" onClick={() => handleSort('docNumber')}>Mã hiệu <ArrowUpDown className="h-3 w-3 inline ml-1"/></ThResizable>
+                  <ThResizable width={colWidths.title} minWidth={150} onWidthChange={(w: number) => handleWidthChange('title', w)} className="cursor-pointer hover:bg-slate-700/50" onClick={() => handleSort('title')}>Tiêu đề <ArrowUpDown className="h-3 w-3 inline ml-1"/></ThResizable>
+                  <ThResizable width={colWidths.deadline} minWidth={70} onWidthChange={(w: number) => handleWidthChange('deadline', w)} className="cursor-pointer hover:bg-slate-700/50 hidden lg:table-cell" onClick={() => handleSort('deadline')}>Deadline <ArrowUpDown className="h-3 w-3 inline ml-1"/></ThResizable>
+                  <ThResizable width={colWidths.remaining} minWidth={60} onWidthChange={(w: number) => handleWidthChange('remaining', w)} className="cursor-pointer hover:bg-slate-700/50" onClick={() => handleSort('remaining')}>Còn lại <ArrowUpDown className="h-3 w-3 inline ml-1"/></ThResizable>
+                  <ThResizable width={colWidths.assignee} minWidth={90} onWidthChange={(w: number) => handleWidthChange('assignee', w)} className="cursor-pointer hover:bg-slate-700/50" onClick={() => handleSort('assignee')}>Người TH <ArrowUpDown className="h-3 w-3 inline ml-1"/></ThResizable>
+                  <TableHead className="doc-table-header border-0 sticky right-0 z-10 shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.15)]" style={{ background: 'inherit' }}>Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {pagedDocs.map((doc, idx) => {
+                  const days = getDaysRemaining(doc.deadline)
+                  const docEffStatus = getDocEffectiveStatus(doc)
+                  const eff = getEffectiveStatus(doc, docEffStatus)
+                  const rowClass = getRowClass(doc)
+                  const prio = priorityLabels[doc.priority || 'normal']
+
+                  return (
+                    <TableRow
+                      key={doc.id}
+                      className={`doc-row ${idx % 2 === 0 ? 'row-even' : 'row-odd'} ${rowClass}`}
+                    >
+                      <TableCell className="text-center text-slate-400 font-mono text-xs">
+                        {showPagination ? (safePage - 1) * pageSize + idx + 1 : idx + 1}
+                      </TableCell>
+                      <TableCell className="text-xs hidden md:table-cell">
+                        <div className="font-medium">{formatDate(doc.issueDate)}</div>
+                        {doc.issueDate && (doc.issueDate.toDate().getHours() !== 0 || doc.issueDate.toDate().getMinutes() !== 0) && (
+                          <div className="text-[10px] text-slate-400 mt-0.5">
+                            {doc.issueDate.toDate().getHours()}:{String(doc.issueDate.toDate().getMinutes()).padStart(2, '0')}
+                          </div>
+                        )}
+                      </TableCell>
+                      <TableCell className="font-semibold text-slate-800 text-xs">
+                        <Highlight text={doc.docNumber || '—'} query={searchQuery} />
+                        {doc.sender && (
+                          <div className="text-[10px] text-slate-400 italic font-normal mt-0.5">
+                            <Highlight text={doc.sender} query={searchQuery} />
+                          </div>
+                        )}
+                      </TableCell>
+                      <TableCell style={{ maxWidth: colWidths.title || 250 }}>
+                        <span className="text-xs flex flex-col gap-1 items-start">
+                          {prio && doc.priority && doc.priority !== 'normal' && (
+                            <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium ${prio.color}`}>
+                              {prio.label}
+                            </span>
+                          )}
+                          <span>
+                            <Highlight text={doc.title} query={searchQuery} />
+                            {doc.attachments && doc.attachments.length > 0 && (
+                              <span className="text-slate-500 ml-1 font-medium whitespace-nowrap">
+                                ({doc.attachments.length} 📎)
+                              </span>
+                            )}
+                          </span>
+                          {doc.notes && (
+                            <span className="text-[11px] text-slate-500 italic mt-0.5 line-clamp-2" title={doc.notes}>
+                              📝 <Highlight text={doc.notes} query={searchQuery} />
+                            </span>
+                          )}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-xs hidden lg:table-cell">{formatDate(doc.deadline)}</TableCell>
+                      <TableCell>
+                        <span className={`days-badge ${days !== null && days <= 0 ? 'days-danger' : days !== null && days === 1 ? 'days-warning' : days !== null && days <= 3 ? 'days-caution' : ''}`}>
+                          {getDaysLabel(days)}
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        <select
+                          className="assign-select"
+                          value={doc.assignee || ''}
+                          onChange={e => handleAssign(doc.id, e.target.value)}
+                        >
+                          <option value="">— Chưa giao —</option>
+                          {staffList.map(s => <option key={s} value={s}>{s}</option>)}
+                        </select>
+                      </TableCell>
+                      <TableCell className="sticky right-0 z-10 shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.06)]" style={{ background: 'inherit' }}>
+                        <div className="flex flex-col">
+                          <div className="flex items-center gap-0.5 flex-wrap">
+                            <button
+                              className={`status-chip mr-1 ${eff.cls}`}
+                              onClick={() => handleToggleComplete(doc)}
+                              title={doc.status === 'completed' ? 'Bấm để chuyển về trạng thái chờ' : 'Bấm để đánh dấu hoàn thành'}
+                            >
+                              {eff.icon}
+                              <span className="hidden xl:inline">{eff.label}</span>
+                            </button>
+                            {doc.status === 'upload_failed' ? (
+                              <Button size="sm" variant="outline" onClick={() => handleRetry(doc)} disabled={retrying === doc.id}>
+                                {retrying === doc.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+                              </Button>
+                            ) : doc.status !== 'uploading' && (
+                              <>
+                                <button
+                                  onClick={() => setViewingId(doc.id)}
+                                  className="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+                                  title="Xem"
+                                >
+                                  <Eye className="h-4 w-4" />
+                                </button>
+                                <Link
+                                  href={`/documents/${doc.id}/edit`}
+                                  className="p-1.5 rounded-lg text-slate-400 hover:text-amber-600 hover:bg-amber-50 transition-colors"
+                                  title="Sửa"
+                                >
+                                  <Pencil className="h-4 w-4" />
+                                </Link>
+                              </>
+                            )}
+                            <button
+                              className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                              onClick={() => handleDelete(doc.id, doc.title)}
+                              disabled={deleting === doc.id}
+                              title="Xóa"
+                            >
+                              {deleting === doc.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                            </button>
+                          </div>
+                          {doc.completedDate && (() => {
+                            const cd = toDateSafe(doc.completedDate)
+                            if (!cd) return null
+                            return (
+                              <div style={{ fontSize: '10px', fontStyle: 'italic', marginTop: '2px' }}>
+                                <span style={{ color: '#dc2626' }}>HT:</span>{' '}
+                                <span style={{ color: '#64748b' }}>{cd.toLocaleDateString('vi-VN')}</span>
+                              </div>
+                            )
+                          })()}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )
+                })}
+              </TableBody>
+            </Table>
+          </div>
+        </div>
+      </div>
+
+      {/* === MOBILE CARD LIST (shown only on mobile) === */}
+      <div className="sm:hidden flex flex-col gap-2">
+        {pagedDocs.map((doc, idx) => {
+          const days = getDaysRemaining(doc.deadline)
+          const docEffStatus = getDocEffectiveStatus(doc)
+          const eff = getEffectiveStatus(doc, docEffStatus)
+          const rowClass = getRowClass(doc)
+          const prio = priorityLabels[doc.priority || 'normal'] || null
+
+          return (
+            <DocumentCard
+              key={doc.id}
+              doc={doc}
+              idx={idx}
+              days={days}
+              eff={eff}
+              rowClass={rowClass}
+              prio={prio}
+              searchQuery={searchQuery}
+              onToggleComplete={handleToggleComplete}
+              onView={setViewingId}
+              onDelete={handleDelete}
+              onRetry={handleRetry}
+              onAssign={handleAssign}
+              retrying={retrying}
+              deleting={deleting}
+              staffList={staffList}
+              settings={settings}
+            />
+          )
+        })}
+      </div>
+
+      {/* === PAGINATION === */}
+      {showPagination && (
+        <Pagination
+          currentPage={safePage}
+          totalPages={totalPages}
+          pageSize={pageSize}
+          totalItems={filteredDocs.length}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={(size) => { setPageSize(size); setCurrentPage(1) }}
+        />
+      )}
 
       <DocumentModal docId={viewingId} onClose={() => setViewingId(null)} />
 
@@ -851,12 +1198,21 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
         .filters-bar {
           display: flex;
           align-items: center;
-          gap: 16px;
-          margin-bottom: 12px;
-          padding: 10px 16px;
+          gap: 8px;
+          margin-bottom: 0;
+          padding: 8px 12px;
           background: #fff;
           border: 1px solid #e2e8f0;
           border-radius: 10px;
+          flex-wrap: wrap;
+        }
+        @media (max-width: 639px) {
+          .filters-bar {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 8px;
+            padding: 10px;
+          }
         }
         .badge-filter:hover {
           background: var(--badge-color) !important;
@@ -902,7 +1258,6 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
           border: 1px solid #e2e8f0;
           border-radius: 8px;
           background: #f8fafc;
-          min-width: 220px;
           transition: all 0.15s ease;
         }
         .search-box:hover {
@@ -921,6 +1276,7 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
           font-size: 13px;
           flex: 1;
           color: #1e293b;
+          min-width: 0;
         }
         .search-box input::placeholder {
           color: #94a3b8;
@@ -940,9 +1296,9 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
           display: flex;
           align-items: center;
           justify-content: center;
-          font-size: 14px;
           line-height: 1;
           transition: all 0.15s;
+          flex-shrink: 0;
         }
         .search-clear:hover { background: #cbd5e1; color: #334155; }
         .filter-count {
@@ -950,10 +1306,11 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
           font-size: 12px;
           color: #94a3b8;
           font-weight: 500;
+          white-space: nowrap;
         }
 
+        /* Table styles */
         .doc-table {
-          table-layout: fixed;
           width: 100%;
         }
 
@@ -1061,6 +1418,20 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
           -webkit-line-clamp: 2;
           -webkit-box-orient: vertical;
           overflow: hidden;
+        }
+
+        /* Mobile card styles */
+        .doc-card {
+          background: #fff;
+          border: 1px solid #e2e8f0;
+          border-left: 4px solid #e2e8f0;
+          border-radius: 10px;
+          padding: 12px 14px;
+          transition: all 0.15s ease;
+        }
+        .doc-card:active {
+          background: #f8fafc;
+          transform: scale(0.99);
         }
       `}</style>
     </>
