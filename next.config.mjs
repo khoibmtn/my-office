@@ -1,6 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  serverExternalPackages: ['firebase-admin', 'googleapis'],
+  serverExternalPackages: ['firebase-admin', 'googleapis', 'jwks-rsa', 'jose'],
   images: {
     domains: ['lh3.googleusercontent.com'],
   },
