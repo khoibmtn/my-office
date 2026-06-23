@@ -179,9 +179,15 @@ async function renderTodayHistory() {
         const h = data.submissionHistory || {};
         const key = getTodayKey();
         if (h[key]) {
-          h[key].splice(i, 1);
-          await chrome.storage.local.set({ submissionHistory: h });
-          renderTodayHistory();
+          // Find the exact item in the original array
+          const originalIndex = h[key].findIndex(
+            e => e.docNumber === item.docNumber && e.timestamp === item.timestamp
+          );
+          if (originalIndex !== -1) {
+            h[key].splice(originalIndex, 1);
+            await chrome.storage.local.set({ submissionHistory: h });
+            renderTodayHistory();
+          }
         }
       }
     };
