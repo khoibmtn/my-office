@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { onAuthStateChanged, User } from 'firebase/auth'
+import { onIdTokenChanged, User } from 'firebase/auth'
 import { auth, waitForRedirectResult } from '@/lib/firebase'
 
 export function useAuth() {
@@ -13,9 +13,21 @@ export function useAuth() {
 
     // Wait for redirect result first, THEN listen to auth state
     waitForRedirectResult().finally(() => {
-      unsubscribe = onAuthStateChanged(auth(), (u) => {
-        setUser(u)
-        setLoading(false)
+      unsubscribe = onIdTokenChanged(auth(), async (u) => {
+        try {
+          if (u) {
+            const token = await u.getIdToken()
+            localStorage.setItem('firebase_id_token', token)
+          } else {
+            localStorage.removeItem('firebase_id_token')
+          }
+        } catch (error) {
+          console.error("Error getting ID token:", error)
+          localStorage.removeItem('firebase_id_token')
+        } finally {
+          setUser(u)
+          setLoading(false)
+        }
       })
     })
 

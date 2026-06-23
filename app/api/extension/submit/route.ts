@@ -2,15 +2,11 @@ import { NextRequest, NextResponse } from 'next/server'
 import { Readable } from 'stream'
 import { google } from 'googleapis'
 import { initAdmin, getAdminFirestore } from '@/lib/firebase-admin'
+import { getAuth } from 'firebase-admin/auth'
 import { syncToAlgolia } from '@/lib/algolia-server'
 import { FieldValue } from 'firebase-admin/firestore'
 
-function getDriveClient(userAccessToken?: string) {
-  if (userAccessToken) {
-    const oauth2 = new google.auth.OAuth2()
-    oauth2.setCredentials({ access_token: userAccessToken })
-    return google.drive({ version: 'v3', auth: oauth2 })
-  }
+function getDriveClient() {
   const auth = new google.auth.GoogleAuth({
     credentials: JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_KEY!),
     scopes: ['https://www.googleapis.com/auth/drive'],
@@ -97,7 +93,24 @@ export async function POST(request: NextRequest) {
     const priority = (form.get('priority') as string) ?? 'normal'
     const notes = (form.get('notes') as string) ?? ''
     const tags = (form.get('tags') as string) ?? ''
-    const userAccessToken = (form.get('userAccessToken') as string) ?? undefined
+    const firebaseIdToken = (form.get('firebaseIdToken') as string) ?? ''
+
+    if (!firebaseIdToken) {
+      return NextResponse.json(
+        { error: 'TOKEN_EXPIRED', message: 'Vui lòng mở My Office và đăng nhập lại (Chưa có ID token).' },
+        { status: 401, headers: corsHeaders() }
+      )
+    }
+
+    try {
+      initAdmin()
+      await getAuth().verifyIdToken(firebaseIdToken)
+    } catch (authErr) {
+      return NextResponse.json(
+        { error: 'TOKEN_EXPIRED', message: 'Phiên đăng nhập đã hết hạn. Vui lòng mở lại trang My Office để đăng nhập.' },
+        { status: 401, headers: corsHeaders() }
+      )
+    }
 
     // Check for pre-uploaded files (from the new background upload approach)
     const mainFileId = form.get('mainFileId') as string | null
@@ -124,7 +137,7 @@ export async function POST(request: NextRequest) {
     }
 
     const folderId = process.env.DRIVE_FOLDER_ID!
-    const drive = getDriveClient(userAccessToken)
+    const drive = getDriveClient()
 
     // Upload main file to Drive (if not pre-uploaded)
     let mainResult

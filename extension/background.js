@@ -79,10 +79,10 @@ async function getUserToken() {
   return data.myoffice_token || null;
 }
 
-async function uploadSingleFile(apiUrl, blob, fileName, userAccessToken) {
+async function uploadSingleFile(apiUrl, blob, fileName, firebaseIdToken) {
   const form = new FormData();
   form.append('file', new File([blob], fileName, { type: blob.type || 'application/octet-stream' }));
-  if (userAccessToken) form.append('userAccessToken', userAccessToken);
+  if (firebaseIdToken) form.append('firebaseIdToken', firebaseIdToken);
   
   const res = await fetch(`${apiUrl}/api/extension/upload`, {
     method: 'POST',
@@ -103,14 +103,14 @@ async function uploadSingleFile(apiUrl, blob, fileName, userAccessToken) {
 /**
  * Submit document + files to my-office API
  */
-async function submitToMyOffice(apiUrl, metadata, mainFileBlob, mainFileName, attachmentBlobs, userAccessToken) {
+async function submitToMyOffice(apiUrl, metadata, mainFileBlob, mainFileName, attachmentBlobs, firebaseIdToken) {
   // 1. Upload main file individually
-  const mainResult = await uploadSingleFile(apiUrl, mainFileBlob, mainFileName, userAccessToken);
+  const mainResult = await uploadSingleFile(apiUrl, mainFileBlob, mainFileName, firebaseIdToken);
   
   // 2. Upload attachments individually
   const attachmentResults = [];
   for (const att of attachmentBlobs) {
-    const res = await uploadSingleFile(apiUrl, att.blob, att.fileName, userAccessToken);
+    const res = await uploadSingleFile(apiUrl, att.blob, att.fileName, firebaseIdToken);
     attachmentResults.push({
       id: att.fileName,
       title: att.fileName,
@@ -135,7 +135,7 @@ async function submitToMyOffice(apiUrl, metadata, mainFileBlob, mainFileName, at
   form.append('priority', metadata.priority || 'normal');
   form.append('notes', metadata.notes || '');
   form.append('tags', '');
-  if (userAccessToken) form.append('userAccessToken', userAccessToken);
+  if (firebaseIdToken) form.append('firebaseIdToken', firebaseIdToken);
   
   // Attach pre-uploaded references
   form.append('mainFileId', mainResult.driveFileId);

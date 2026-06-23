@@ -1,13 +1,13 @@
 /**
  * Content script for My Office app (localhost:3000)
- * Reads google_access_token from localStorage and stores in chrome.storage.local
+ * Reads firebase_id_token from localStorage and stores in chrome.storage.local
  * This runs automatically when the user visits the My Office app.
  */
 (function() {
   let intervalId;
 
   function syncToken() {
-    const token = localStorage.getItem('google_access_token');
+    const token = localStorage.getItem('firebase_id_token');
     if (token) {
       try {
         if (chrome && chrome.storage && chrome.storage.local) {
@@ -29,7 +29,7 @@
 
   // Listen for storage events (token updated by another tab)
   window.addEventListener('storage', (e) => {
-    if (e.key === 'google_access_token') {
+    if (e.key === 'firebase_id_token') {
       syncToken();
     }
   });

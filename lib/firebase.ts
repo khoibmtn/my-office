@@ -104,5 +104,6 @@ export function hasGoogleToken(): boolean {
 
 export const signOutUser = async () => {
   localStorage.removeItem('google_access_token')
+  localStorage.removeItem('firebase_id_token')
   await signOut(auth())
 }

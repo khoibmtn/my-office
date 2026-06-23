@@ -97,9 +97,11 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [hasToken, setHasToken] = useState(false)
 
   useEffect(() => {
     loadSettings()
+    setHasToken(!!localStorage.getItem('firebase_id_token'))
   }, [])
 
   async function loadSettings() {
@@ -334,7 +336,7 @@ export default function SettingsPage() {
         </p>
         <div className="p-3 bg-slate-50 rounded-lg text-sm">
           <span className="font-medium text-slate-600">Trạng thái: </span>
-          {typeof window !== 'undefined' && localStorage.getItem('google_access_token') ? (
+          {hasToken ? (
             <span className="text-green-600 font-semibold">✅ Token có sẵn</span>
           ) : (
             <span className="text-red-600 font-semibold">❌ Chưa có token — Hãy đăng xuất và đăng nhập lại</span>
