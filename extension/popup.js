@@ -164,10 +164,34 @@ async function renderTodayHistory() {
     }
     
     tdStatus.appendChild(badge);
+
+    const tdAction = document.createElement('td');
+    const btnDel = document.createElement('button');
+    btnDel.innerHTML = '🗑️';
+    btnDel.style.background = 'none';
+    btnDel.style.border = 'none';
+    btnDel.style.cursor = 'pointer';
+    btnDel.style.fontSize = '12px';
+    btnDel.title = 'Xóa task / file rác';
+    btnDel.onclick = async () => {
+      if (confirm('Bạn có chắc muốn xóa task này khỏi danh sách?')) {
+        const data = await chrome.storage.local.get(['submissionHistory']);
+        const h = data.submissionHistory || {};
+        const key = getTodayKey();
+        if (h[key]) {
+          h[key].splice(i, 1);
+          await chrome.storage.local.set({ submissionHistory: h });
+          renderTodayHistory();
+        }
+      }
+    };
+    tdAction.appendChild(btnDel);
+
     tr.appendChild(tdIdx);
     tr.appendChild(tdTime);
     tr.appendChild(tdDoc);
     tr.appendChild(tdStatus);
+    tr.appendChild(tdAction);
     tbody.appendChild(tr);
   });
 }
