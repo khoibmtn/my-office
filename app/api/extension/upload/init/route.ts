@@ -1,11 +1,11 @@
-import * as fs from 'fs';
 import { NextRequest, NextResponse } from 'next/server'
-import { google } from 'googleapis'
-import { getAuth } from 'firebase-admin/auth'
 import { initAdmin } from '@/lib/firebase-admin'
 
 export async function POST(request: NextRequest) {
   try {
+    const { google } = await import('googleapis')
+    const { getAuth } = await import('firebase-admin/auth')
+
     const { fileName, mimeType, firebaseIdToken } = await request.json()
     
     if (!firebaseIdToken) {
@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
         client = oauth2Client
       } else {
         const auth = new google.auth.GoogleAuth({
-          credentials: JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_KEY!),
+          credentials: JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_KEY || '{}'),
           scopes: ['https://www.googleapis.com/auth/drive'],
         })
         client = await auth.getClient()
@@ -63,7 +63,7 @@ export async function POST(request: NextRequest) {
     }
 
   } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500, headers: { 'Access-Control-Allow-Origin': '*' } })
+    return NextResponse.json({ error: err.message, stack: err.stack }, { status: 500, headers: { 'Access-Control-Allow-Origin': '*' } })
   }
 }
 
