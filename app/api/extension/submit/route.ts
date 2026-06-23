@@ -79,21 +79,41 @@ export async function OPTIONS() {
 
 export async function POST(request: NextRequest) {
   try {
-    const form = await request.formData()
+    let data: Record<string, any> = {}
+    const contentType = request.headers.get('content-type') || ''
+    
+    if (contentType.includes('application/json')) {
+      data = await request.json()
+    } else {
+      const form = await request.formData()
+      form.forEach((value, key) => {
+        data[key] = value
+      })
+      data.mainFile = form.get('mainFile') as File | null
+      const attachmentFiles: File[] = []
+      for (let i = 0; i < 20; i++) {
+        const att = form.get(`attachment_${i}`) as File | null
+        if (att) attachmentFiles.push(att)
+        else break
+      }
+      if (attachmentFiles.length > 0) {
+        data.attachmentFiles = attachmentFiles
+      }
+    }
 
     // Extract metadata
-    const title = (form.get('title') as string) ?? ''
-    const docNumber = (form.get('docNumber') as string) ?? ''
-    const issueDate = (form.get('issueDate') as string) ?? ''
-    const deadline = (form.get('deadline') as string) ?? ''
-    const assignee = (form.get('assignee') as string) ?? ''
-    const sender = (form.get('sender') as string) ?? ''
-    const leader = (form.get('leader') as string) ?? ''
-    const originalLink = (form.get('originalLink') as string) ?? ''
-    const priority = (form.get('priority') as string) ?? 'normal'
-    const notes = (form.get('notes') as string) ?? ''
-    const tags = (form.get('tags') as string) ?? ''
-    const firebaseIdToken = (form.get('firebaseIdToken') as string) ?? ''
+    const title = data.title ?? ''
+    const docNumber = data.docNumber ?? ''
+    const issueDate = data.issueDate ?? ''
+    const deadline = data.deadline ?? ''
+    const assignee = data.assignee ?? ''
+    const sender = data.sender ?? ''
+    const leader = data.leader ?? ''
+    const originalLink = data.originalLink ?? ''
+    const priority = data.priority ?? 'normal'
+    const notes = data.notes ?? ''
+    const tags = data.tags ?? ''
+    const firebaseIdToken = data.firebaseIdToken ?? ''
 
     if (!firebaseIdToken) {
       return NextResponse.json(
@@ -113,13 +133,13 @@ export async function POST(request: NextRequest) {
     }
 
     // Check for pre-uploaded files (from the new background upload approach)
-    const mainFileId = form.get('mainFileId') as string | null
-    const mainFileUrl = form.get('mainFileUrl') as string | null
-    const mainMimeType = form.get('mainMimeType') as string | null
-    const attachmentsJson = form.get('attachmentsJson') as string | null
+    const mainFileId = data.mainFileId ?? null
+    const mainFileUrl = data.mainFileUrl ?? null
+    const mainMimeType = data.mainMimeType ?? null
+    const attachmentsJson = data.attachmentsJson ?? null
 
     // Extract files (legacy approach)
-    const mainFile = form.get('mainFile') as File | null
+    const mainFile = data.mainFile ?? null
     if (!mainFile && !mainFileId) {
       return NextResponse.json(
         { error: 'mainFile or mainFileId is required' },
@@ -127,14 +147,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const attachmentFiles: File[] = []
-    if (!attachmentsJson) {
-      for (let i = 0; i < 20; i++) {
-        const att = form.get(`attachment_${i}`) as File | null
-        if (att) attachmentFiles.push(att)
-        else break
-      }
-    }
+    const attachmentFiles: File[] = data.attachmentFiles ?? []
 
     const folderId = process.env.DRIVE_FOLDER_ID!
     const drive = getDriveClient()
@@ -143,6 +156,13 @@ export async function POST(request: NextRequest) {
     let mainResult
     if (mainFileId && mainFileUrl && mainMimeType) {
       mainResult = { driveFileId: mainFileId, driveViewUrl: mainFileUrl, mimeType: mainMimeType }
+      // Grant read permission for files uploaded via resumable session
+      try {
+        await drive.permissions.create({
+          fileId: mainFileId,
+          requestBody: { role: 'reader', type: 'anyone' },
+        })
+      } catch(e) {}
     } else {
       mainResult = await uploadFileToDrive(drive, mainFile!, folderId)
     }
@@ -151,6 +171,17 @@ export async function POST(request: NextRequest) {
     let attachmentResults
     if (attachmentsJson) {
       attachmentResults = JSON.parse(attachmentsJson)
+      // Grant read permission for pre-uploaded attachments
+      for (const att of attachmentResults) {
+        if (att.driveFileId) {
+          try {
+            await drive.permissions.create({
+              fileId: att.driveFileId,
+              requestBody: { role: 'reader', type: 'anyone' },
+            })
+          } catch(e) {}
+        }
+      }
     } else {
       attachmentResults = await Promise.all(
         attachmentFiles.map(async (file, i) => {

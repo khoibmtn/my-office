@@ -11,6 +11,7 @@
   ],
   "host_permissions": [
     "https://qlvb.hpnet.vn/*",
+    "http://qlvb.hpnet.vn/*",
     "http://localhost:*/*",
     "https://*.vercel.app/*"
   ],

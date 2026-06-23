@@ -80,24 +80,48 @@ async function getUserToken() {
 }
 
 async function uploadSingleFile(apiUrl, blob, fileName, firebaseIdToken) {
-  const form = new FormData();
-  form.append('file', new File([blob], fileName, { type: blob.type || 'application/octet-stream' }));
-  if (firebaseIdToken) form.append('firebaseIdToken', firebaseIdToken);
+  const mimeType = blob.type || 'application/octet-stream';
   
-  const res = await fetch(`${apiUrl}/api/extension/upload`, {
+  // 1. Get Resumable Upload URL from our Backend
+  const initRes = await fetch(`${apiUrl}/api/extension/upload/init`, {
     method: 'POST',
-    body: form,
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ fileName, mimeType, firebaseIdToken })
   });
-  if (!res.ok) {
-    let errText = await res.text();
+
+  if (!initRes.ok) {
+    let errText = await initRes.text();
     try {
       const parsed = JSON.parse(errText);
-      if (parsed.message) errText = parsed.message;
-      else if (parsed.error) errText = parsed.error;
+      errText = parsed.message || parsed.error || errText;
     } catch(e) {}
     throw new Error(`${errText}`);
   }
-  return res.json();
+
+  const { uploadUrl } = await initRes.json();
+  if (!uploadUrl) throw new Error('Không thể khởi tạo phiên upload với Google Drive.');
+
+  // 2. Upload file directly to Google Drive via the Resumable URL
+  const putRes = await fetch(uploadUrl, {
+    method: 'PUT',
+    headers: { 'Content-Type': mimeType },
+    body: blob
+  });
+
+  if (!putRes.ok) {
+    let errText = await putRes.text();
+    throw new Error(`Google Drive Upload Error: ${putRes.status} ${errText}`);
+  }
+
+  // Google Drive returns the created file metadata in the response
+  const driveData = await putRes.json();
+  const id = driveData.id;
+
+  return {
+    driveFileId: id,
+    driveViewUrl: `https://drive.google.com/file/d/${id}/preview`,
+    mimeType: mimeType
+  };
 }
 
 /**
@@ -123,29 +147,29 @@ async function submitToMyOffice(apiUrl, metadata, mainFileBlob, mainFileName, at
   }
   
   // 3. Submit metadata
-  const form = new FormData();
-  form.append('title', metadata.summary || '');
-  form.append('docNumber', metadata.docNumber || '');
-  form.append('issueDate', metadata.issueDate || '');
-  form.append('deadline', metadata.deadline || '');
-  form.append('assignee', metadata.handler || '');
-  form.append('sender', metadata.sender || '');
-  form.append('leader', metadata.leader || '');
-  form.append('originalLink', metadata.pageUrl || '');
-  form.append('priority', metadata.priority || 'normal');
-  form.append('notes', metadata.notes || '');
-  form.append('tags', '');
-  if (firebaseIdToken) form.append('firebaseIdToken', firebaseIdToken);
-  
-  // Attach pre-uploaded references
-  form.append('mainFileId', mainResult.driveFileId);
-  form.append('mainFileUrl', mainResult.driveViewUrl);
-  form.append('mainMimeType', mainResult.mimeType);
-  form.append('attachmentsJson', JSON.stringify(attachmentResults));
+  const payload = {
+    title: metadata.summary || '',
+    docNumber: metadata.docNumber || '',
+    issueDate: metadata.issueDate || '',
+    deadline: metadata.deadline || '',
+    assignee: metadata.handler || '',
+    sender: metadata.sender || '',
+    leader: metadata.leader || '',
+    originalLink: metadata.pageUrl || '',
+    priority: metadata.priority || 'normal',
+    notes: metadata.notes || '',
+    tags: '',
+    firebaseIdToken: firebaseIdToken || '',
+    mainFileId: mainResult.driveFileId,
+    mainFileUrl: mainResult.driveViewUrl,
+    mainMimeType: mainResult.mimeType,
+    attachmentsJson: JSON.stringify(attachmentResults)
+  };
   
   const res = await fetch(`${apiUrl}/api/extension/submit`, {
     method: 'POST',
-    body: form,
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
   });
   
   if (!res.ok) {
