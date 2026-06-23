@@ -1,3 +1,4 @@
+import * as fs from 'fs';
 import { NextRequest, NextResponse } from 'next/server'
 import { google } from 'googleapis'
 import { getAuth } from 'firebase-admin/auth'
@@ -23,15 +24,24 @@ export async function POST(request: NextRequest) {
     const folderId = process.env.DRIVE_FOLDER_ID!
 
     try {
-      const auth = new google.auth.GoogleAuth({
-        credentials: JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_KEY!),
-        scopes: ['https://www.googleapis.com/auth/drive'],
-      })
-      
-      const client = await auth.getClient()
+      let client: any
+      if (process.env.GOOGLE_REFRESH_TOKEN && process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
+        const oauth2Client = new google.auth.OAuth2(
+          process.env.GOOGLE_CLIENT_ID,
+          process.env.GOOGLE_CLIENT_SECRET
+        )
+        oauth2Client.setCredentials({ refresh_token: process.env.GOOGLE_REFRESH_TOKEN })
+        client = oauth2Client
+      } else {
+        const auth = new google.auth.GoogleAuth({
+          credentials: JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_KEY!),
+          scopes: ['https://www.googleapis.com/auth/drive'],
+        })
+        client = await auth.getClient()
+      }
       
       const res = await client.request({
-        url: 'https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable',
+        url: 'https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&supportsAllDrives=true',
         method: 'POST',
         headers: {
           'X-Upload-Content-Type': mimeType || 'application/octet-stream',

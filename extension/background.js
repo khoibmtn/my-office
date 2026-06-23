@@ -95,7 +95,7 @@ async function uploadSingleFile(apiUrl, blob, fileName, firebaseIdToken) {
       const parsed = JSON.parse(errText);
       errText = parsed.message || parsed.error || errText;
     } catch(e) {}
-    throw new Error(`${errText}`);
+    throw new Error(`[${apiUrl}/api/extension/upload/init]: ${errText}`);
   }
 
   const { uploadUrl } = await initRes.json();
@@ -179,7 +179,7 @@ async function submitToMyOffice(apiUrl, metadata, mainFileBlob, mainFileName, at
       if (parsed.message) errText = parsed.message;
       else if (parsed.error) errText = parsed.error;
     } catch(e) {}
-    throw new Error(`${errText}`);
+    throw new Error(`[${apiUrl}/api/extension/submit]: ${errText}`);
   }
   
   return res.json();

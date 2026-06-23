@@ -1,3 +1,4 @@
+import * as fs from 'fs';
 import { NextRequest, NextResponse } from 'next/server'
 import { Readable } from 'stream'
 import { google } from 'googleapis'
@@ -7,6 +8,15 @@ import { syncToAlgolia } from '@/lib/algolia-server'
 import { FieldValue } from 'firebase-admin/firestore'
 
 function getDriveClient() {
+  if (process.env.GOOGLE_REFRESH_TOKEN && process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
+    const oauth2Client = new google.auth.OAuth2(
+      process.env.GOOGLE_CLIENT_ID,
+      process.env.GOOGLE_CLIENT_SECRET
+    )
+    oauth2Client.setCredentials({ refresh_token: process.env.GOOGLE_REFRESH_TOKEN })
+    return google.drive({ version: 'v3', auth: oauth2Client })
+  }
+
   const auth = new google.auth.GoogleAuth({
     credentials: JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_KEY!),
     scopes: ['https://www.googleapis.com/auth/drive'],
@@ -31,6 +41,7 @@ async function uploadFileToDrive(
         body: Readable.from(buffer),
       },
       fields: 'id,mimeType',
+      supportsAllDrives: true,
     })
     id = created.data.id!
     mimeType = created.data.mimeType ?? file.type
@@ -161,6 +172,7 @@ export async function POST(request: NextRequest) {
         await drive.permissions.create({
           fileId: mainFileId,
           requestBody: { role: 'reader', type: 'anyone' },
+          supportsAllDrives: true,
         })
       } catch(e) {}
     } else {
@@ -178,6 +190,7 @@ export async function POST(request: NextRequest) {
             await drive.permissions.create({
               fileId: att.driveFileId,
               requestBody: { role: 'reader', type: 'anyone' },
+              supportsAllDrives: true,
             })
           } catch(e) {}
         }
