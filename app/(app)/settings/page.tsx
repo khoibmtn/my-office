@@ -329,15 +329,15 @@ export default function SettingsPage() {
       <section className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 mb-6">
         <div className="flex items-center gap-2 mb-4">
           <Palette className="h-5 w-5 text-purple-600" />
-          <h2 className="text-lg font-semibold text-slate-800">Google Drive Token</h2>
+          <h2 className="text-lg font-semibold text-slate-800">Phiên Đăng Nhập Extension</h2>
         </div>
         <p className="text-sm text-slate-500 mb-2">
-          Token Google Drive được lưu tự động khi bạn đăng nhập. Extension Chrome đọc token từ trang này để upload file.
+          Hệ thống tự động lưu Token xác thực Firebase khi bạn đăng nhập. Extension Chrome sẽ đọc token này để xác nhận danh tính của bạn khi thao tác.
         </p>
         <div className="p-3 bg-slate-50 rounded-lg text-sm">
           <span className="font-medium text-slate-600">Trạng thái: </span>
           {hasToken ? (
-            <span className="text-green-600 font-semibold">✅ Token có sẵn</span>
+            <span className="text-green-600 font-semibold">✅ Token có sẵn (Sẵn sàng cho Extension)</span>
           ) : (
             <span className="text-red-600 font-semibold">❌ Chưa có token — Hãy đăng xuất và đăng nhập lại</span>
           )}
