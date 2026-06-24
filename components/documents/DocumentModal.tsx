@@ -131,7 +131,7 @@ export function DocumentModal({ docId, onClose }: DocumentModalProps) {
     if (!doc) return
     const newStatus = doc.completedDate ? 'completed' : (newAssignee ? 'in_progress' : 'pending')
     setDoc(prev => prev ? { ...prev, assignee: newAssignee, status: newStatus } : prev)
-    updateDocument(doc.id, { assignee: newAssignee || null, status: newStatus })
+    updateDocument(doc.id, { assignee: newAssignee || undefined, status: newStatus })
   }
 
   const handleUpdateNotes = async (newNotes: string) => {
