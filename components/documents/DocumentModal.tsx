@@ -1,7 +1,9 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { X, Copy, Check, ExternalLink, FileText, Paperclip, Download, FileSpreadsheet, FileImage, FileArchive, File as FileGeneric, Send } from 'lucide-react'
+import { doc as firestoreDoc, getDoc } from 'firebase/firestore'
+import { db } from '@/lib/firebase'
 import { getDocument, updateDocument } from '@/lib/firestore'
 import { parseFileNameFromUrl, getStructuredMainFileName } from '@/lib/utils'
 import { useAuth } from '@/hooks/useAuth'
@@ -66,6 +68,15 @@ export function DocumentModal({ docId, onClose }: DocumentModalProps) {
   const [activeUrl, setActiveUrl] = useState('')
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const [copiedAll, setCopiedAll] = useState(false)
+  const [staffList, setStaffList] = useState<{name: string}[]>([])
+
+  useEffect(() => {
+    getDoc(firestoreDoc(db(), 'settings', 'general')).then(snap => {
+      if (snap.exists() && snap.data().staff) {
+        setStaffList(snap.data().staff)
+      }
+    }).catch(err => console.error(err))
+  }, [])
 
   useEffect(() => {
     if (!docId) return
@@ -76,6 +87,58 @@ export function DocumentModal({ docId, onClose }: DocumentModalProps) {
       setLoading(false)
     })
   }, [docId])
+
+  const handleUpdateDeadline = async (val: string) => {
+    if (!doc) return
+    let newDeadline = null
+    if (val) {
+      newDeadline = new Date(val + 'T00:00:00')
+      if (doc.issueDate) {
+        const issueMidnight = new Date(doc.issueDate.toDate())
+        issueMidnight.setHours(0, 0, 0, 0)
+        if (newDeadline < issueMidnight) {
+          alert('Hạn xử lý không được chọn trước ngày ban hành văn bản!')
+          return
+        }
+      }
+    }
+    setDoc(prev => prev ? { ...prev, deadline: newDeadline ? { toDate: () => newDeadline } as any : undefined } : prev)
+    updateDocument(doc.id, { deadline: newDeadline })
+  }
+
+  const handleUpdateCompletedDate = async (val: string) => {
+    if (!doc) return
+    if (val) {
+      const localMidnight = new Date(val + 'T00:00:00')
+      if (doc.issueDate) {
+        const issueMidnight = new Date(doc.issueDate.toDate())
+        issueMidnight.setHours(0, 0, 0, 0)
+        if (localMidnight < issueMidnight) {
+          alert('Ngày hoàn thành không được chọn trước ngày ban hành văn bản!')
+          return
+        }
+      }
+      setDoc(prev => prev ? { ...prev, completedDate: { toDate: () => localMidnight } as any, status: 'completed' } : prev)
+      updateDocument(doc.id, { completedDate: localMidnight, status: 'completed' })
+    } else {
+      const newStatus = doc.assignee ? 'in_progress' : 'pending'
+      setDoc(prev => prev ? { ...prev, completedDate: undefined, status: newStatus } as any : prev)
+      updateDocument(doc.id, { completedDate: null, status: newStatus })
+    }
+  }
+
+  const handleUpdateAssignee = async (newAssignee: string) => {
+    if (!doc) return
+    const newStatus = doc.completedDate ? 'completed' : (newAssignee ? 'in_progress' : 'pending')
+    setDoc(prev => prev ? { ...prev, assignee: newAssignee, status: newStatus } : prev)
+    updateDocument(doc.id, { assignee: newAssignee || null, status: newStatus })
+  }
+
+  const handleUpdateNotes = async (newNotes: string) => {
+    if (!doc || doc.notes === newNotes) return
+    setDoc(prev => prev ? { ...prev, notes: newNotes } : prev)
+    updateDocument(doc.id, { notes: newNotes })
+  }
 
   const handleCopy = useCallback(async (text: string, id: string) => {
     await navigator.clipboard.writeText(text)
@@ -202,68 +265,93 @@ export function DocumentModal({ docId, onClose }: DocumentModalProps) {
                     </div>
                   )
                 })()}
-                {doc.deadline && (() => {
-                  const days = getDaysRemaining(doc.deadline)
-                  const daysText = days === null ? '' : days < 0 ? ` (quá ${Math.abs(days)} ngày)` : days === 0 ? ' (hôm nay!)' : ` (còn ${days} ngày)`
-                  const isWarning = days !== null && days <= 3
-                  return (
-                    <div className="meta-row">
-                      <span className="meta-label">Deadline:</span>
-                      <span className={isWarning ? "font-bold text-red-600" : ""}>
-                        {doc.deadline.toDate().toLocaleDateString('vi-VN')}
-                        <strong style={{color: days !== null && days <= 1 ? '#ef4444' : days !== null && days <= 3 ? '#f59e0b' : '#22c55e', marginLeft: '4px'}}>{daysText}</strong>
-                      </span>
-                    </div>
-                  )
-                })()}
+                <div className="meta-row" style={{ alignItems: 'center' }}>
+                  <span className="meta-label">Deadline:</span>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="date"
+                      value={toLocalISODate(doc.deadline)}
+                      min={toLocalISODate(doc.issueDate) || undefined}
+                      onChange={(e) => handleUpdateDeadline(e.target.value)}
+                      style={{ fontSize: '13px', padding: '4px 8px', border: '1px solid #cbd5e1', borderRadius: '5px', background: '#f1f5f9', cursor: 'pointer', transition: 'all 0.15s' }}
+                      onMouseEnter={e => { e.currentTarget.style.background = '#e2e8f0'; e.currentTarget.style.borderColor = '#94a3b8' }}
+                      onMouseLeave={e => { e.currentTarget.style.background = '#f1f5f9'; e.currentTarget.style.borderColor = '#cbd5e1' }}
+                    />
+                    {doc.deadline && (() => {
+                      const days = getDaysRemaining(doc.deadline)
+                      const daysText = days === null ? '' : days < 0 ? `(quá ${Math.abs(days)} ngày)` : days === 0 ? '(hôm nay!)' : `(còn ${days} ngày)`
+                      return (
+                        <strong style={{color: days !== null && days <= 1 ? '#ef4444' : days !== null && days <= 3 ? '#f59e0b' : '#22c55e', fontSize: '12px'}}>
+                          {daysText}
+                        </strong>
+                      )
+                    })()}
+                  </div>
+                </div>
                 <div className="meta-row" style={{ alignItems: 'center' }}>
                   <span className="meta-label">Hoàn thành:</span>
                   <input
                     type="date"
                     value={toLocalISODate(doc.completedDate)}
                     min={toLocalISODate(doc.issueDate) || undefined}
-                    onChange={async (e) => {
-                      const val = e.target.value
-                      if (val) {
-                        const localMidnight = new Date(val + 'T00:00:00')
-                        await updateDocument(doc.id, { completedDate: localMidnight, status: 'completed' })
-                        setDoc(prev => prev ? { ...prev, completedDate: { toDate: () => localMidnight } as any, status: 'completed' } : prev)
-                      } else {
-                        const newStatus = doc.assignee ? 'in_progress' : 'pending'
-                        await updateDocument(doc.id, { completedDate: null, status: newStatus })
-                        setDoc(prev => prev ? { ...prev, completedDate: undefined, status: newStatus } as any : prev)
-                      }
-                    }}
+                    onChange={(e) => handleUpdateCompletedDate(e.target.value)}
                     style={{ fontSize: '13px', padding: '4px 8px', border: '1px solid #cbd5e1', borderRadius: '5px', background: '#f1f5f9', cursor: 'pointer', transition: 'all 0.15s' }}
                     onMouseEnter={e => { e.currentTarget.style.background = '#e2e8f0'; e.currentTarget.style.borderColor = '#94a3b8' }}
                     onMouseLeave={e => { e.currentTarget.style.background = '#f1f5f9'; e.currentTarget.style.borderColor = '#cbd5e1' }}
                   />
                 </div>
-                <div className="meta-row">
+                <div className="meta-row" style={{ alignItems: 'center' }}>
                   <span className="meta-label">Người được giao:</span>
-                  {(!doc.assignee || doc.assignee === user?.displayName || doc.assignee === 'Bùi Minh Khôi') ? (
-                    <span className="text-slate-400 italic">Chưa giao</span>
-                  ) : (
-                    <span>{doc.assignee}</span>
-                  )}
+                  <select
+                    value={doc.assignee || ''}
+                    onChange={(e) => handleUpdateAssignee(e.target.value)}
+                    style={{ fontSize: '13px', padding: '4px 8px', border: '1px solid #cbd5e1', borderRadius: '5px', background: '#f1f5f9', cursor: 'pointer', transition: 'all 0.15s', flex: 1 }}
+                    onMouseEnter={e => { e.currentTarget.style.background = '#e2e8f0'; e.currentTarget.style.borderColor = '#94a3b8' }}
+                    onMouseLeave={e => { e.currentTarget.style.background = '#f1f5f9'; e.currentTarget.style.borderColor = '#cbd5e1' }}
+                  >
+                    <option value="">-- Chưa giao --</option>
+                    {staffList.map((s, idx) => (
+                      <option key={idx} value={s.name}>{s.name}</option>
+                    ))}
+                  </select>
                 </div>
-                {(() => {
-                  const lines = (doc.notes || '').split('\n').map(l => l.trim()).filter(Boolean)
-                  const filtered = lines.filter(l => {
-                    if (doc.sender && l.includes(doc.sender) && /^(CQBH|CQ ban hành)/i.test(l)) return false
-                    if (doc.leader && l.includes(doc.leader) && /^Lãnh đạo/i.test(l)) return false
-                    return true
-                  })
-                  
-                  return (
-                    <div className="meta-row" style={{ alignItems: 'flex-start' }}>
-                      <span className="meta-label" style={{ marginTop: 2 }}>Ghi chú:</span>
-                      <span className={filtered.length === 0 ? "text-slate-400 italic" : "whitespace-pre-wrap"}>
-                        {filtered.length === 0 ? 'Không có' : filtered.join('\n')}
-                      </span>
-                    </div>
-                  )
-                })()}
+                <div className="meta-row" style={{ alignItems: 'flex-start', flexDirection: 'column' }}>
+                  <span className="meta-label" style={{ marginTop: 2, marginBottom: 4 }}>Ghi chú:</span>
+                  <textarea
+                    key={doc.id}
+                    defaultValue={doc.notes || ''}
+                    onBlur={(e) => {
+                      e.currentTarget.style.background = '#f1f5f9';
+                      e.currentTarget.style.borderColor = '#cbd5e1';
+                      handleUpdateNotes(e.target.value);
+                    }}
+                    onInput={(e) => {
+                      const target = e.target as HTMLTextAreaElement
+                      target.style.height = 'auto'
+                      target.style.height = target.scrollHeight + 'px'
+                    }}
+                    placeholder="Nhập ghi chú..."
+                    style={{ 
+                      width: '100%', 
+                      minHeight: '60px', 
+                      fontSize: '13px', 
+                      padding: '8px', 
+                      border: '1px solid #cbd5e1', 
+                      borderRadius: '5px', 
+                      background: '#f1f5f9', 
+                      resize: 'none', 
+                      overflow: 'hidden',
+                      transition: 'border-color 0.15s, background 0.15s' 
+                    }}
+                    onFocus={e => { e.currentTarget.style.background = '#fff'; e.currentTarget.style.borderColor = '#3b82f6' }}
+                    ref={el => {
+                      if (el) {
+                        el.style.height = 'auto'
+                        el.style.height = el.scrollHeight + 'px'
+                      }
+                    }}
+                  />
+                </div>
               </div>
 
               {/* File list */}

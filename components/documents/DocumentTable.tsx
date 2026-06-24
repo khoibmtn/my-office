@@ -391,6 +391,7 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
   const [retrying, setRetrying] = useState<string | null>(null)
   const [deleting, setDeleting] = useState<string | null>(null)
   const [viewingId, setViewingId] = useState<string | null>(null)
+  const [copyModalContent, setCopyModalContent] = useState<string | null>(null)
   const [filterStatus, setFilterStatus] = useState<string>('pending')
   const [badgeFilters, setBadgeFilters] = useState<string[]>([])
   const [priorityBadgeFilters, setPriorityBadgeFilters] = useState<string[]>([])
@@ -981,9 +982,7 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
                 if (completed > 0) lines.push(`   - Hoàn thành: ${completed}`)
                 idx++
               })
-              navigator.clipboard.writeText(lines.join('\n'))
-                .then(() => alert('Đã copy thống kê vào clipboard!'))
-                .catch(() => alert('Lỗi copy!'))
+              setCopyModalContent(lines.join('\n'))
             }}
           >
             <ClipboardCopy className="h-3.5 w-3.5" />
@@ -1193,6 +1192,41 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
       )}
 
       <DocumentModal docId={viewingId} onClose={() => setViewingId(null)} />
+
+      {copyModalContent !== null && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[999] flex items-center justify-center p-4 animate-in fade-in duration-200" onClick={(e) => { if (e.target === e.currentTarget) setCopyModalContent(null) }}>
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between p-4 border-b border-slate-200 bg-slate-50">
+              <h2 className="text-base font-semibold text-slate-800 flex items-center gap-2">
+                <ClipboardCopy className="w-5 h-5 text-blue-600" />
+                Sửa & Copy thống kê
+              </h2>
+              <button onClick={() => setCopyModalContent(null)} className="p-1 text-slate-400 hover:text-slate-600 hover:bg-slate-200 rounded-lg transition-colors">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-4 flex-1">
+              <textarea 
+                className="w-full h-[60vh] sm:h-96 p-3 text-sm text-slate-700 bg-white border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all resize-y shadow-inner"
+                value={copyModalContent}
+                onChange={e => setCopyModalContent(e.target.value)}
+              />
+            </div>
+            <div className="p-4 border-t border-slate-200 bg-slate-50 flex justify-end gap-2">
+              <button className="px-4 py-2 text-sm font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors" onClick={() => setCopyModalContent(null)}>
+                Hủy
+              </button>
+              <button className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors shadow-sm flex items-center gap-2" onClick={() => {
+                navigator.clipboard.writeText(copyModalContent)
+                setCopyModalContent(null)
+              }}>
+                <CheckCircle2 className="w-4 h-4" />
+                Copy & Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <style jsx global>{`
         .filters-bar {
