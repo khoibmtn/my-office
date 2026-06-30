@@ -14,7 +14,8 @@
     "http://qlvb.hpnet.vn/*",
     "http://localhost:*/*",
     "https://*.vercel.app/*",
-    "https://www.googleapis.com/*"
+    "https://www.googleapis.com/*",
+    "https://securetoken.googleapis.com/*"
   ],
   "action": {
     "default_popup": "popup.html",

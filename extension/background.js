@@ -71,13 +71,85 @@ async function downloadFile(url) {
 }
 
 /**
- * Get user's Google access token from chrome.storage.local
- * (synced by token-sync.js content script running on localhost:3000)
+ * Get user's Firebase ID token from chrome.storage.local.
+ * If the token is expired, automatically refresh it using the stored refresh token.
  */
 async function getUserToken() {
-  const data = await chrome.storage.local.get(['myoffice_token']);
-  return data.myoffice_token || null;
+  const data = await chrome.storage.local.get(['myoffice_token', 'myoffice_refresh_token']);
+  let idToken = data.myoffice_token || null;
+  const refreshToken = data.myoffice_refresh_token || null;
+
+  if (!idToken) return null;
+
+  // Check if token is expired by decoding the JWT payload
+  if (isTokenExpired(idToken)) {
+    if (!refreshToken) {
+      console.log('[Background] Token expired and no refresh token available');
+      return null;
+    }
+
+    console.log('[Background] Token expired, auto-refreshing...');
+    try {
+      idToken = await refreshIdToken(refreshToken);
+      // Store the new token
+      await chrome.storage.local.set({ myoffice_token: idToken });
+      console.log('[Background] Token refreshed successfully');
+    } catch (err) {
+      console.log('[Background] Token refresh failed:', err.message);
+      return null;
+    }
+  }
+
+  return idToken;
 }
+
+/**
+ * Check if a JWT token is expired (with 60s buffer)
+ */
+function isTokenExpired(token) {
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) return true;
+    const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
+    const now = Math.floor(Date.now() / 1000);
+    // Expired if less than 60 seconds remaining
+    return payload.exp && (payload.exp - now) < 60;
+  } catch (e) {
+    return true;
+  }
+}
+
+/**
+ * Refresh Firebase ID token using the refresh token via Google's securetoken API
+ */
+async function refreshIdToken(refreshToken) {
+  const apiKey = 'AIzaSyBi0SkEEwmNpOKvshNhxhUcB_BQO04QsFE'; // NEXT_PUBLIC_FIREBASE_API_KEY
+
+  const res = await fetch(`https://securetoken.googleapis.com/v1/token?key=${apiKey}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: `grant_type=refresh_token&refresh_token=${encodeURIComponent(refreshToken)}`
+  });
+
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Refresh failed: ${res.status} ${err}`);
+  }
+
+  const data = await res.json();
+  
+  if (!data.id_token) {
+    throw new Error('No id_token in refresh response');
+  }
+
+  // Also update the refresh token if a new one was issued
+  if (data.refresh_token) {
+    await chrome.storage.local.set({ myoffice_refresh_token: data.refresh_token });
+  }
+
+  return data.id_token;
+}
+
 
 async function uploadSingleFile(apiUrl, blob, fileName, firebaseIdToken) {
   const mimeType = blob.type || 'application/octet-stream';

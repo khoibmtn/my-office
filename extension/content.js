@@ -31,13 +31,17 @@ function extractText(selector, removeLabel) {
 function extractDocumentData() {
   // Check if we're viewing a document popup (has document metadata elements)
   const hasDocView = document.querySelector('.vanban-sokykieu') || document.querySelector('.vanbanViewLeft');
-  if (!hasDocView) {
+  const hasDocDiView = document.querySelector('.vanbandi-sokykieu') || document.querySelector('.vanbandiViewLeft');
+  if (!hasDocView && !hasDocDiView) {
     return { _noDocument: true };
   }
 
+  const isDocDi = !!hasDocDiView;
+  const prefix = isDocDi ? '.vanbandi-' : '.vanban-';
+
   // Document number: "Số/KH: 182/CCDSTE-DSTE (số đến: )" → "182/CCDSTE-DSTE"
   let docNumber = '';
-  const sokhEl = document.querySelector('.vanban-sokykieu:not(.vanban-ngaybanhanh):not(.vanban-tinhtranxuly)');
+  const sokhEl = document.querySelector(prefix + 'sokykieu:not(' + prefix + 'ngaybanhanh):not(' + prefix + 'tinhtranxuly)');
   if (sokhEl) {
     let raw = sokhEl.textContent.trim();
     const colonIdx = raw.indexOf(':');
@@ -54,19 +58,19 @@ function extractDocumentData() {
 
   // Issue date: try to get it from the sibling/parent of CQBH first (includes time)
   let issueDate = '';
-  const cqbhEl = document.querySelector('.vanban-coquanbanhanh');
+  const cqbhEl = document.querySelector(prefix + 'coquanbanhanh');
   if (cqbhEl && cqbhEl.parentElement) {
     const match = cqbhEl.parentElement.textContent.match(/\d{1,2}\/\d{1,2}\/\d{4}\s+\d{1,2}:\d{2}(?::\d{2})?/);
     if (match) issueDate = match[0];
   }
   // Fallback to top bar "Ban hành: 24/04/2026"
   if (!issueDate) {
-    issueDate = extractText('.vanban-ngaybanhanh', true);
+    issueDate = extractText(prefix + 'ngaybanhanh', true);
   }
 
   // Summary from right panel
   let summary = '';
-  const trichyeuEl = document.querySelector('.vanban-trichyeu');
+  const trichyeuEl = document.querySelector(prefix + 'trichyeu');
   if (trichyeuEl) {
     summary = trichyeuEl.textContent.trim();
     // Remove "Trích yếu: " prefix
@@ -77,24 +81,24 @@ function extractDocumentData() {
   }
 
   // Deadline
-  const deadline = extractText('.vanban-thoihan', true);
+  const deadline = extractText(isDocDi ? '.vanbandi-thoihanhoibao' : '.vanban-thoihan', true);
 
   // Handler
-  let handler = extractText('.vanban-chuyenvien', true);
+  let handler = extractText(prefix + 'chuyenvien', true);
   // Remove info icon text if present
   handler = handler.replace(/\s*ⓘ.*$/, '').trim();
 
   // Leader
-  let leader = extractText('.vanban-lanhdao', true);
+  let leader = extractText(isDocDi ? '.vanbandi-nguoiky' : '.vanban-lanhdao', true);
   leader = leader.replace(/\s*ⓘ.*$/, '').trim();
 
   // Sender (CQBH)
-  const sender = extractText('.vanban-coquanbanhanh', true);
+  const sender = extractText(prefix + 'coquanbanhanh', true);
 
   // Main file URL + name
   let mainFileUrl = '';
   let mainFileName = '';
-  const downloadLink = document.querySelector('.vanban-link');
+  const downloadLink = document.querySelector(prefix + 'link');
   if (downloadLink) {
     let href = downloadLink.getAttribute('href') || '';
     if (href.startsWith('//')) href = 'https:' + href;
@@ -106,7 +110,7 @@ function extractDocumentData() {
   }
 
   // All files from dropdown (including main + attachments)
-  const fileItems = document.querySelectorAll('.vanban-file-item a');
+  const fileItems = document.querySelectorAll(prefix + 'file-item a, #' + prefix.replace('.', '') + 'file-items a');
   const allFiles = [];
   fileItems.forEach((a) => {
     const href = a.getAttribute('href') || '';
@@ -116,6 +120,10 @@ function extractDocumentData() {
     const match = href.match(/ChangeFile\(['"](.+?)['"]\)/);
     if (match) {
       let url = match[1];
+      if (url.startsWith('//')) url = 'https:' + url;
+      allFiles.push({ url, fileName });
+    } else if (href && href !== '#' && !href.startsWith('javascript:')) {
+      let url = href;
       if (url.startsWith('//')) url = 'https:' + url;
       allFiles.push({ url, fileName });
     }
