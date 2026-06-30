@@ -2,16 +2,12 @@
  * Content script for qlvb.hpnet.vn
  * Extracts document metadata and file URLs from the popup view.
  * 
- * DOM selectors based on actual HTML structure:
- * - .vanban-sokykieu (first) → "Số/KH: 182/CCDSTE-DSTE (số đến: )"
- * - .vanban-ngaybanhanh → "Ban hành: 24/04/2026"
- * - .vanban-trichyeu → "Trích yếu: V/v báo cáo..."
- * - .vanban-thoihan → "Thời hạn: 05/07/2026"
- * - .vanban-chuyenvien → "Người thực hiện: Bùi Minh Khôi"
- * - .vanban-lanhdao → "Lãnh đạo: Lê Khắc Tùng"
- * - .vanban-coquanbanhanh → "CQBH: Chi cục Dân số..."
- * - .vanban-file-item a → javascript:ChangeFile('...')
- * - .vanban-link → main file download link
+ * Supports all document types (VB đến, VB đi, VB dự thảo, etc.)
+ * by auto-detecting which popup modal is currently showing data.
+ *
+ * Known prefixes:
+ *   vanban-     → VB đến (incoming)
+ *   vanbandi-   → VB đi (outgoing)
  */
 
 function extractText(selector, removeLabel) {
@@ -19,7 +15,6 @@ function extractText(selector, removeLabel) {
   if (!el) return '';
   let text = el.textContent.trim();
   if (removeLabel) {
-    // Remove label like "Số/KH: " or "Ban hành: " etc.
     const colonIdx = text.indexOf(':');
     if (colonIdx >= 0) {
       text = text.substring(colonIdx + 1).trim();
@@ -28,33 +23,52 @@ function extractText(selector, removeLabel) {
   return text;
 }
 
+/**
+ * Try multiple selectors, return the first one that has non-empty text.
+ */
+function extractTextMulti(selectors, removeLabel) {
+  for (const sel of selectors) {
+    const val = extractText(sel, removeLabel);
+    if (val) return val;
+  }
+  return '';
+}
+
+/**
+ * Auto-detect which prefix has actual populated data.
+ * Both modals exist in the DOM at all times, but only one is populated.
+ */
+function detectActivePrefix() {
+  const prefixes = ['vanban-', 'vanbandi-'];
+
+  for (const p of prefixes) {
+    const el = document.querySelector('.' + p + 'sokykieu:not(.' + p + 'ngaybanhanh):not(.' + p + 'tinhtranxuly)');
+    if (el) {
+      let text = el.textContent.trim();
+      const colonIdx = text.indexOf(':');
+      if (colonIdx >= 0) {
+        text = text.substring(colonIdx + 1).trim();
+      }
+      // Remove "(số đến: ...)" suffix
+      const parenIdx = text.indexOf('(');
+      if (parenIdx >= 0) {
+        text = text.substring(0, parenIdx).trim();
+      }
+      if (text.length > 0) {
+        return { prefix: '.' + p, docNumber: text };
+      }
+    }
+  }
+  return null;
+}
+
 function extractDocumentData() {
-  // Check if we're viewing a document popup (has document metadata elements)
-  const hasDocView = document.querySelector('.vanban-sokykieu') || document.querySelector('.vanbanViewLeft');
-  const hasDocDiView = document.querySelector('.vanbandi-sokykieu') || document.querySelector('.vanbandiViewLeft');
-  if (!hasDocView && !hasDocDiView) {
+  const detected = detectActivePrefix();
+  if (!detected) {
     return { _noDocument: true };
   }
 
-  const isDocDi = !!hasDocDiView;
-  const prefix = isDocDi ? '.vanbandi-' : '.vanban-';
-
-  // Document number: "Số/KH: 182/CCDSTE-DSTE (số đến: )" → "182/CCDSTE-DSTE"
-  let docNumber = '';
-  const sokhEl = document.querySelector(prefix + 'sokykieu:not(' + prefix + 'ngaybanhanh):not(' + prefix + 'tinhtranxuly)');
-  if (sokhEl) {
-    let raw = sokhEl.textContent.trim();
-    const colonIdx = raw.indexOf(':');
-    if (colonIdx >= 0) {
-      raw = raw.substring(colonIdx + 1).trim();
-    }
-    // Remove "(số đến: ...)" part
-    const parenIdx = raw.indexOf('(');
-    if (parenIdx >= 0) {
-      raw = raw.substring(0, parenIdx).trim();
-    }
-    docNumber = raw;
-  }
+  const { prefix, docNumber } = detected;
 
   // Issue date: try to get it from the sibling/parent of CQBH first (includes time)
   let issueDate = '';
@@ -68,49 +82,66 @@ function extractDocumentData() {
     issueDate = extractText(prefix + 'ngaybanhanh', true);
   }
 
-  // Summary from right panel
+  // Summary (trích yếu) — try active prefix, fallback to other
   let summary = '';
   const trichyeuEl = document.querySelector(prefix + 'trichyeu');
   if (trichyeuEl) {
     summary = trichyeuEl.textContent.trim();
-    // Remove "Trích yếu: " prefix
     const match = summary.match(/^Trích yếu\s*:\s*/i);
     if (match) {
       summary = summary.substring(match[0].length).trim();
     }
   }
 
-  // Deadline
-  const deadline = extractText(isDocDi ? '.vanbandi-thoihanhoibao' : '.vanban-thoihan', true);
+  // Deadline — different selectors per type, try all
+  const deadline = extractTextMulti([
+    prefix + 'thoihan',
+    prefix + 'thoihanhoibao',
+    '.vanban-thoihan',
+    '.vanbandi-thoihanhoibao',
+  ], true);
 
-  // Handler
-  let handler = extractText(prefix + 'chuyenvien', true);
-  // Remove info icon text if present
+  // Handler (người thực hiện / người soạn thảo)
+  let handler = extractTextMulti([
+    prefix + 'chuyenvien',
+    '.vanban-chuyenvien',
+    '.vanbandi-chuyenvien',
+  ], true);
   handler = handler.replace(/\s*ⓘ.*$/, '').trim();
 
-  // Leader
-  let leader = extractText(isDocDi ? '.vanbandi-nguoiky' : '.vanban-lanhdao', true);
+  // Leader (lãnh đạo / người ký)
+  let leader = extractTextMulti([
+    prefix + 'lanhdao',
+    prefix + 'nguoiky',
+    '.vanban-lanhdao',
+    '.vanbandi-nguoiky',
+  ], true);
   leader = leader.replace(/\s*ⓘ.*$/, '').trim();
 
   // Sender (CQBH)
   const sender = extractText(prefix + 'coquanbanhanh', true);
 
-  // Main file URL + name
+  // Main file URL + name — try active prefix download link
   let mainFileUrl = '';
   let mainFileName = '';
   const downloadLink = document.querySelector(prefix + 'link');
   if (downloadLink) {
     let href = downloadLink.getAttribute('href') || '';
     if (href.startsWith('//')) href = 'https:' + href;
-    mainFileUrl = href;
-    // Extract filename from text "Tải xuống văn bản: filename.pdf"
-    const linkText = downloadLink.textContent.trim();
-    const dlMatch = linkText.match(/Tải xuống văn bản:\s*(.+)/i);
-    mainFileName = dlMatch ? dlMatch[1].trim() : href.split('/').pop() || 'file';
+    if (href && href !== '#') {
+      mainFileUrl = href;
+      const linkText = downloadLink.textContent.trim();
+      const dlMatch = linkText.match(/Tải xuống văn bản:\s*(.+)/i);
+      mainFileName = dlMatch ? dlMatch[1].trim() : href.split('/').pop() || 'file';
+    }
   }
 
-  // All files from dropdown (including main + attachments)
-  const fileItems = document.querySelectorAll(prefix + 'file-item a, #' + prefix.replace('.', '') + 'file-items a');
+  // All files from dropdown
+  const fileItemSelectors = [
+    prefix + 'file-item a',
+    '#' + prefix.replace('.', '') + 'file-items a',
+  ];
+  const fileItems = document.querySelectorAll(fileItemSelectors.join(', '));
   const allFiles = [];
   fileItems.forEach((a) => {
     const href = a.getAttribute('href') || '';
@@ -130,7 +161,6 @@ function extractDocumentData() {
   });
 
   // Separate main file from attachments
-  // First file in dropdown = main file, rest = attachments
   const attachments = allFiles.length > 1 ? allFiles.slice(1) : [];
 
   // If no main file URL from download link, use first file from dropdown
@@ -139,7 +169,7 @@ function extractDocumentData() {
     mainFileName = allFiles[0].fileName;
   }
 
-  // Extract priority by looking back at the main table (if available)
+  // Extract priority by looking at the main table
   let priority = 'normal';
   try {
     const parentDoc = window.parent ? window.parent.document : document;
@@ -147,7 +177,6 @@ function extractDocumentData() {
       const rows = parentDoc.querySelectorAll('tr');
       for (const row of rows) {
         if (row.textContent.includes(docNumber)) {
-          // Look for the specific label badge to avoid false positives from document titles
           const labelEl = row.querySelector('.label');
           if (labelEl) {
             const labelText = labelEl.textContent.toLowerCase().trim();
@@ -161,7 +190,7 @@ function extractDocumentData() {
       }
     }
   } catch(e) {
-    // Ignore cross-origin errors if any
+    // Ignore cross-origin errors
   }
 
   return {
