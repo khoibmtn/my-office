@@ -11,10 +11,18 @@ export function useDocuments(): { documents: Document[]; loading: boolean } {
 
   useEffect(() => {
     const q = query(collection(db(), 'documents'), orderBy('createdAt', 'desc'))
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      setDocuments(snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as Document)))
-      setLoading(false)
-    })
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        setDocuments(snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as Document)))
+        setLoading(false)
+      },
+      (error) => {
+        console.error('[useDocuments] Firestore onSnapshot error:', error.code, error.message)
+        // Don't leave loading stuck on permission errors
+        setLoading(false)
+      }
+    )
     return unsubscribe
   }, [])
 

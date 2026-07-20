@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { Loader2, LayoutDashboard, FileText, Search, LogOut, Settings, Menu, X } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { Button } from '@/components/ui/button'
-import { signOutUser } from '@/lib/firebase'
+import { resetSession, isGoogleUser } from '@/lib/firebase'
 
 const NAV = [
   { href: '/',            icon: LayoutDashboard, label: 'Dashboard' },
@@ -26,10 +26,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     setSidebarOpen(false)
   }, [pathname])
 
-  useEffect(() => {
-    if (!loading && !user) router.push('/login')
-  }, [user, loading, router])
-
+  // Show loading spinner while auto-authenticating (usually < 1s)
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
@@ -38,7 +35,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     )
   }
 
-  if (!user) return null
+  // If auth completely failed (very rare), still show the app
+  // The Firestore hooks will handle their own errors
 
   return (
     <div className="min-h-screen flex bg-slate-50">
@@ -96,7 +94,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             className="w-full mt-2"
             size="sm"
             variant="ghost"
-            onClick={() => { signOutUser(); router.push('/login') }}
+            onClick={async () => {
+              await resetSession()
+              // After reset, reload to get fresh anonymous auth
+              window.location.reload()
+            }}
           >
             <LogOut className="h-4 w-4 mr-2" />
             Đăng xuất

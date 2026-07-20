@@ -2,9 +2,9 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { doc, getDoc, setDoc } from 'firebase/firestore'
-import { db } from '@/lib/firebase'
+import { db, resetSession, linkGoogleAccount, isGoogleUser, hasGoogleToken, auth } from '@/lib/firebase'
 import { Button } from '@/components/ui/button'
-import { Plus, Trash2, Save, Users, Loader2, Palette, AlertTriangle, Check } from 'lucide-react'
+import { Plus, Trash2, Save, Users, Loader2, Palette, AlertTriangle, Check, Link2, RotateCcw, ShieldCheck, ShieldX } from 'lucide-react'
 
 interface StaffMember {
   name: string
@@ -97,12 +97,27 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
-  const [hasToken, setHasToken] = useState(false)
+  const [googleLinked, setGoogleLinked] = useState(false)
+  const [googleEmail, setGoogleEmail] = useState<string | null>(null)
+  const [linking, setLinking] = useState(false)
+  const [resetting, setResetting] = useState(false)
 
   useEffect(() => {
     loadSettings()
-    setHasToken(!!localStorage.getItem('firebase_id_token'))
+    checkGoogleStatus()
   }, [])
+
+  function checkGoogleStatus() {
+    const firebaseAuth = auth()
+    const user = firebaseAuth.currentUser
+    if (user && !user.isAnonymous) {
+      setGoogleLinked(true)
+      setGoogleEmail(user.email)
+    } else {
+      setGoogleLinked(false)
+      setGoogleEmail(null)
+    }
+  }
 
   async function loadSettings() {
     try {
@@ -144,6 +159,34 @@ export default function SettingsPage() {
     setSaving(false)
   }
 
+  async function handleLinkGoogle() {
+    setLinking(true)
+    try {
+      const user = await linkGoogleAccount()
+      if (user) {
+        setGoogleLinked(true)
+        setGoogleEmail(user.email)
+      }
+    } catch (err: any) {
+      alert('Lỗi liên kết Google: ' + (err?.message || String(err)))
+    }
+    setLinking(false)
+  }
+
+  async function handleReset() {
+    if (!confirm('Bạn có chắc muốn đặt lại phiên? Tài khoản Google sẽ bị hủy liên kết, nhưng dữ liệu văn bản vẫn được giữ nguyên.')) {
+      return
+    }
+    setResetting(true)
+    try {
+      await resetSession()
+      window.location.reload()
+    } catch (err) {
+      console.error('Reset failed:', err)
+      setResetting(false)
+    }
+  }
+
   function addStaff() {
     setStaff([...staff, { name: '' }])
   }
@@ -169,6 +212,80 @@ export default function SettingsPage() {
   return (
     <main className="p-8 max-w-2xl">
       <h1 className="text-2xl font-bold text-slate-900 mb-6">⚙️ Cài đặt</h1>
+
+      {/* Google Account & Session */}
+      <section className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 mb-6">
+        <div className="flex items-center gap-2 mb-4">
+          {googleLinked ? (
+            <ShieldCheck className="h-5 w-5 text-green-600" />
+          ) : (
+            <ShieldX className="h-5 w-5 text-slate-400" />
+          )}
+          <h2 className="text-lg font-semibold text-slate-800">Tài khoản & Phiên</h2>
+        </div>
+        
+        <div className="space-y-4">
+          {/* Google account status */}
+          <div className="p-4 bg-slate-50 rounded-lg border border-slate-100">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-slate-700">Google Drive</p>
+                {googleLinked ? (
+                  <p className="text-sm text-green-600 mt-0.5">
+                    ✅ Đã liên kết: <span className="font-medium">{googleEmail}</span>
+                  </p>
+                ) : (
+                  <p className="text-sm text-slate-500 mt-0.5">
+                    Chưa liên kết — cần liên kết để tải file lên Google Drive
+                  </p>
+                )}
+              </div>
+              {!googleLinked && (
+                <Button size="sm" variant="outline" onClick={handleLinkGoogle} disabled={linking}>
+                  {linking ? (
+                    <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                  ) : (
+                    <Link2 className="h-4 w-4 mr-1" />
+                  )}
+                  Liên kết Google
+                </Button>
+              )}
+            </div>
+          </div>
+
+          {/* Token status */}
+          <div className="p-4 bg-slate-50 rounded-lg border border-slate-100">
+            <p className="text-sm font-medium text-slate-700 mb-1">Phiên Extension</p>
+            <p className="text-sm text-slate-500">
+              {hasGoogleToken() ? (
+                <span className="text-green-600">✅ Token có sẵn — Extension sẵn sàng</span>
+              ) : (
+                <span className="text-amber-600">⚠️ Chưa có token Drive — Hãy liên kết Google ở trên</span>
+              )}
+            </p>
+          </div>
+
+          {/* Reset session */}
+          <div className="pt-3 border-t border-slate-100">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-slate-700">Đặt lại phiên</p>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Hủy liên kết Google, xóa token. Dữ liệu văn bản vẫn được giữ nguyên.
+                </p>
+              </div>
+              <Button size="sm" variant="outline" className="text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200" onClick={handleReset} disabled={resetting}>
+                {resetting ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                ) : (
+                  <RotateCcw className="h-4 w-4 mr-1" />
+                )}
+                Đặt lại
+              </Button>
+            </div>
+          </div>
+        </div>
+      </section>
 
       {/* Staff management */}
       <section className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 mb-6">
@@ -323,28 +440,6 @@ export default function SettingsPage() {
             </span>
           </div>
         </div>
-      </section>
-
-      {/* Token info */}
-      <section className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 mb-6">
-        <div className="flex items-center gap-2 mb-4">
-          <Palette className="h-5 w-5 text-purple-600" />
-          <h2 className="text-lg font-semibold text-slate-800">Phiên Đăng Nhập Extension</h2>
-        </div>
-        <p className="text-sm text-slate-500 mb-2">
-          Hệ thống tự động lưu Token xác thực Firebase khi bạn đăng nhập. Extension Chrome sẽ đọc token này để xác nhận danh tính của bạn khi thao tác.
-        </p>
-        <div className="p-3 bg-slate-50 rounded-lg text-sm">
-          <span className="font-medium text-slate-600">Trạng thái: </span>
-          {hasToken ? (
-            <span className="text-green-600 font-semibold">✅ Token có sẵn (Sẵn sàng cho Extension)</span>
-          ) : (
-            <span className="text-red-600 font-semibold">❌ Chưa có token — Hãy đăng xuất và đăng nhập lại</span>
-          )}
-        </div>
-        <p className="text-xs text-slate-400 mt-2">
-          <strong>Vercel/Production:</strong> Extension cần được cập nhật domain trong manifest.json và token-sync.js để hoạt động trên domain production.
-        </p>
       </section>
 
       {/* Save button */}

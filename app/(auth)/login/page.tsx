@@ -1,77 +1,18 @@
 'use client'
 
-export const dynamic = 'force-dynamic'
-
-import { useState, useEffect } from 'react'
+import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { signInWithGoogle, auth } from '@/lib/firebase'
-import { useAuth } from '@/hooks/useAuth'
-import { Button } from '@/components/ui/button'
-import { Loader2 } from 'lucide-react'
 
+/**
+ * Login page is no longer needed since we use auto-anonymous-auth.
+ * Redirect to home immediately.
+ */
 export default function LoginPage() {
   const router = useRouter()
-  const { user, loading: authLoading } = useAuth()
-  const [error, setError] = useState<string | null>(null)
-  const [signingIn, setSigningIn] = useState(false)
-  const [ready, setReady] = useState(false)
 
-  // Pre-warm Firebase Auth on mount so popup opens instantly on click
   useEffect(() => {
-    try {
-      auth() // Initialize Firebase Auth eagerly
-      setReady(true)
-    } catch {
-      setReady(true) // Still allow button
-    }
-  }, [])
+    router.replace('/')
+  }, [router])
 
-  // If user is already logged in, go to home
-  useEffect(() => {
-    if (user && !authLoading) {
-      router.push('/')
-    }
-  }, [user, authLoading, router])
-
-  async function handleLogin() {
-    setError(null)
-    setSigningIn(true)
-    try {
-      const result = await signInWithGoogle()
-      // If popup succeeded (result !== null), redirect
-      if (result) {
-        router.push('/')
-      }
-      // If null, redirect-based auth is happening — page will reload
-    } catch (err: unknown) {
-      const code = (err as { code?: string })?.code ?? ''
-      setError(code || 'Lỗi đăng nhập. Vui lòng thử lại.')
-      setSigningIn(false)
-    }
-  }
-
-  // Don't render login form if user is already authed
-  if (user) return null
-
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-50">
-      <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-8 w-full max-w-sm">
-        <h1 className="text-2xl font-semibold text-slate-900 mb-2">Quản lý Văn bản</h1>
-        <p className="text-sm text-slate-500 mb-6">Đăng nhập để tiếp tục</p>
-        <Button className="w-full" onClick={handleLogin} disabled={signingIn || !ready}>
-          {signingIn ? (
-            <>
-              <Loader2 className="h-4 w-4 animate-spin mr-2" />
-              Đang chuyển đến Google...
-            </>
-          ) : (
-            'Đăng nhập với Google'
-          )}
-        </Button>
-        {error && (
-          <p className="mt-3 text-sm text-red-600 text-center">{error}</p>
-        )}
-      </div>
-    </div>
-  )
+  return null
 }

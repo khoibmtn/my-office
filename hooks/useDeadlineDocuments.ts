@@ -18,10 +18,17 @@ export function useDeadlineDocuments(): { documents: Document[]; loading: boolea
       orderBy('deadline', 'asc'),
       limit(10)
     )
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      setDocuments(snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as Document)))
-      setLoading(false)
-    })
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        setDocuments(snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as Document)))
+        setLoading(false)
+      },
+      (error) => {
+        console.error('[useDeadlineDocuments] Firestore onSnapshot error:', error.code, error.message)
+        setLoading(false)
+      }
+    )
     return unsubscribe
   }, [])
 
