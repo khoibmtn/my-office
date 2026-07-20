@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { doc, onSnapshot } from 'firebase/firestore'
-import { db } from '@/lib/firebase'
+import { db, ensureAuth } from '@/lib/firebase'
 
 export interface AppSettings {
   overdueColor: string           // days < 0
@@ -26,27 +26,36 @@ export function useSettings(): AppSettings {
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS)
 
   useEffect(() => {
-    const ref = doc(db(), 'settings', 'general')
-    const unsub = onSnapshot(
-      ref,
-      (snap) => {
-        if (snap.exists()) {
-          const data = snap.data()
-          setSettings({
-            overdueColor: data.overdueColor ?? DEFAULT_SETTINGS.overdueColor,
-            expiredColor: data.expiredColor ?? DEFAULT_SETTINGS.expiredColor,
-            urgent1Color: data.urgent1Color ?? DEFAULT_SETTINGS.urgent1Color,
-            urgent2Color: data.urgent2Color ?? DEFAULT_SETTINGS.urgent2Color,
-            normalColor: data.normalColor ?? DEFAULT_SETTINGS.normalColor,
-            completedColor: data.completedColor ?? DEFAULT_SETTINGS.completedColor,
-          })
+    let unsub: (() => void) | null = null
+
+    ensureAuth().then(() => {
+      const ref = doc(db(), 'settings', 'general')
+      unsub = onSnapshot(
+        ref,
+        (snap) => {
+          if (snap.exists()) {
+            const data = snap.data()
+            setSettings({
+              overdueColor: data.overdueColor ?? DEFAULT_SETTINGS.overdueColor,
+              expiredColor: data.expiredColor ?? DEFAULT_SETTINGS.expiredColor,
+              urgent1Color: data.urgent1Color ?? DEFAULT_SETTINGS.urgent1Color,
+              urgent2Color: data.urgent2Color ?? DEFAULT_SETTINGS.urgent2Color,
+              normalColor: data.normalColor ?? DEFAULT_SETTINGS.normalColor,
+              completedColor: data.completedColor ?? DEFAULT_SETTINGS.completedColor,
+            })
+          }
+        },
+        (error) => {
+          console.error('[useSettings] Firestore onSnapshot error:', error.code, error.message)
         }
-      },
-      (error) => {
-        console.error('[useSettings] Firestore onSnapshot error:', error.code, error.message)
-      }
-    )
-    return unsub
+      )
+    }).catch((err) => {
+      console.error('[useSettings] ensureAuth failed:', err)
+    })
+
+    return () => {
+      if (unsub) unsub()
+    }
   }, [])
 
   return settings
