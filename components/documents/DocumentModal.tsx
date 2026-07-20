@@ -7,6 +7,9 @@ import { db } from '@/lib/firebase'
 import { getDocument, updateDocument } from '@/lib/firestore'
 import { parseFileNameFromUrl, getStructuredMainFileName } from '@/lib/utils'
 import { useAuth } from '@/hooks/useAuth'
+import { usePermissions } from '@/hooks/usePermissions'
+import { useRole } from '@/hooks/useRole'
+import { useStaff } from '@/hooks/useStaff'
 import type { Document } from '@/types'
 
 function getDaysRemaining(ts: { toDate(): Date } | undefined): number | null {
@@ -63,6 +66,9 @@ interface DocumentModalProps {
 
 export function DocumentModal({ docId, onClose }: DocumentModalProps) {
   const { user } = useAuth()
+  const perms = usePermissions()
+  const { staffId: currentStaffId } = useRole()
+  const { staff, getStaffName } = useStaff()
   const [doc, setDoc] = useState<Document | null>(null)
   const [loading, setLoading] = useState(true)
   const [activeUrl, setActiveUrl] = useState('')
@@ -268,15 +274,21 @@ export function DocumentModal({ docId, onClose }: DocumentModalProps) {
                 <div className="meta-row" style={{ alignItems: 'center' }}>
                   <span className="meta-label">Deadline:</span>
                   <div className="flex items-center gap-2">
-                    <input
-                      type="date"
-                      value={toLocalISODate(doc.deadline)}
-                      min={toLocalISODate(doc.issueDate) || undefined}
-                      onChange={(e) => handleUpdateDeadline(e.target.value)}
-                      style={{ fontSize: '13px', padding: '4px 8px', border: '1px solid #cbd5e1', borderRadius: '5px', background: '#f1f5f9', cursor: 'pointer', transition: 'all 0.15s' }}
-                      onMouseEnter={e => { e.currentTarget.style.background = '#e2e8f0'; e.currentTarget.style.borderColor = '#94a3b8' }}
-                      onMouseLeave={e => { e.currentTarget.style.background = '#f1f5f9'; e.currentTarget.style.borderColor = '#cbd5e1' }}
-                    />
+                    {perms.canSetDeadline ? (
+                      <input
+                        type="date"
+                        value={toLocalISODate(doc.deadline)}
+                        min={toLocalISODate(doc.issueDate) || undefined}
+                        onChange={(e) => handleUpdateDeadline(e.target.value)}
+                        style={{ fontSize: '13px', padding: '4px 8px', border: '1px solid #cbd5e1', borderRadius: '5px', background: '#f1f5f9', cursor: 'pointer', transition: 'all 0.15s' }}
+                        onMouseEnter={e => { e.currentTarget.style.background = '#e2e8f0'; e.currentTarget.style.borderColor = '#94a3b8' }}
+                        onMouseLeave={e => { e.currentTarget.style.background = '#f1f5f9'; e.currentTarget.style.borderColor = '#cbd5e1' }}
+                      />
+                    ) : (
+                      <span style={{ fontSize: '13px' }}>
+                        {doc.deadline ? doc.deadline.toDate().toLocaleDateString('vi-VN') : '—'}
+                      </span>
+                    )}
                     {doc.deadline && (() => {
                       const days = getDaysRemaining(doc.deadline)
                       const daysText = days === null ? '' : days < 0 ? `(quá ${Math.abs(days)} ngày)` : days === 0 ? '(hôm nay!)' : `(còn ${days} ngày)`
@@ -290,67 +302,105 @@ export function DocumentModal({ docId, onClose }: DocumentModalProps) {
                 </div>
                 <div className="meta-row" style={{ alignItems: 'center' }}>
                   <span className="meta-label">Hoàn thành:</span>
-                  <input
-                    type="date"
-                    value={toLocalISODate(doc.completedDate)}
-                    min={toLocalISODate(doc.issueDate) || undefined}
-                    onChange={(e) => handleUpdateCompletedDate(e.target.value)}
-                    style={{ fontSize: '13px', padding: '4px 8px', border: '1px solid #cbd5e1', borderRadius: '5px', background: '#f1f5f9', cursor: 'pointer', transition: 'all 0.15s' }}
-                    onMouseEnter={e => { e.currentTarget.style.background = '#e2e8f0'; e.currentTarget.style.borderColor = '#94a3b8' }}
-                    onMouseLeave={e => { e.currentTarget.style.background = '#f1f5f9'; e.currentTarget.style.borderColor = '#cbd5e1' }}
-                  />
+                  {perms.canSetCompletedDate || (perms.canCompleteAssigned && doc.assigneeId === currentStaffId) ? (
+                    <input
+                      type="date"
+                      value={toLocalISODate(doc.completedDate)}
+                      min={toLocalISODate(doc.issueDate) || undefined}
+                      onChange={(e) => handleUpdateCompletedDate(e.target.value)}
+                      style={{ fontSize: '13px', padding: '4px 8px', border: '1px solid #cbd5e1', borderRadius: '5px', background: '#f1f5f9', cursor: 'pointer', transition: 'all 0.15s' }}
+                      onMouseEnter={e => { e.currentTarget.style.background = '#e2e8f0'; e.currentTarget.style.borderColor = '#94a3b8' }}
+                      onMouseLeave={e => { e.currentTarget.style.background = '#f1f5f9'; e.currentTarget.style.borderColor = '#cbd5e1' }}
+                    />
+                  ) : (
+                    <span style={{ fontSize: '13px' }}>
+                      {doc.completedDate ? doc.completedDate.toDate().toLocaleDateString('vi-VN') : '—'}
+                    </span>
+                  )}
                 </div>
                 <div className="meta-row" style={{ alignItems: 'center' }}>
                   <span className="meta-label">Người được giao:</span>
-                  <select
-                    value={doc.assignee || ''}
-                    onChange={(e) => handleUpdateAssignee(e.target.value)}
-                    style={{ fontSize: '13px', padding: '4px 8px', border: '1px solid #cbd5e1', borderRadius: '5px', background: '#f1f5f9', cursor: 'pointer', transition: 'all 0.15s', flex: 1 }}
-                    onMouseEnter={e => { e.currentTarget.style.background = '#e2e8f0'; e.currentTarget.style.borderColor = '#94a3b8' }}
-                    onMouseLeave={e => { e.currentTarget.style.background = '#f1f5f9'; e.currentTarget.style.borderColor = '#cbd5e1' }}
-                  >
-                    <option value="">-- Chưa giao --</option>
-                    {staffList.map((s, idx) => (
-                      <option key={idx} value={s.name}>{s.name}</option>
-                    ))}
-                  </select>
+                  {perms.canAssignStaff ? (
+                    <select
+                      value={doc.assigneeId || ''}
+                      onChange={(e) => {
+                        const member = staff.find(s => s.id === e.target.value)
+                        handleUpdateAssignee(member?.shortName || '')
+                        if (member) {
+                          updateDocument(doc.id, { assigneeId: member.id, assignee: member.shortName })
+                          setDoc(prev => prev ? { ...prev, assigneeId: member.id, assignee: member.shortName } : prev)
+                        } else {
+                          updateDocument(doc.id, { assigneeId: '', assignee: '' })
+                          setDoc(prev => prev ? { ...prev, assigneeId: '', assignee: '' } : prev)
+                        }
+                      }}
+                      style={{ fontSize: '13px', padding: '4px 8px', border: '1px solid #cbd5e1', borderRadius: '5px', background: '#f1f5f9', cursor: 'pointer', transition: 'all 0.15s', flex: 1 }}
+                      onMouseEnter={e => { e.currentTarget.style.background = '#e2e8f0'; e.currentTarget.style.borderColor = '#94a3b8' }}
+                      onMouseLeave={e => { e.currentTarget.style.background = '#f1f5f9'; e.currentTarget.style.borderColor = '#cbd5e1' }}
+                    >
+                      <option value="">-- Chưa giao --</option>
+                      {staff.filter(s => s.isActive).map((s) => (
+                        <option key={s.id} value={s.id}>{s.shortName}</option>
+                      ))}
+                    </select>
+                  ) : (
+                    <span style={{ fontSize: '13px' }}>
+                      {doc.assigneeId ? getStaffName(doc.assigneeId) : (doc.assignee || '—')}
+                    </span>
+                  )}
                 </div>
                 <div className="meta-row" style={{ alignItems: 'flex-start', flexDirection: 'column' }}>
                   <span className="meta-label" style={{ marginTop: 2, marginBottom: 4 }}>Ghi chú:</span>
-                  <textarea
-                    key={doc.id}
-                    defaultValue={doc.notes || ''}
-                    onBlur={(e) => {
-                      e.currentTarget.style.background = '#f1f5f9';
-                      e.currentTarget.style.borderColor = '#cbd5e1';
-                      handleUpdateNotes(e.target.value);
-                    }}
-                    onInput={(e) => {
-                      const target = e.target as HTMLTextAreaElement
-                      target.style.height = 'auto'
-                      target.style.height = target.scrollHeight + 'px'
-                    }}
-                    placeholder="Nhập ghi chú..."
-                    style={{ 
+                  {perms.canEditNotes ? (
+                    <textarea
+                      key={doc.id}
+                      defaultValue={doc.notes || ''}
+                      onBlur={(e) => {
+                        e.currentTarget.style.background = '#f1f5f9';
+                        e.currentTarget.style.borderColor = '#cbd5e1';
+                        handleUpdateNotes(e.target.value);
+                      }}
+                      onInput={(e) => {
+                        const target = e.target as HTMLTextAreaElement
+                        target.style.height = 'auto'
+                        target.style.height = target.scrollHeight + 'px'
+                      }}
+                      placeholder="Nhập ghi chú..."
+                      style={{ 
+                        width: '100%', 
+                        minHeight: '60px', 
+                        fontSize: '13px', 
+                        padding: '8px', 
+                        border: '1px solid #cbd5e1', 
+                        borderRadius: '5px', 
+                        background: '#f1f5f9', 
+                        resize: 'none', 
+                        overflow: 'hidden',
+                        transition: 'border-color 0.15s, background 0.15s' 
+                      }}
+                      onFocus={e => { e.currentTarget.style.background = '#fff'; e.currentTarget.style.borderColor = '#3b82f6' }}
+                      ref={el => {
+                        if (el) {
+                          el.style.height = 'auto'
+                          el.style.height = el.scrollHeight + 'px'
+                        }
+                      }}
+                    />
+                  ) : (
+                    <div style={{ 
                       width: '100%', 
-                      minHeight: '60px', 
+                      minHeight: '40px', 
                       fontSize: '13px', 
                       padding: '8px', 
-                      border: '1px solid #cbd5e1', 
-                      borderRadius: '5px', 
-                      background: '#f1f5f9', 
-                      resize: 'none', 
-                      overflow: 'hidden',
-                      transition: 'border-color 0.15s, background 0.15s' 
-                    }}
-                    onFocus={e => { e.currentTarget.style.background = '#fff'; e.currentTarget.style.borderColor = '#3b82f6' }}
-                    ref={el => {
-                      if (el) {
-                        el.style.height = 'auto'
-                        el.style.height = el.scrollHeight + 'px'
-                      }
-                    }}
-                  />
+                      background: '#f8fafc', 
+                      borderRadius: '5px',
+                      whiteSpace: 'pre-wrap',
+                      color: doc.notes ? '#334155' : '#94a3b8',
+                      fontStyle: doc.notes ? 'normal' : 'italic',
+                    }}>
+                      {doc.notes || 'Không có ghi chú'}
+                    </div>
+                  )}
                 </div>
               </div>
 

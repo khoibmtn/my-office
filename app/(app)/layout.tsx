@@ -1,25 +1,34 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
-import { Loader2, LayoutDashboard, FileText, Search, LogOut, Settings, Menu, X } from 'lucide-react'
+import { Loader2, LayoutDashboard, FileText, Search, LogIn, LogOut, Settings, Menu, X, User } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
+import { useRole } from '@/hooks/useRole'
+import { usePermissions } from '@/hooks/usePermissions'
 import { Button } from '@/components/ui/button'
-import { resetSession, isGoogleUser } from '@/lib/firebase'
-
-const NAV = [
-  { href: '/',            icon: LayoutDashboard, label: 'Dashboard' },
-  { href: '/documents',   icon: FileText,         label: 'Văn bản' },
-  { href: '/search',      icon: Search,           label: 'Tìm kiếm' },
-  { href: '/settings',    icon: Settings,         label: 'Cài đặt' },
-]
+import { resetSession } from '@/lib/firebase'
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth()
+  const { role, isAdmin, isGuest, isStaff, staffName, logout: roleLogout } = useRole()
+  const perms = usePermissions()
   const router = useRouter()
   const pathname = usePathname()
   const [sidebarOpen, setSidebarOpen] = useState(false)
+
+  const NAV = useMemo(() => {
+    const items = [
+      { href: '/',            icon: LayoutDashboard, label: 'Dashboard' },
+      { href: '/documents',   icon: FileText,         label: 'Văn bản' },
+      { href: '/search',      icon: Search,           label: 'Tìm kiếm' },
+    ]
+    if (perms.canAccessSettings) {
+      items.push({ href: '/settings', icon: Settings, label: 'Cài đặt' })
+    }
+    return items
+  }, [perms.canAccessSettings])
 
   // Close sidebar on route change
   useEffect(() => {
@@ -34,9 +43,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       </div>
     )
   }
-
-  // If auth completely failed (very rare), still show the app
-  // The Firestore hooks will handle their own errors
 
   return (
     <div className="min-h-screen flex bg-slate-50">
@@ -86,23 +92,60 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             )
           })}
         </nav>
+
+        {/* User info + actions */}
         <div className="p-3 border-t border-slate-200">
-          <Button className="w-full" size="sm" onClick={() => { setSidebarOpen(false); router.push('/documents/new') }}>
-            + Thêm văn bản
-          </Button>
-          <Button
-            className="w-full mt-2"
-            size="sm"
-            variant="ghost"
-            onClick={async () => {
-              await resetSession()
-              // After reset, reload to get fresh anonymous auth
-              window.location.reload()
-            }}
-          >
-            <LogOut className="h-4 w-4 mr-2" />
-            Đăng xuất
-          </Button>
+          {/* Role badge */}
+          {!isGuest && (
+            <div className="flex items-center gap-2 px-3 py-2 mb-2 rounded-lg bg-slate-50 text-xs">
+              <User className="h-3.5 w-3.5 text-slate-500" />
+              <span className="font-medium text-slate-700 truncate">
+                {isAdmin ? 'Admin' : staffName || 'Nhân viên'}
+              </span>
+              <span className={`ml-auto px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                isAdmin ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'
+              }`}>
+                {isAdmin ? 'Admin' : 'Staff'}
+              </span>
+            </div>
+          )}
+
+          {/* Add document button - only for users with permission */}
+          {perms.canAddDocument && (
+            <Button className="w-full" size="sm" onClick={() => { setSidebarOpen(false); router.push('/documents/new') }}>
+              + Thêm văn bản
+            </Button>
+          )}
+
+          {/* Login/Logout button */}
+          {isGuest ? (
+            <Button
+              className="w-full mt-2"
+              size="sm"
+              variant="outline"
+              onClick={() => { setSidebarOpen(false); router.push('/login') }}
+            >
+              <LogIn className="h-4 w-4 mr-2" />
+              Đăng nhập
+            </Button>
+          ) : (
+            <Button
+              className="w-full mt-2"
+              size="sm"
+              variant="ghost"
+              onClick={async () => {
+                if (isStaff) {
+                  roleLogout()
+                } else {
+                  await resetSession()
+                }
+                window.location.reload()
+              }}
+            >
+              <LogOut className="h-4 w-4 mr-2" />
+              Đăng xuất
+            </Button>
+          )}
         </div>
       </aside>
 
@@ -121,13 +164,15 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             <span className="font-semibold text-slate-900">Văn bản</span>
           </div>
           <div className="flex-1" />
-          <Button
-            size="sm"
-            className="h-8 text-xs"
-            onClick={() => router.push('/documents/new')}
-          >
-            + Thêm
-          </Button>
+          {perms.canAddDocument && (
+            <Button
+              size="sm"
+              className="h-8 text-xs"
+              onClick={() => router.push('/documents/new')}
+            >
+              + Thêm
+            </Button>
+          )}
         </header>
 
         <main className="flex-1 overflow-auto">{children}</main>

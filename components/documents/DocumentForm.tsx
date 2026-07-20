@@ -8,6 +8,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { AttachmentInput } from './AttachmentInput'
 import { submitDocumentWithDriveCopy, createDocument } from '@/lib/firestore'
+import { useStaff } from '@/hooks/useStaff'
 import type { AttachmentInput as AttachmentInputItem, DocumentStatus } from '@/types'
 import { v4 as uuid } from 'uuid'
 
@@ -22,12 +23,14 @@ const STATUS_OPTIONS: { value: DocumentStatus; label: string }[] = [
 
 export function DocumentForm() {
   const router = useRouter()
+  const { staff } = useStaff()
+  const activeStaff = staff.filter(s => s.isActive)
   const [title, setTitle] = useState('')
   const [originalLink, setOriginalLink] = useState('')
   const [notes, setNotes] = useState('')
   const [status, setStatus] = useState<DocumentStatus>('pending')
   const [deadline, setDeadline] = useState('')
-  const [assignee, setAssignee] = useState('')
+  const [assigneeId, setAssigneeId] = useState('')
   const [tags, setTags] = useState('')
   const [attachments, setAttachments] = useState<AttachmentRow[]>([
     { id: uuid(), title: '', originalLink: '' },
@@ -57,11 +60,13 @@ export function DocumentForm() {
       if (mainFile) {
         link = await uploadFileToDrive(mainFile)
       }
+      const member = activeStaff.find(s => s.id === assigneeId)
       const docId = await createDocument({
         title,
         originalLink: link,
         notes: notes || undefined,
-        assignee: assignee || undefined,
+        assignee: member?.shortName || '',
+        assigneeId: member?.id || '',
         tags: tags ? tags.split(',').map((t) => t.trim()).filter(Boolean) : [],
         attachmentInputs: attachments.map(({ title, originalLink }) => ({
           title,
@@ -163,11 +168,17 @@ export function DocumentForm() {
 
       <div className="flex flex-col gap-1">
         <Label htmlFor="assignee">Người nhận</Label>
-        <Input
+        <select
           id="assignee"
-          value={assignee}
-          onChange={(e) => setAssignee(e.target.value)}
-        />
+          value={assigneeId}
+          onChange={(e) => setAssigneeId(e.target.value)}
+          className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
+        >
+          <option value="">-- Chưa giao --</option>
+          {activeStaff.map(s => (
+            <option key={s.id} value={s.id}>{s.shortName} — {s.fullName}</option>
+          ))}
+        </select>
       </div>
 
       <div className="flex flex-col gap-1">

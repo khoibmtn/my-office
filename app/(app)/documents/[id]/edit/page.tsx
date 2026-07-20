@@ -11,6 +11,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { AttachmentInput } from '@/components/documents/AttachmentInput'
 import { getDocument, updateDocument, submitDocumentWithDriveCopy } from '@/lib/firestore'
+import { usePermissions } from '@/hooks/usePermissions'
 import type { Document, DocumentStatus, AttachmentInput as AttachmentItem } from '@/types'
 
 type AttachmentRow = AttachmentItem & { id: string }
@@ -25,6 +26,14 @@ const STATUS_OPTIONS: { value: DocumentStatus; label: string }[] = [
 export default function EditDocumentPage() {
   const router = useRouter()
   const { id } = useParams<{ id: string }>()
+  const perms = usePermissions()
+
+  // Permission guard
+  useEffect(() => {
+    if (!perms.loading && !perms.canEditDocument) {
+      router.replace('/documents')
+    }
+  }, [perms.loading, perms.canEditDocument, router])
 
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)

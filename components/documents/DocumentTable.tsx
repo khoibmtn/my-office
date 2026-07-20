@@ -12,6 +12,8 @@ import { DocumentModal } from './DocumentModal'
 import Link from 'next/link'
 import { useStaff } from '@/hooks/useStaff'
 import { useSettings } from '@/hooks/useSettings'
+import { usePermissions } from '@/hooks/usePermissions'
+import { useRole } from '@/hooks/useRole'
 
 // === Components ===
 
@@ -183,7 +185,7 @@ function toDateSafe(ts: any): Date | null {
 function DocumentCard({
   doc, idx, days, eff, rowClass, prio, searchQuery,
   onToggleComplete, onView, onDelete, onRetry, onAssign,
-  retrying, deleting, staffList, settings,
+  retrying, deleting, staffList, perms, currentStaffId, getStaffName, settings,
 }: {
   doc: Document; idx: number; days: number | null;
   eff: { icon: React.ReactNode; label: string; cls: string };
@@ -195,7 +197,8 @@ function DocumentCard({
   onRetry: (doc: Document) => void;
   onAssign: (id: string, person: string) => void;
   retrying: string | null; deleting: string | null;
-  staffList: string[]; settings: any;
+  staffList: any[]; perms: any; currentStaffId: string | null;
+  getStaffName: (id: string | undefined) => string; settings: any;
 }) {
   const urgencyColor = rowClass === 'row-overdue' ? settings.overdueColor
     : rowClass === 'row-expired' ? settings.expiredColor
@@ -257,30 +260,40 @@ function DocumentCard({
         )}
         <span className="flex items-center gap-1">
           👤 
-          <select
-            className="assign-select !w-auto !p-0 !bg-transparent font-medium focus:!bg-white"
-            value={doc.assignee || ''}
-            onChange={e => onAssign(doc.id, e.target.value)}
-          >
-            <option value="">Chưa giao</option>
-            {staffList.map(s => <option key={s} value={s}>{s}</option>)}
-          </select>
+          {perms.canAssignStaff ? (
+            <select
+              className="assign-select !w-auto !p-0 !bg-transparent font-medium focus:!bg-white"
+              value={doc.assigneeId || ''}
+              onChange={e => onAssign(doc.id, e.target.value)}
+            >
+              <option value="">Chưa giao</option>
+              {staffList.map(s => <option key={s.id} value={s.id}>{s.shortName}</option>)}
+            </select>
+          ) : (
+            <span className="font-medium">{doc.assigneeId ? getStaffName(doc.assigneeId) : (doc.assignee || 'Chưa giao')}</span>
+          )}
         </span>
       </div>
 
       {/* Actions row */}
       <div className="flex items-center gap-1.5 flex-wrap">
-        <button
-          className={`status-chip ${eff.cls} !p-1.5 sm:!py-1 sm:!px-2`}
-          onClick={() => onToggleComplete(doc)}
-          title={doc.status === 'completed' ? 'Bấm để chuyển về trạng thái chờ' : 'Bấm để đánh dấu hoàn thành'}
-        >
-          {eff.icon}
-        </button>
+        {(perms.canToggleComplete || (perms.canCompleteAssigned && doc.assigneeId === currentStaffId)) ? (
+          <button
+            className={`status-chip ${eff.cls} !p-1.5 sm:!py-1 sm:!px-2`}
+            onClick={() => onToggleComplete(doc)}
+            title={doc.status === 'completed' ? 'Bấm để chuyển về trạng thái chờ' : 'Bấm để đánh dấu hoàn thành'}
+          >
+            {eff.icon}
+          </button>
+        ) : (
+          <span className={`status-chip ${eff.cls} !p-1.5 sm:!py-1 sm:!px-2 opacity-60 cursor-default`}>
+            {eff.icon}
+          </span>
+        )}
 
         <div className="flex-1" />
 
-        {doc.status === 'upload_failed' ? (
+        {doc.status === 'upload_failed' && perms.canEditDocument ? (
           <Button size="sm" variant="outline" onClick={() => onRetry(doc)} disabled={retrying === doc.id}>
             {retrying === doc.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
           </Button>
@@ -293,23 +306,27 @@ function DocumentCard({
             >
               <Eye className="h-4 w-4" />
             </button>
-            <Link
-              href={`/documents/${doc.id}/edit`}
-              className="p-2 rounded-lg text-slate-400 hover:text-amber-600 hover:bg-amber-50 transition-colors"
-              title="Sửa"
-            >
-              <Pencil className="h-4 w-4" />
-            </Link>
+            {perms.canEditDocument && (
+              <Link
+                href={`/documents/${doc.id}/edit`}
+                className="p-2 rounded-lg text-slate-400 hover:text-amber-600 hover:bg-amber-50 transition-colors"
+                title="Sửa"
+              >
+                <Pencil className="h-4 w-4" />
+              </Link>
+            )}
           </>
         )}
-        <button
-          className="p-2 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors"
-          onClick={() => onDelete(doc.id, doc.title)}
-          disabled={deleting === doc.id}
-          title="Xóa"
-        >
-          {deleting === doc.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-        </button>
+        {perms.canDeleteDocument && (
+          <button
+            className="p-2 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+            onClick={() => onDelete(doc.id, doc.title)}
+            disabled={deleting === doc.id}
+            title="Xóa"
+          >
+            {deleting === doc.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+          </button>
+        )}
       </div>
 
       {doc.completedDate && (() => {
@@ -386,8 +403,11 @@ function Pagination({
 // === Main Component ===
 
 export function DocumentTable({ documents }: { documents: Document[] }) {
-  const staffList = useStaff()
+  const { staff, getStaffName } = useStaff()
+  const staffList = useMemo(() => staff.filter(s => s.isActive), [staff])
   const settings = useSettings()
+  const perms = usePermissions()
+  const { role, staffId: currentStaffId } = useRole()
   const [retrying, setRetrying] = useState<string | null>(null)
   const [deleting, setDeleting] = useState<string | null>(null)
   const [viewingId, setViewingId] = useState<string | null>(null)
@@ -395,7 +415,10 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
   const [filterStatus, setFilterStatus] = useState<string>('pending')
   const [badgeFilters, setBadgeFilters] = useState<string[]>([])
   const [priorityBadgeFilters, setPriorityBadgeFilters] = useState<string[]>([])
-  const [staffBadgeFilter, setStaffBadgeFilter] = useState<string | null>(null)
+  const [staffBadgeFilter, setStaffBadgeFilter] = useState<string | null>(
+    // Staff users: auto-filter to their assigned documents
+    role === 'staff' && currentStaffId ? currentStaffId : null
+  )
   const [searchQuery, setSearchQuery] = useState('')
   const [timePeriod, setTimePeriod] = useState<string>('today')
   const [customFrom, setCustomFrom] = useState('')
@@ -509,11 +532,15 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
   const staffStats = useMemo(() => {
     const counts: Record<string, number> = {}
     baseDocs.forEach(d => {
-      const name = d.assignee || '(Chưa giao)'
-      counts[name] = (counts[name] || 0) + 1
+      const name = d.assigneeId ? getStaffName(d.assigneeId) : (d.assignee || '(Chưa giao)')
+      if (!name) {
+        counts['(Chưa giao)'] = (counts['(Chưa giao)'] || 0) + 1
+      } else {
+        counts[name] = (counts[name] || 0) + 1
+      }
     })
     return Object.entries(counts).sort((a, b) => a[0].localeCompare(b[0]))
-  }, [baseDocs])
+  }, [baseDocs, getStaffName])
 
   // Priority stats from baseDocs
   const priorityStats = useMemo(() => {
@@ -565,8 +592,10 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
     // Staff badge filter
     if (staffBadgeFilter) {
       result = result.filter(d => {
-        if (staffBadgeFilter === '(Chưa giao)') return !d.assignee
-        return d.assignee === staffBadgeFilter
+        if (staffBadgeFilter === '(Chưa giao)') return !d.assignee && !d.assigneeId
+        // Match by staffId or by display name
+        const displayName = d.assigneeId ? getStaffName(d.assigneeId) : d.assignee
+        return d.assigneeId === staffBadgeFilter || displayName === staffBadgeFilter
       })
     }
 
@@ -659,21 +688,28 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
     }
   }, [])
 
-  const handleAssign = useCallback(async (docId: string, person: string) => {
+  const handleAssign = useCallback(async (docId: string, staffIdOrName: string) => {
+    if (!perms.canAssignStaff) return
     const doc = documents.find(d => d.id === docId)
     if (!doc) return
     let newStatus = doc.status
     if (doc.status !== 'completed') {
-      newStatus = person ? 'in_progress' : 'pending'
+      newStatus = staffIdOrName ? 'in_progress' : 'pending'
     }
-    await updateDocument(docId, { assignee: person, status: newStatus })
-  }, [documents])
+    // Find staff member to get both ID and name
+    const member = staffList.find(s => s.id === staffIdOrName)
+    await updateDocument(docId, {
+      assigneeId: member?.id || '',
+      assignee: member?.shortName || '',
+      status: newStatus,
+    })
+  }, [documents, staffList, perms.canAssignStaff])
 
   // Unique assignees from data for filter
   const assignees = useMemo(() => {
     const set = new Set<string>()
     documents.forEach(d => { if (d.assignee) set.add(d.assignee) })
-    staffList.forEach(s => set.add(s))
+    staffList.forEach(s => set.add(s.shortName))
     return Array.from(set).sort()
   }, [documents, staffList])
 
@@ -1074,27 +1110,41 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
                         </span>
                       </TableCell>
                       <TableCell>
-                        <select
-                          className="assign-select"
-                          value={doc.assignee || ''}
-                          onChange={e => handleAssign(doc.id, e.target.value)}
-                        >
-                          <option value="">— Chưa giao —</option>
-                          {staffList.map(s => <option key={s} value={s}>{s}</option>)}
-                        </select>
+                        {perms.canAssignStaff ? (
+                          <select
+                            className="assign-select"
+                            value={doc.assigneeId || ''}
+                            onChange={e => handleAssign(doc.id, e.target.value)}
+                          >
+                            <option value="">— Chưa giao —</option>
+                            {staffList.map(s => <option key={s.id} value={s.id}>{s.shortName}</option>)}
+                          </select>
+                        ) : (
+                          <span className="text-xs text-slate-600">
+                            {doc.assigneeId ? getStaffName(doc.assigneeId) : (doc.assignee || '—')}
+                          </span>
+                        )}
                       </TableCell>
                       <TableCell className="sticky right-0 z-10 shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.06)]" style={{ background: 'inherit' }}>
                         <div className="flex flex-col">
                           <div className="flex items-center gap-0.5 flex-wrap">
-                            <button
-                              className={`status-chip mr-1 ${eff.cls}`}
-                              onClick={() => handleToggleComplete(doc)}
-                              title={doc.status === 'completed' ? 'Bấm để chuyển về trạng thái chờ' : 'Bấm để đánh dấu hoàn thành'}
-                            >
-                              {eff.icon}
-                              <span className="hidden xl:inline">{eff.label}</span>
-                            </button>
-                            {doc.status === 'upload_failed' ? (
+                            {(perms.canToggleComplete || (perms.canCompleteAssigned && doc.assigneeId === currentStaffId)) && (
+                              <button
+                                className={`status-chip mr-1 ${eff.cls}`}
+                                onClick={() => handleToggleComplete(doc)}
+                                title={doc.status === 'completed' ? 'Bấm để chuyển về trạng thái chờ' : 'Bấm để đánh dấu hoàn thành'}
+                              >
+                                {eff.icon}
+                                <span className="hidden xl:inline">{eff.label}</span>
+                              </button>
+                            )}
+                            {!perms.canToggleComplete && !(perms.canCompleteAssigned && doc.assigneeId === currentStaffId) && (
+                              <span className={`status-chip mr-1 ${eff.cls} opacity-60 cursor-default`}>
+                                {eff.icon}
+                                <span className="hidden xl:inline">{eff.label}</span>
+                              </span>
+                            )}
+                            {doc.status === 'upload_failed' && perms.canEditDocument ? (
                               <Button size="sm" variant="outline" onClick={() => handleRetry(doc)} disabled={retrying === doc.id}>
                                 {retrying === doc.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
                               </Button>
@@ -1107,23 +1157,27 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
                                 >
                                   <Eye className="h-4 w-4" />
                                 </button>
-                                <Link
-                                  href={`/documents/${doc.id}/edit`}
-                                  className="p-1.5 rounded-lg text-slate-400 hover:text-amber-600 hover:bg-amber-50 transition-colors"
-                                  title="Sửa"
-                                >
-                                  <Pencil className="h-4 w-4" />
-                                </Link>
+                                {perms.canEditDocument && (
+                                  <Link
+                                    href={`/documents/${doc.id}/edit`}
+                                    className="p-1.5 rounded-lg text-slate-400 hover:text-amber-600 hover:bg-amber-50 transition-colors"
+                                    title="Sửa"
+                                  >
+                                    <Pencil className="h-4 w-4" />
+                                  </Link>
+                                )}
                               </>
                             )}
-                            <button
-                              className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors"
-                              onClick={() => handleDelete(doc.id, doc.title)}
-                              disabled={deleting === doc.id}
-                              title="Xóa"
-                            >
-                              {deleting === doc.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-                            </button>
+                            {perms.canDeleteDocument && (
+                              <button
+                                className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                                onClick={() => handleDelete(doc.id, doc.title)}
+                                disabled={deleting === doc.id}
+                                title="Xóa"
+                              >
+                                {deleting === doc.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                              </button>
+                            )}
                           </div>
                           {doc.completedDate && (() => {
                             const cd = toDateSafe(doc.completedDate)
@@ -1173,6 +1227,9 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
               retrying={retrying}
               deleting={deleting}
               staffList={staffList}
+              perms={perms}
+              currentStaffId={currentStaffId}
+              getStaffName={getStaffName}
               settings={settings}
             />
           )
