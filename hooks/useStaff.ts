@@ -22,7 +22,14 @@ export function useStaff(): {
       unsub = onSnapshot(
         q,
         (snap) => {
-          setStaff(snap.docs.map(d => ({ ...d.data(), id: d.id } as StaffMember)))
+          // IMPORTANT: Keep the custom `id` field from the staff document data,
+          // NOT the Firestore auto-generated document ID.
+          // Documents reference staff via the custom `id` (e.g., "39tcwz8g"),
+          // not the Firestore doc ID.
+          setStaff(snap.docs.map(d => {
+            const data = d.data() as StaffMember
+            return { ...data, _docId: d.id } as StaffMember & { _docId: string }
+          }))
           setLoading(false)
         },
         (error) => {
@@ -41,8 +48,10 @@ export function useStaff(): {
   const staffMap = useMemo(() => {
     const map = new Map<string, StaffMember>()
     staff.forEach(s => {
-      map.set(s.id, s)
-      // Also index by Firestore document ID (which may differ from s.id)
+      // Index by custom staff ID (primary key used in assigneeId)
+      if (s.id) map.set(s.id, s)
+      // Also index by shortName for backward compatibility with old name-based assignments
+      if (s.shortName) map.set(s.shortName, s)
     })
     return map
   }, [staff])
@@ -60,3 +69,4 @@ export function useStaff(): {
 
   return { staff, loading, getStaffName, getStaffById }
 }
+
