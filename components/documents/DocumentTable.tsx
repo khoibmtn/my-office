@@ -36,7 +36,7 @@ function Highlight({ text, query }: { text: string; query: string }) {
   )
 }
 
-function ThResizable({ width, minWidth = 30, onWidthChange, children, className, onClick }: any) {
+function ThResizable({ width, minWidth = 30, onWidthChange, children, className, onClick, flexible }: any) {
   const thRef = useRef<HTMLTableCellElement>(null)
   
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -50,7 +50,7 @@ function ThResizable({ width, minWidth = 30, onWidthChange, children, className,
       if (thRef.current) {
         thRef.current.style.width = `${newWidth}px`
         thRef.current.style.minWidth = `${newWidth}px`
-        thRef.current.style.maxWidth = `${newWidth}px`
+        if (!flexible) thRef.current.style.maxWidth = `${newWidth}px`
       }
     }
     const handleMouseUp = (upEvent: MouseEvent) => {
@@ -63,11 +63,16 @@ function ThResizable({ width, minWidth = 30, onWidthChange, children, className,
     document.addEventListener('mouseup', handleMouseUp)
   }
 
+  // flexible columns only set minWidth, allowing them to grow to fill available space
+  const style = flexible
+    ? { minWidth: width }
+    : { width, minWidth: width, maxWidth: width }
+
   return (
     <TableHead 
       ref={thRef} 
       className={`relative group ${className || ''}`} 
-      style={{ width, minWidth: width, maxWidth: width }} 
+      style={style} 
       onClick={onClick}
     >
       {children}
@@ -432,6 +437,13 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
   })
 
   useEffect(() => {
+    // v2: flexible layout - clear old fixed-width cache
+    const version = localStorage.getItem('docTableWidths_v')
+    if (version !== '2') {
+      localStorage.removeItem('docTableWidths')
+      localStorage.setItem('docTableWidths_v', '2')
+      return
+    }
     const saved = localStorage.getItem('docTableWidths')
     if (saved) {
       try { setColWidths(JSON.parse(saved)) } catch {}
@@ -1036,17 +1048,17 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
       <div className="hidden sm:block">
         <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
           <div className="overflow-x-auto">
-            <Table className="doc-table" style={{ minWidth: '900px' }}>
+            <Table className="doc-table w-full">
               <TableHeader>
                 <TableRow className="doc-table-header">
                   <ThResizable width={colWidths.stt} minWidth={30} onWidthChange={(w: number) => handleWidthChange('stt', w)} className="cursor-pointer hover:bg-slate-700/50" onClick={() => setSortConfig(null)}>#</ThResizable>
                   <ThResizable width={colWidths.issueDate} minWidth={60} onWidthChange={(w: number) => handleWidthChange('issueDate', w)} className="cursor-pointer hover:bg-slate-700/50 hidden md:table-cell" onClick={() => handleSort('issueDate')}>Ngày ban hành <ArrowUpDown className="h-3 w-3 inline ml-1"/></ThResizable>
                   <ThResizable width={colWidths.docNumber} minWidth={80} onWidthChange={(w: number) => handleWidthChange('docNumber', w)} className="cursor-pointer hover:bg-slate-700/50" onClick={() => handleSort('docNumber')}>Mã hiệu <ArrowUpDown className="h-3 w-3 inline ml-1"/></ThResizable>
-                  <ThResizable width={colWidths.title} minWidth={150} onWidthChange={(w: number) => handleWidthChange('title', w)} className="cursor-pointer hover:bg-slate-700/50" onClick={() => handleSort('title')}>Tiêu đề <ArrowUpDown className="h-3 w-3 inline ml-1"/></ThResizable>
+                  <ThResizable width={colWidths.title} minWidth={150} flexible onWidthChange={(w: number) => handleWidthChange('title', w)} className="cursor-pointer hover:bg-slate-700/50" onClick={() => handleSort('title')}>Tiêu đề <ArrowUpDown className="h-3 w-3 inline ml-1"/></ThResizable>
                   <ThResizable width={colWidths.deadline} minWidth={70} onWidthChange={(w: number) => handleWidthChange('deadline', w)} className="cursor-pointer hover:bg-slate-700/50 hidden lg:table-cell" onClick={() => handleSort('deadline')}>Deadline <ArrowUpDown className="h-3 w-3 inline ml-1"/></ThResizable>
                   <ThResizable width={colWidths.remaining} minWidth={60} onWidthChange={(w: number) => handleWidthChange('remaining', w)} className="cursor-pointer hover:bg-slate-700/50" onClick={() => handleSort('remaining')}>Còn lại <ArrowUpDown className="h-3 w-3 inline ml-1"/></ThResizable>
                   <ThResizable width={colWidths.assignee} minWidth={90} onWidthChange={(w: number) => handleWidthChange('assignee', w)} className="cursor-pointer hover:bg-slate-700/50" onClick={() => handleSort('assignee')}>Người TH <ArrowUpDown className="h-3 w-3 inline ml-1"/></ThResizable>
-                  <TableHead className="doc-table-header border-0 sticky right-0 z-10 bg-slate-800 shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.15)]">Xử lý</TableHead>
+                  <TableHead className="doc-table-header border-0 sticky right-0 z-10 bg-slate-800 shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.15)]" style={{ whiteSpace: 'nowrap' }}>Xử lý</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
