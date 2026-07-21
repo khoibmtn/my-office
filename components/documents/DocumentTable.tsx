@@ -1058,7 +1058,7 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
                   <ThResizable width={colWidths.deadline} minWidth={70} onWidthChange={(w: number) => handleWidthChange('deadline', w)} className="cursor-pointer hover:bg-slate-700/50 hidden lg:table-cell" onClick={() => handleSort('deadline')}>Deadline <ArrowUpDown className="h-3 w-3 inline ml-1"/></ThResizable>
                   <ThResizable width={colWidths.remaining} minWidth={60} onWidthChange={(w: number) => handleWidthChange('remaining', w)} className="cursor-pointer hover:bg-slate-700/50" onClick={() => handleSort('remaining')}>Còn lại <ArrowUpDown className="h-3 w-3 inline ml-1"/></ThResizable>
                   <ThResizable width={colWidths.assignee} minWidth={90} onWidthChange={(w: number) => handleWidthChange('assignee', w)} className="cursor-pointer hover:bg-slate-700/50" onClick={() => handleSort('assignee')}>Người TH <ArrowUpDown className="h-3 w-3 inline ml-1"/></ThResizable>
-                  <TableHead className="doc-table-header border-0 sticky right-0 z-10 bg-slate-800 shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.15)]" style={{ whiteSpace: 'nowrap' }}>Xử lý</TableHead>
+                  <TableHead className="doc-table-header border-0 sticky right-0 z-10 bg-slate-800 shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.15)]" style={{ width: '1%', whiteSpace: 'nowrap' }}>Xử lý</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -1137,7 +1137,7 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
                           </span>
                         )}
                       </TableCell>
-                      <TableCell className="sticky right-0 z-10 bg-white shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.06)]">
+                      <TableCell className="sticky right-0 z-10 bg-white shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.06)]" style={{ width: '1%', whiteSpace: 'nowrap' }}>
                         <div className="flex flex-col">
                           <div className="flex items-center gap-0.5 flex-wrap">
                             {(perms.canToggleComplete || (perms.canCompleteAssigned && doc.assigneeId === currentStaffId)) && (
