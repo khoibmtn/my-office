@@ -420,10 +420,15 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
   const [filterStatus, setFilterStatus] = useState<string>('pending')
   const [badgeFilters, setBadgeFilters] = useState<string[]>([])
   const [priorityBadgeFilters, setPriorityBadgeFilters] = useState<string[]>([])
-  const [staffBadgeFilter, setStaffBadgeFilter] = useState<string | null>(
-    // Staff users: auto-filter to their assigned documents
-    role === 'staff' && currentStaffId ? currentStaffId : null
-  )
+  const [staffBadgeFilter, setStaffBadgeFilter] = useState<string | null>(null)
+  // Auto-filter to staff's own documents when they log in
+  const staffFilterApplied = useRef(false)
+  useEffect(() => {
+    if (role === 'staff' && currentStaffId && !staffFilterApplied.current) {
+      setStaffBadgeFilter(currentStaffId)
+      staffFilterApplied.current = true
+    }
+  }, [role, currentStaffId])
   const [searchQuery, setSearchQuery] = useState('')
   const [timePeriod, setTimePeriod] = useState<string>('today')
   const [customFrom, setCustomFrom] = useState('')
