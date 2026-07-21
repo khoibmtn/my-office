@@ -428,7 +428,7 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
   const [pageSize, setPageSize] = useState(20)
   
   const [colWidths, setColWidths] = useState<Record<string, number>>({
-    stt: 36, issueDate: 90, docNumber: 130, title: 250, status: 120, deadline: 90, remaining: 80, assignee: 130, actions: 130
+    stt: 36, issueDate: 90, docNumber: 120, title: 300, status: 110, deadline: 90, remaining: 70, assignee: 100, actions: 110
   })
 
   useEffect(() => {
@@ -1046,7 +1046,7 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
                   <ThResizable width={colWidths.deadline} minWidth={70} onWidthChange={(w: number) => handleWidthChange('deadline', w)} className="cursor-pointer hover:bg-slate-700/50 hidden lg:table-cell" onClick={() => handleSort('deadline')}>Deadline <ArrowUpDown className="h-3 w-3 inline ml-1"/></ThResizable>
                   <ThResizable width={colWidths.remaining} minWidth={60} onWidthChange={(w: number) => handleWidthChange('remaining', w)} className="cursor-pointer hover:bg-slate-700/50" onClick={() => handleSort('remaining')}>Còn lại <ArrowUpDown className="h-3 w-3 inline ml-1"/></ThResizable>
                   <ThResizable width={colWidths.assignee} minWidth={90} onWidthChange={(w: number) => handleWidthChange('assignee', w)} className="cursor-pointer hover:bg-slate-700/50" onClick={() => handleSort('assignee')}>Người TH <ArrowUpDown className="h-3 w-3 inline ml-1"/></ThResizable>
-                  <TableHead className="doc-table-header border-0 sticky right-0 z-10 shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.15)]" style={{ background: 'inherit' }}>Actions</TableHead>
+                  <TableHead className="doc-table-header border-0 sticky right-0 z-10 shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.15)]" style={{ background: 'inherit' }}>Xử lý</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>

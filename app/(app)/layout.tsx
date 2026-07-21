@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
-import { Loader2, LayoutDashboard, FileText, Search, LogIn, LogOut, Settings, Menu, X, User } from 'lucide-react'
+import { Loader2, FileText, LogIn, LogOut, Settings, Menu, X, User } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { useRole } from '@/hooks/useRole'
 import { usePermissions } from '@/hooks/usePermissions'
@@ -20,9 +20,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   const NAV = useMemo(() => {
     const items = [
-      { href: '/',            icon: LayoutDashboard, label: 'Dashboard' },
-      { href: '/documents',   icon: FileText,         label: 'Văn bản' },
-      { href: '/search',      icon: Search,           label: 'Tìm kiếm' },
+      { href: '/documents', icon: FileText, label: 'Văn bản' },
     ]
     if (perms.canAccessSettings) {
       items.push({ href: '/settings', icon: Settings, label: 'Cài đặt' })
@@ -45,7 +43,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="min-h-screen flex bg-slate-50">
+    <div className="h-screen flex bg-slate-50 overflow-hidden">
       {/* Mobile overlay */}
       {sidebarOpen && (
         <div
@@ -54,17 +52,18 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         />
       )}
 
-      {/* Sidebar */}
+      {/* Sidebar — fixed height, never scrolls */}
       <aside
         className={`
-          fixed inset-y-0 left-0 z-50 w-64 bg-white border-r border-slate-200
-          flex flex-col
+          fixed inset-y-0 left-0 z-50 w-56 bg-white border-r border-slate-200
+          flex flex-col h-screen
           transform transition-transform duration-200 ease-out
-          lg:translate-x-0 lg:static lg:w-52 lg:z-auto
+          lg:translate-x-0 lg:static lg:shrink-0 lg:z-auto
           ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
         `}
       >
-        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200">
+        {/* Top: Brand */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200 shrink-0">
           <span className="text-lg font-semibold text-slate-900">Văn bản</span>
           <button
             onClick={() => setSidebarOpen(false)}
@@ -73,14 +72,16 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             <X className="w-5 h-5 text-slate-500" />
           </button>
         </div>
-        <nav className="flex-1 p-3 flex flex-col gap-1">
+
+        {/* Middle: Nav — takes remaining space */}
+        <nav className="flex-1 p-3 flex flex-col gap-1 overflow-hidden">
           {NAV.map(({ href, icon: Icon, label }) => {
             const active = pathname === href || (href !== '/' && pathname.startsWith(href))
             return (
               <Link
                 key={href}
                 href={href}
-                className={`flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                className={`flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors shrink-0 ${
                   active
                     ? 'bg-slate-100 text-slate-900'
                     : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
@@ -93,8 +94,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           })}
         </nav>
 
-        {/* User info + actions */}
-        <div className="p-3 border-t border-slate-200">
+        {/* Bottom: User info + actions — always pinned at bottom */}
+        <div className="p-3 border-t border-slate-200 shrink-0">
           {/* Role badge */}
           {!isGuest && (
             <div className="flex items-center gap-2 px-3 py-2 mb-2 rounded-lg bg-slate-50 text-xs">
@@ -149,10 +150,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         </div>
       </aside>
 
-      {/* Main content */}
-      <div className="flex-1 flex flex-col min-w-0">
+      {/* Main content — scrolls independently */}
+      <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
         {/* Mobile header */}
-        <header className="lg:hidden flex items-center h-14 px-4 bg-white border-b border-slate-200 sticky top-0 z-30">
+        <header className="lg:hidden flex items-center h-14 px-4 bg-white border-b border-slate-200 shrink-0 z-30">
           <button
             onClick={() => setSidebarOpen(true)}
             className="p-2 -ml-1 rounded-lg hover:bg-slate-100 transition-colors"
@@ -175,7 +176,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           )}
         </header>
 
-        <main className="flex-1 overflow-auto">{children}</main>
+        <main className="flex-1 overflow-y-auto">{children}</main>
       </div>
     </div>
   )
