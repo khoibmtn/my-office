@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { doc, getDoc, setDoc, collection, onSnapshot, orderBy, query, deleteDoc as firestoreDeleteDoc, updateDoc } from 'firebase/firestore'
 import { db, resetSession, linkGoogleAccount, isGoogleUser, hasGoogleToken, auth } from '@/lib/firebase'
 import { Button } from '@/components/ui/button'
-import { Plus, Trash2, Save, Users, Loader2, Palette, AlertTriangle, Check, Link2, RotateCcw, ShieldCheck, ShieldX, Key, Eye, EyeOff, Shield } from 'lucide-react'
+import { Plus, Trash2, Save, Users, Loader2, Palette, AlertTriangle, Check, Link2, RotateCcw, ShieldCheck, ShieldX, Key, Eye, EyeOff, Shield, RefreshCw } from 'lucide-react'
 import { useRole } from '@/hooks/useRole'
 import { usePermissions } from '@/hooks/usePermissions'
 import { hashPassword, savePermissions, DEFAULT_STAFF_PERMISSIONS, DEFAULT_GUEST_PERMISSIONS } from '@/lib/staff'
@@ -475,6 +475,17 @@ export default function SettingsPage() {
     await firestoreDeleteDoc(doc(db(), 'staff', docId))
   }
 
+  async function handleResetPassword(docId: string, name: string) {
+    if (!confirm(`Reset mật khẩu của "${name}" về 123456?`)) return
+    try {
+      const hash = await hashPassword('123456')
+      await updateDoc(doc(db(), 'staff', docId), { passwordHash: hash, updatedAt: serverTimestamp() })
+      alert(`✅ Đã reset mật khẩu của "${name}" về 123456`)
+    } catch (err) {
+      alert('Lỗi reset mật khẩu: ' + String(err))
+    }
+  }
+
   // Access guard
   if (!isAdmin) {
     return (
@@ -602,7 +613,7 @@ export default function SettingsPage() {
                         <button
                           onClick={() => setStaffFormOpen({ ...s })}
                           className="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
-                          title="Sửa"
+                          title="Sửa thông tin"
                         >
                           <Palette className="h-3.5 w-3.5" />
                         </button>
@@ -612,6 +623,13 @@ export default function SettingsPage() {
                           title="Đổi mật khẩu"
                         >
                           <Key className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          onClick={() => handleResetPassword(s._docId, s.shortName)}
+                          className="p-1.5 rounded-lg text-slate-400 hover:text-orange-600 hover:bg-orange-50 transition-colors"
+                          title="Reset MK về 123456"
+                        >
+                          <RefreshCw className="h-3.5 w-3.5" />
                         </button>
                         <button
                           onClick={() => handleDeleteStaff(s._docId, s.shortName)}
