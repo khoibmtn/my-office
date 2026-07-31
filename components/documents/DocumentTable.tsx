@@ -258,7 +258,7 @@ function DocumentCard({
         <span className="flex items-center gap-1">
           📅 {formatDateShort(doc.issueDate)}
         </span>
-        {days !== null && (
+        {days !== null && doc.status !== 'completed' && (
           <span className={`days-badge ${days <= 0 ? 'days-danger' : days === 1 ? 'days-warning' : days <= 3 ? 'days-caution' : ''}`}>
             ⏳ {getDaysLabel(days)}
           </span>
@@ -625,6 +625,17 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
           const valA = daysA === null ? Infinity : daysA
           const valB = daysB === null ? Infinity : daysB
           return sortConfig.direction === 'asc' ? valB - valA : valA - valB
+        }
+
+        if (sortConfig.key === 'completedDate') {
+          const cdA = toDateSafe(a.completedDate)
+          const cdB = toDateSafe(b.completedDate)
+          // Documents without completedDate always go first
+          if (!cdA && !cdB) return 0
+          if (!cdA) return -1
+          if (!cdB) return 1
+          const diff = cdA.getTime() - cdB.getTime()
+          return sortConfig.direction === 'asc' ? diff : -diff
         }
 
         let valA: any = (a as any)[sortConfig.key]
@@ -1063,7 +1074,7 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
                   <ThResizable width={colWidths.deadline} minWidth={70} onWidthChange={(w: number) => handleWidthChange('deadline', w)} className="cursor-pointer hover:bg-slate-700/50 hidden lg:table-cell" onClick={() => handleSort('deadline')}>Deadline <ArrowUpDown className="h-3 w-3 inline ml-1"/></ThResizable>
                   <ThResizable width={colWidths.remaining} minWidth={60} onWidthChange={(w: number) => handleWidthChange('remaining', w)} className="cursor-pointer hover:bg-slate-700/50" onClick={() => handleSort('remaining')}>Còn lại <ArrowUpDown className="h-3 w-3 inline ml-1"/></ThResizable>
                   <ThResizable width={colWidths.assignee} minWidth={90} onWidthChange={(w: number) => handleWidthChange('assignee', w)} className="cursor-pointer hover:bg-slate-700/50" onClick={() => handleSort('assignee')}>Người TH <ArrowUpDown className="h-3 w-3 inline ml-1"/></ThResizable>
-                  <TableHead className="doc-table-header border-0 sticky right-0 z-10 bg-slate-800 shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.15)]" style={{ width: '1%', whiteSpace: 'nowrap' }}>Xử lý</TableHead>
+                  <TableHead className="doc-table-header border-0 sticky right-0 z-10 bg-slate-800 shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.15)] cursor-pointer hover:bg-slate-700/50" style={{ width: '1%', whiteSpace: 'nowrap' }} onClick={() => handleSort('completedDate')}>Xử lý <ArrowUpDown className="h-3 w-3 inline ml-1"/></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -1122,9 +1133,11 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
                       </TableCell>
                       <TableCell className="text-xs hidden lg:table-cell">{formatDate(doc.deadline)}</TableCell>
                       <TableCell>
-                        <span className={`days-badge ${days !== null && days <= 0 ? 'days-danger' : days !== null && days === 1 ? 'days-warning' : days !== null && days <= 3 ? 'days-caution' : ''}`}>
-                          {getDaysLabel(days)}
-                        </span>
+                        {doc.status !== 'completed' && (
+                          <span className={`days-badge ${days !== null && days <= 0 ? 'days-danger' : days !== null && days === 1 ? 'days-warning' : days !== null && days <= 3 ? 'days-caution' : ''}`}>
+                            {getDaysLabel(days)}
+                          </span>
+                        )}
                       </TableCell>
                       <TableCell>
                         {perms.canAssignStaff ? (
