@@ -3,12 +3,13 @@
 import { useEffect, useState, useMemo } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
-import { Loader2, FileText, LogIn, LogOut, Settings, Menu, X, User } from 'lucide-react'
+import { Loader2, FileText, LogIn, LogOut, Settings, Menu, X, User, Folder } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { useRole } from '@/hooks/useRole'
 import { usePermissions } from '@/hooks/usePermissions'
 import { Button } from '@/components/ui/button'
 import { resetSession } from '@/lib/firebase'
+import { TagSidebarPanel } from '@/components/tags/TagSidebarPanel'
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth()
@@ -17,16 +18,20 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const pathname = usePathname()
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [selectedTagId, setSelectedTagId] = useState<string | null>(null)
 
   const NAV = useMemo(() => {
     const items = [
       { href: '/documents', icon: FileText, label: 'Văn bản' },
     ]
+    if (!isGuest) {
+      items.push({ href: '/dossiers', icon: Folder, label: 'Quản lý Hồ sơ' })
+    }
     if (perms.canAccessSettings) {
       items.push({ href: '/settings', icon: Settings, label: 'Cài đặt' })
     }
     return items
-  }, [perms.canAccessSettings])
+  }, [isGuest, perms.canAccessSettings])
 
   // Close sidebar on route change
   useEffect(() => {
@@ -74,7 +79,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         </div>
 
         {/* Middle: Nav — takes remaining space */}
-        <nav className="flex-1 p-3 flex flex-col gap-1 overflow-hidden">
+        <nav className="flex-1 p-3 flex flex-col gap-1 overflow-y-auto">
           {NAV.map(({ href, icon: Icon, label }) => {
             const active = pathname === href || (href !== '/' && pathname.startsWith(href))
             return (
@@ -93,6 +98,14 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             )
           })}
         </nav>
+
+        {/* Finder Sidebar Tag Panel */}
+        {!isGuest && (
+          <TagSidebarPanel
+            selectedTagId={selectedTagId}
+            onSelectTag={setSelectedTagId}
+          />
+        )}
 
         {/* Bottom: User info + actions — always pinned at bottom */}
         <div className="p-3 border-t border-slate-200 shrink-0">

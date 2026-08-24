@@ -7,6 +7,7 @@ import { AttachmentPanel } from './AttachmentPanel'
 import { parseFileNameFromUrl, getStructuredMainFileName } from '@/lib/utils'
 import { useAuth } from '@/hooks/useAuth'
 import { IframePreview } from './IframePreview'
+import { QuickDossierTagPicker } from './QuickDossierTagPicker'
 
 interface DocumentViewerProps {
   doc: Document
@@ -15,10 +16,11 @@ interface DocumentViewerProps {
 export function DocumentViewer({ doc }: DocumentViewerProps) {
   const { user } = useAuth()
   const [activeUrl, setActiveUrl] = useState(doc.driveViewUrl ?? '')
+  const [docItem, setDocItem] = useState(doc)
 
   const tabs = [
-    { label: doc.originalLink ? parseFileNameFromUrl(doc.originalLink, getStructuredMainFileName(doc)) : getStructuredMainFileName(doc), driveViewUrl: doc.driveViewUrl ?? '' },
-    ...(doc.attachments ?? []).map((a, i) => ({
+    { label: docItem.originalLink ? parseFileNameFromUrl(docItem.originalLink, getStructuredMainFileName(docItem)) : getStructuredMainFileName(docItem), driveViewUrl: docItem.driveViewUrl ?? '' },
+    ...(docItem.attachments ?? []).map((a, i) => ({
       label: `Đính kèm ${i + 1}`,
       driveViewUrl: a.driveViewUrl,
     })),
@@ -27,18 +29,18 @@ export function DocumentViewer({ doc }: DocumentViewerProps) {
   return (
     <div className="flex h-screen">
       {/* Left panel: 40% */}
-      <div className="w-2/5 overflow-y-auto border-r p-4">
-        <h1 className="text-xl font-semibold leading-tight mb-2">{doc.title}</h1>
-        <Badge className="mb-3">{doc.status}</Badge>
-        {doc.sender && (
-          <p className="text-sm text-slate-600 mb-1"><span className="font-semibold text-slate-700">Cơ quan ban hành:</span> {doc.sender}</p>
+      <div className="w-2/5 overflow-y-auto border-r p-4 space-y-3">
+        <h1 className="text-xl font-semibold leading-tight mb-2">{docItem.title}</h1>
+        <Badge className="mb-3">{docItem.status}</Badge>
+        {docItem.sender && (
+          <p className="text-sm text-slate-600 mb-1"><span className="font-semibold text-slate-700">Cơ quan ban hành:</span> {docItem.sender}</p>
         )}
-        {doc.leader && (
-          <p className="text-sm text-slate-600 mb-1"><span className="font-semibold text-slate-700">Lãnh đạo:</span> {doc.leader}</p>
+        {docItem.leader && (
+          <p className="text-sm text-slate-600 mb-1"><span className="font-semibold text-slate-700">Lãnh đạo:</span> {docItem.leader}</p>
         )}
-        {doc.deadline && (() => {
+        {docItem.deadline && (() => {
           const now = new Date(); now.setHours(0,0,0,0)
-          const dl = doc.deadline.toDate(); dl.setHours(0,0,0,0)
+          const dl = docItem.deadline.toDate(); dl.setHours(0,0,0,0)
           const days = Math.ceil((dl.getTime() - now.getTime()) / 86400000)
           const daysText = days < 0 ? ` (quá ${Math.abs(days)} ngày)` : days === 0 ? ' (hôm nay!)' : ` (còn ${days} ngày)`
           const isWarning = days <= 3
@@ -46,7 +48,7 @@ export function DocumentViewer({ doc }: DocumentViewerProps) {
             <p className="text-sm text-slate-600 mb-1">
               <span className="font-semibold text-slate-700">Deadline:</span>{' '}
               <span className={isWarning ? "font-bold text-red-600" : ""}>
-                {doc.deadline.toDate().toLocaleDateString('vi-VN')}
+                {docItem.deadline.toDate().toLocaleDateString('vi-VN')}
                 <strong style={{color: days <= 1 ? '#ef4444' : days <= 3 ? '#f59e0b' : '#22c55e', marginLeft: '4px'}}>{daysText}</strong>
               </span>
             </p>
@@ -54,17 +56,17 @@ export function DocumentViewer({ doc }: DocumentViewerProps) {
         })()}
         <p className="text-sm text-slate-600 mb-2">
           <span className="font-semibold text-slate-700">Người được giao:</span>{' '}
-          {(!doc.assignee || doc.assignee === user?.displayName || doc.assignee === 'Bùi Minh Khôi') ? (
+          {(!docItem.assignee || docItem.assignee === user?.displayName || docItem.assignee === 'Bùi Minh Khôi') ? (
             <span className="text-slate-400 italic">Chưa giao</span>
           ) : (
-            doc.assignee
+            docItem.assignee
           )}
         </p>
         {(() => {
-          const lines = (doc.notes || '').split('\n').map(l => l.trim()).filter(Boolean)
+          const lines = (docItem.notes || '').split('\n').map(l => l.trim()).filter(Boolean)
           const filtered = lines.filter(l => {
-            if (doc.sender && l.includes(doc.sender) && /^(CQBH|CQ ban hành)/i.test(l)) return false
-            if (doc.leader && l.includes(doc.leader) && /^Lãnh đạo/i.test(l)) return false
+            if (docItem.sender && l.includes(docItem.sender) && /^(CQBH|CQ ban hành)/i.test(l)) return false
+            if (docItem.leader && l.includes(docItem.leader) && /^Lãnh đạo/i.test(l)) return false
             return true
           })
           
@@ -77,14 +79,14 @@ export function DocumentViewer({ doc }: DocumentViewerProps) {
             </div>
           )
         })()}
-        {doc.tags && doc.tags.length > 0 && (
-          <div className="flex flex-wrap gap-1 mb-2">
-            {doc.tags.map((tag) => (
-              <Badge key={tag} className="bg-slate-100 text-slate-700">{tag}</Badge>
-            ))}
-          </div>
-        )}
-        <AttachmentPanel attachments={doc.attachments ?? []} onTabSelect={setActiveUrl} />
+
+        {/* Quick Dossier & Tag Picker */}
+        <QuickDossierTagPicker
+          document={docItem}
+          onUpdate={(fields) => setDocItem(prev => ({ ...prev, ...fields }))}
+        />
+
+        <AttachmentPanel attachments={docItem.attachments ?? []} onTabSelect={setActiveUrl} />
       </div>
 
       {/* Right panel: 60% */}
