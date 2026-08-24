@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useMemo, Suspense } from 'react'
+import React, { useEffect, useState, useMemo, Suspense } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { Loader2, FileText, LogIn, LogOut, Settings, Menu, X, User, Folder } from 'lucide-react'
@@ -10,6 +10,7 @@ import { usePermissions } from '@/hooks/usePermissions'
 import { Button } from '@/components/ui/button'
 import { resetSession } from '@/lib/firebase'
 import { TagSidebarPanel } from '@/components/tags/TagSidebarPanel'
+import { DossierTreeNav } from '@/components/dossiers/DossierTreeNav'
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth()
@@ -92,18 +93,24 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           {NAV.map(({ href, icon: Icon, label }) => {
             const active = pathname === href || (href !== '/' && pathname.startsWith(href))
             return (
-              <Link
-                key={href}
-                href={href}
-                className={`flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors shrink-0 ${
-                  active
-                    ? 'bg-slate-100 text-slate-900'
-                    : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
-                }`}
-              >
-                <Icon className="h-5 w-5 shrink-0" />
-                {label}
-              </Link>
+              <React.Fragment key={href}>
+                <Link
+                  href={href}
+                  className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors shrink-0 ${
+                    active
+                      ? 'bg-slate-100 text-slate-900 font-semibold'
+                      : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                  }`}
+                >
+                  <Icon className="h-4.5 w-4.5 shrink-0 text-blue-600" />
+                  <span className="flex-1">{label}</span>
+                </Link>
+                {!isGuest && href === '/dossiers' && (
+                  <div className="pl-1 pr-0.5">
+                    <DossierTreeNav />
+                  </div>
+                )}
+              </React.Fragment>
             )
           })}
         </nav>

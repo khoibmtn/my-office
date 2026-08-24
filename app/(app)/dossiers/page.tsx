@@ -114,14 +114,13 @@ export default function DossiersPage() {
 
   return (
     <div className="h-full flex flex-col min-w-0 bg-slate-50">
-      {/* Top Action Bar */}
-      <header className="px-6 py-4 bg-white border-b border-slate-200 shrink-0 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <Folder className="w-6 h-6 text-blue-600" />
-          <h1 className="text-xl font-bold text-slate-900">Quản lý Hồ sơ</h1>
+      {/* Top Action Header with Integrated Breadcrumb */}
+      <header className="px-6 py-3.5 bg-white border-b border-slate-200 shrink-0 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 shadow-xs">
+        <div className="flex items-center gap-2 min-w-0 flex-1">
+          <DossierBreadcrumb currentPath={activePath} onNavigate={handleNavigate} />
         </div>
 
-        <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto">
+        <div className="flex items-center gap-2 flex-wrap w-full md:w-auto shrink-0">
           {/* Add Dossier Button */}
           {perms.canCreateDossier && (
             <Button
@@ -181,37 +180,32 @@ export default function DossiersPage() {
       {/* Main Body */}
       <div className="flex-1 flex min-h-0 overflow-hidden">
         {/* Main Content Pane */}
-        <main className="flex-1 overflow-y-auto p-6 flex flex-col min-w-0">
-          {/* Breadcrumb & Search Bar */}
-          <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 mb-5">
-            <DossierBreadcrumb currentPath={activePath} onNavigate={handleNavigate} />
-
-            {/* Search Input with Location toggle */}
-            <div className="flex items-center gap-2">
-              <div className="relative flex-1 md:w-64">
-                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={e => setSearchQuery(e.target.value)}
-                  placeholder={globalSearch ? 'Tìm văn bản toàn hệ thống...' : 'Tìm trong thư mục này...'}
-                  className="w-full pl-9 pr-3 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                />
-              </div>
-
-              <label className="flex items-center gap-1.5 text-xs text-slate-600 cursor-pointer whitespace-nowrap bg-white px-2.5 py-1.5 rounded-lg border border-slate-200">
-                <input
-                  type="checkbox"
-                  checked={globalSearch}
-                  onChange={e => setGlobalSearch(e.target.checked)}
-                  className="rounded text-blue-600"
-                />
-                <span>Tìm toàn hệ thống</span>
-              </label>
+        <main className="flex-1 overflow-y-auto p-4 sm:p-6 flex flex-col min-w-0">
+          {/* Toolbar: Search Input with Location toggle */}
+          <div className="flex items-center justify-end gap-2 mb-3">
+            <div className="relative flex-1 max-w-sm">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                placeholder={globalSearch ? 'Tìm văn bản toàn hệ thống...' : 'Tìm trong thư mục này...'}
+                className="w-full pl-9 pr-3 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+              />
             </div>
+
+            <label className="flex items-center gap-1.5 text-xs text-slate-600 cursor-pointer whitespace-nowrap bg-white px-2.5 py-1.5 rounded-lg border border-slate-200 shadow-xs">
+              <input
+                type="checkbox"
+                checked={globalSearch}
+                onChange={e => setGlobalSearch(e.target.checked)}
+                className="rounded text-blue-600"
+              />
+              <span>Tìm toàn hệ thống</span>
+            </label>
           </div>
 
-          {/* Sub-Folders Grid */}
+          {/* Compact Sub-Folders Chips */}
           <DossierFolderGrid
             folders={subFolders}
             documents={documents || []}
@@ -225,15 +219,7 @@ export default function DossiersPage() {
           />
 
           {/* Documents Table */}
-          <div className="flex-1 bg-white rounded-xl border border-slate-200 shadow-sm p-4 min-h-[300px]">
-            <div className="flex items-center justify-between mb-3 px-1">
-              <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
-                <FileText className="w-4 h-4 text-blue-600" />
-                {activeFolder ? `Văn bản trong "${activeFolder.name}"` : 'Văn bản chưa xếp hồ sơ'}
-                <span className="text-xs text-slate-400 font-normal">({currentDocs.length})</span>
-              </h3>
-            </div>
-
+          <div className="flex-1 bg-white rounded-xl border border-slate-200 shadow-sm p-3 sm:p-4 min-h-[300px]">
             <DocumentTable documents={currentDocs} />
           </div>
         </main>

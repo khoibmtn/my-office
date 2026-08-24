@@ -1,7 +1,7 @@
 'use client'
 
 import React from 'react'
-import { Folder, MoreVertical, Pencil, Trash2, ArrowRightLeft, FileText, CheckSquare } from 'lucide-react'
+import { Folder, Pencil, Trash2, ArrowRightLeft } from 'lucide-react'
 import type { Dossier, Document } from '@/types'
 
 interface DossierFolderGridProps {
@@ -30,87 +30,54 @@ export function DossierFolderGrid({
   if (folders.length === 0) return null
 
   return (
-    <div className="mb-6">
-      <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 px-1">
-        Thư mục con ({folders.length})
-      </h3>
+    <div className="mb-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider shrink-0 mr-1">
+          Thư mục con ({folders.length}):
+        </span>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
         {folders.map((folder) => {
           // Count documents directly inside this folder
           const docCount = documents.filter(d => (d.dossierIds || []).includes(folder.id)).length
-
-          // Calculate checklist completion
-          const totalTasks = folder.checklist?.length || 0
-          const completedTasks = folder.checklist?.filter(t => t.completed).length || 0
-          const percent = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0
 
           return (
             <div
               key={folder.id}
               onClick={() => onOpenFolder(folder)}
-              className="group relative bg-white rounded-xl border border-slate-200 p-3.5 shadow-sm hover:shadow-md hover:border-blue-300 transition-all cursor-pointer flex flex-col justify-between"
+              className="group inline-flex items-center gap-1.5 px-2.5 py-1 bg-white hover:bg-blue-50/80 border border-slate-200 hover:border-blue-300 rounded-lg text-xs font-medium text-slate-700 hover:text-blue-700 shadow-xs transition-all cursor-pointer select-none"
             >
-              {/* Header: Icon + Level Badge + Menu */}
-              <div className="flex items-start justify-between gap-2 mb-2">
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <div className="p-2 rounded-lg bg-blue-50 text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition-colors shrink-0">
-                    <Folder className="w-5 h-5" />
-                  </div>
-                  <div className="min-w-0">
-                    <h4 className="font-semibold text-slate-800 text-sm truncate group-hover:text-blue-600 transition-colors">
-                      {folder.name}
-                    </h4>
-                    <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-600">
-                      Cấp {folder.level}
-                    </span>
-                  </div>
-                </div>
+              <Folder className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+              <span className="truncate max-w-[200px]">{folder.name}</span>
+              <span className="text-[11px] text-slate-400 font-mono">({docCount})</span>
 
-                {/* Actions Dropdown */}
-                <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity" onClick={e => e.stopPropagation()}>
-                  {canEdit && (
-                    <button
-                      onClick={() => onEditFolder(folder)}
-                      className="p-1 rounded text-slate-400 hover:text-amber-600 hover:bg-amber-50 transition-colors"
-                      title="Sửa hồ sơ"
-                    >
-                      <Pencil className="w-3.5 h-3.5" />
-                    </button>
-                  )}
-                  {canTransfer && (
-                    <button
-                      onClick={() => onTransferFolder(folder)}
-                      className="p-1 rounded text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
-                      title="Chuyển hồ sơ"
-                    >
-                      <ArrowRightLeft className="w-3.5 h-3.5" />
-                    </button>
-                  )}
-                  {canDelete && (
-                    <button
-                      onClick={() => onDeleteFolder(folder)}
-                      className="p-1 rounded text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors"
-                      title="Xóa hồ sơ"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              {/* Footer: Document count & Checklist progress */}
-              <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
-                <span className="flex items-center gap-1 font-medium">
-                  <FileText className="w-3.5 h-3.5 text-slate-400" />
-                  {docCount} văn bản
-                </span>
-
-                {totalTasks > 0 && (
-                  <span className="flex items-center gap-1 font-medium text-slate-600" title={`${completedTasks}/${totalTasks} việc`}>
-                    <CheckSquare className="w-3.5 h-3.5 text-green-600" />
-                    {percent}%
-                  </span>
+              {/* Actions Dropdown on Hover */}
+              <div className="hidden group-hover:flex items-center gap-1 ml-1 pl-1 border-l border-slate-200" onClick={e => e.stopPropagation()}>
+                {canEdit && (
+                  <button
+                    onClick={() => onEditFolder(folder)}
+                    className="p-0.5 text-slate-400 hover:text-amber-600 transition-colors"
+                    title="Sửa hồ sơ"
+                  >
+                    <Pencil className="w-3 h-3" />
+                  </button>
+                )}
+                {canTransfer && (
+                  <button
+                    onClick={() => onTransferFolder(folder)}
+                    className="p-0.5 text-slate-400 hover:text-blue-600 transition-colors"
+                    title="Chuyển hồ sơ"
+                  >
+                    <ArrowRightLeft className="w-3 h-3" />
+                  </button>
+                )}
+                {canDelete && (
+                  <button
+                    onClick={() => onDeleteFolder(folder)}
+                    className="p-0.5 text-slate-400 hover:text-red-600 transition-colors"
+                    title="Xóa hồ sơ"
+                  >
+                    <Trash2 className="w-3 h-3" />
+                  </button>
                 )}
               </div>
             </div>

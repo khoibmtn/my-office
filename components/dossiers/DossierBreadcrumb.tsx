@@ -11,12 +11,13 @@ interface DossierBreadcrumbProps {
 
 export function DossierBreadcrumb({ currentPath, onNavigate }: DossierBreadcrumbProps) {
   return (
-    <nav className="flex items-center gap-1.5 text-sm text-slate-600 bg-white px-3.5 py-2 rounded-lg border border-slate-200 shadow-sm overflow-x-auto">
+    <nav className="flex items-center gap-1.5 text-sm text-slate-700 overflow-x-auto select-none">
       <button
         onClick={() => onNavigate(null)}
-        className="flex items-center gap-1 font-medium hover:text-blue-600 transition-colors shrink-0"
+        className="flex items-center gap-1.5 font-bold hover:text-blue-600 transition-colors shrink-0 text-slate-800"
+        title="Về danh mục Hồ sơ của tôi"
       >
-        <Home className="w-4 h-4 text-slate-500" />
+        <Folder className="w-5 h-5 text-blue-600 shrink-0" />
         <span>Hồ sơ của tôi</span>
       </button>
 
@@ -28,13 +29,13 @@ export function DossierBreadcrumb({ currentPath, onNavigate }: DossierBreadcrumb
             <button
               onClick={() => onNavigate(item)}
               disabled={isLast}
-              className={`flex items-center gap-1 font-medium truncate max-w-[200px] transition-colors shrink-0 ${
+              className={`flex items-center gap-1 font-semibold truncate max-w-[220px] transition-colors shrink-0 ${
                 isLast
-                  ? 'text-slate-900 font-semibold cursor-default'
+                  ? 'text-blue-900 font-bold cursor-default'
                   : 'hover:text-blue-600 text-slate-600'
               }`}
             >
-              <Folder className="w-4 h-4 text-blue-500 shrink-0" />
+              <Folder className={`w-4 h-4 shrink-0 ${isLast ? 'text-blue-600 fill-blue-50' : 'text-slate-400'}`} />
               <span className="truncate">{item.name}</span>
             </button>
           </React.Fragment>
