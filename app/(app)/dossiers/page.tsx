@@ -28,7 +28,7 @@ function DossiersContent() {
   const { documents, loading: docsLoading } = useDocuments()
   const { staff } = useStaff()
   const perms = usePermissions()
-  const { isGuest, staffId, isAdmin } = useRole()
+  const { isGuest, staffId, staffName, isAdmin } = useRole()
 
   // Navigation path state
   const [activePath, setActivePath] = useState<Dossier[]>([])
@@ -194,6 +194,23 @@ function DossiersContent() {
 
   const hasSubDossiers = descendantDossierIds.length > 0
 
+  // Count unassigned docs accurately for current user
+  const unassignedDocs = useMemo(() => {
+    if (!documents) return []
+    if (isAdmin) {
+      return documents.filter(d => !d.dossierIds || d.dossierIds.length === 0)
+    }
+    const myDossierIdSet = new Set(myDossiers.map(d => d.id))
+    return documents.filter(d => {
+      const isAssignedToMe =
+        (staffId && d.assigneeId === staffId) ||
+        (staffId && (d.coAssigneeIds || []).includes(staffId)) ||
+        (staffName && d.assignee === staffName)
+      if (!isAssignedToMe) return false
+      return !d.dossierIds || !d.dossierIds.some(did => myDossierIdSet.has(did))
+    })
+  }, [documents, isAdmin, staffId, staffName, myDossiers])
+
   // Filter documents in current folder (and optional sub-dossiers)
   const currentDocs = useMemo(() => {
     if (!documents) return []
@@ -201,7 +218,7 @@ function DossiersContent() {
     // 1. Root Tab: Unassigned documents
     if (!activeFolder) {
       if (effectiveRootTab === 'unassigned') {
-        return documents.filter(d => !d.dossierIds || d.dossierIds.length === 0)
+        return unassignedDocs
       }
       return []
     }
@@ -217,7 +234,7 @@ function DossiersContent() {
     return documents.filter(d =>
       (d.dossierIds || []).includes(activeFolder.id)
     )
-  }, [documents, activeFolder, effectiveRootTab, includeSubDossiers, hasSubDossiers, descendantDossierIds])
+  }, [documents, activeFolder, effectiveRootTab, unassignedDocs, includeSubDossiers, hasSubDossiers, descendantDossierIds])
 
   // Navigate breadcrumb
   const handleNavigate = useCallback((target: Dossier | null) => {
@@ -371,7 +388,7 @@ function DossiersContent() {
                   }`}
                 >
                   <FileText className="w-4 h-4" />
-                  <span>Văn bản chưa xếp Hồ sơ ({currentDocs.length})</span>
+                  <span>Văn bản chưa xếp Hồ sơ ({unassignedDocs.length})</span>
                 </button>
               </div>
 
