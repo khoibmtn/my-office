@@ -4,11 +4,12 @@ import React, { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   Folder, FolderPlus, Pencil, Trash2, Archive, ArchiveRestore,
-  Search, FileText, AlertCircle, Loader2, X, PlusSquare, MinusSquare
+  Search, FileText, AlertCircle, Loader2, X, PlusSquare, MinusSquare, ArrowRightLeft
 } from 'lucide-react'
 import type { Dossier, Document } from '@/types'
 import { toggleArchiveDossier } from '@/lib/dossiers'
 import { useRole } from '@/hooks/useRole'
+import { MoveDossierModal } from './MoveDossierModal'
 
 interface DossierTableProps {
   dossiers: Dossier[]
@@ -84,6 +85,7 @@ export function DossierTable({
   const [search, setSearch] = useState('')
   const [archivingId, setArchivingId] = useState<string | null>(null)
   const [archivedAlert, setArchivedAlert] = useState<string | null>(null)
+  const [movingDossier, setMovingDossier] = useState<Dossier | null>(null)
 
   // Expand/collapse state for tree nodes in table (all parent dossiers expanded by default)
   const [expandedIds, setExpandedIds] = useState<Set<string>>(() => {
@@ -436,6 +438,20 @@ export function DossierTable({
                           </button>
                         )}
 
+                        {/* Move Dossier */}
+                        {perms.canEditDossier && !isArchived && (
+                          <button
+                            onClick={e => {
+                              e.stopPropagation()
+                              setMovingDossier(dossier)
+                            }}
+                            className="p-1.5 text-amber-600 hover:bg-amber-100 rounded-md transition-colors"
+                            title="Di chuyển hồ sơ này sang vị trí khác"
+                          >
+                            <ArrowRightLeft className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+
                         {/* Archive / Unarchive */}
                         {perms.canEditDossier && (
                           <button
@@ -480,6 +496,15 @@ export function DossierTable({
           </tbody>
         </table>
       </div>
+
+      {/* Move Dossier Modal */}
+      <MoveDossierModal
+        open={!!movingDossier}
+        onOpenChange={open => !open && setMovingDossier(null)}
+        movingDossier={movingDossier}
+        allDossiers={dossiers}
+        actorId={staffId || 'unknown'}
+      />
     </div>
   )
 }

@@ -146,7 +146,7 @@ export function DossierTreeNav() {
 
   if (loading) {
     return (
-      <div className="flex flex-col gap-2 my-2 px-2">
+      <div className="flex flex-col gap-1.5 mt-0.5 mb-1 px-2">
         <div className="h-3.5 bg-slate-200 animate-pulse rounded w-3/4" />
         <div className="h-3.5 bg-slate-200 animate-pulse rounded w-1/2 ml-3" />
         <div className="h-3.5 bg-slate-200 animate-pulse rounded w-2/3 ml-3" />
@@ -157,7 +157,7 @@ export function DossierTreeNav() {
   if (activeDossiers.length === 0) return null
 
   return (
-    <div className="flex flex-col gap-0.5 my-1 pl-1">
+    <div className="flex flex-col gap-0.5 mt-0.5 mb-1 pl-1">
       {rootDossiers.map(d => renderDossierNode(d, 0))}
     </div>
   )

@@ -309,3 +309,88 @@ export async function toggleArchiveDossier(
   await batch.commit()
 }
 
+/**
+ * Move a dossier hierarchy into another target dossier or Root.
+ * Enforces max 3-level depth invariant.
+ */
+export async function moveDossierHierarchy(
+  dossierId: string,
+  newParentId: string | null,
+  actorId: string,
+  allDossiers: Dossier[]
+): Promise<void> {
+  const targetDossier = allDossiers.find(d => d.id === dossierId)
+  if (!targetDossier) throw new Error('Hồ sơ không tồn tại')
+
+  if (targetDossier.parentId === newParentId) return
+
+  // Prevent moving into itself or any descendant
+  const getDescendantIds = (id: string): string[] => {
+    const children = allDossiers.filter(d => d.parentId === id)
+    return [id, ...children.flatMap(c => getDescendantIds(c.id))]
+  }
+  const selfAndDescendants = getDescendantIds(dossierId)
+  if (newParentId && selfAndDescendants.includes(newParentId)) {
+    throw new Error('Không thể di chuyển hồ sơ vào chính nó hoặc vào hồ sơ con của nó')
+  }
+
+  // Calculate height of moving subtree
+  const getSubtreeHeight = (id: string): number => {
+    const children = allDossiers.filter(d => d.parentId === id && !d.deletedAt)
+    if (children.length === 0) return 1
+    return 1 + Math.max(...children.map(c => getSubtreeHeight(c.id)))
+  }
+  const subtreeHeight = getSubtreeHeight(dossierId)
+
+  // Calculate target parent level
+  let targetParentLevel = 0
+  if (newParentId) {
+    const parent = allDossiers.find(d => d.id === newParentId)
+    if (!parent) throw new Error('Hồ sơ đích không tồn tại')
+    targetParentLevel = parent.level
+  }
+
+  if (targetParentLevel + subtreeHeight > 3) {
+    throw new Error(
+      `Không thể di chuyển: Tổng số cấp hồ sơ sau khi di chuyển (${targetParentLevel + subtreeHeight}) sẽ vượt quá giới hạn 3 cấp!`
+    )
+  }
+
+  const newLevel = (targetParentLevel + 1) as 1 | 2 | 3
+  const batch = writeBatch(db())
+
+  // Update target dossier
+  const dossierRef = doc(db(), 'dossiers', dossierId)
+  batch.update(dossierRef, {
+    parentId: newParentId || null,
+    level: newLevel,
+    updatedAt: serverTimestamp(),
+  })
+
+  // Recursive level updater for descendants
+  const updateChildLevels = (parentId: string, parentLevel: number) => {
+    const children = allDossiers.filter(d => d.parentId === parentId)
+    children.forEach(child => {
+      const childNewLevel = (parentLevel + 1) as 1 | 2 | 3
+      const childRef = doc(db(), 'dossiers', child.id)
+      batch.update(childRef, {
+        level: childNewLevel,
+        updatedAt: serverTimestamp(),
+      })
+      updateChildLevels(child.id, childNewLevel)
+    })
+  }
+
+  updateChildLevels(dossierId, newLevel)
+
+  appendAuditLogToBatch(batch, 'dossier', dossierId, 'UPDATE', actorId, {
+    action: 'MOVE_DOSSIER',
+    oldParentId: targetDossier.parentId,
+    newParentId: newParentId || null,
+    oldLevel: targetDossier.level,
+    newLevel,
+  })
+
+  await batch.commit()
+}
+

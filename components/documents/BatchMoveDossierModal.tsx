@@ -6,6 +6,7 @@ import type { Dossier } from '@/types'
 
 interface BatchMoveDossierModalProps {
   selectedDocCount: number
+  unassignedDocCount?: number
   dossiers: Dossier[]
   onConfirm: (targetDossierId: string) => Promise<void>
   onClose: () => void
@@ -13,6 +14,7 @@ interface BatchMoveDossierModalProps {
 
 export function BatchMoveDossierModal({
   selectedDocCount,
+  unassignedDocCount = 0,
   dossiers,
   onConfirm,
   onClose,
@@ -136,9 +138,16 @@ export function BatchMoveDossierModal({
 
         {/* Content */}
         <div className="p-4 space-y-3 flex-1 overflow-y-auto">
-          <p className="text-xs text-amber-800 bg-amber-50 p-2.5 rounded-lg border border-amber-200">
-            ⚠️ <strong>Lưu ý:</strong> Thao tác này sẽ **gỡ văn bản khỏi hồ sơ hiện tại** và chỉ chuyển sang duy nhất 1 hồ sơ đích bạn chọn dưới đây.
-          </p>
+          <div className="text-xs text-amber-900 bg-amber-50 p-2.5 rounded-lg border border-amber-200 space-y-1">
+            <div>
+              ⚠️ <strong>Lưu ý:</strong> Di chuyển <strong>{selectedDocCount} văn bản</strong> sang 1 hồ sơ mới (sẽ gỡ khỏi các hồ sơ cũ).
+            </div>
+            {unassignedDocCount > 0 && (
+              <div className="text-amber-800 text-[11px] font-medium border-t border-amber-200/60 pt-1 mt-1">
+                ℹ️ Trong đó có <strong>{unassignedDocCount} văn bản</strong> chưa thuộc hồ sơ nào — sẽ được gán trực tiếp vào hồ sơ mới chọn.
+              </div>
+            )}
+          </div>
 
           {/* Search */}
           <div className="relative">

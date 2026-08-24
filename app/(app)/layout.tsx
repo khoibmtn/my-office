@@ -159,7 +159,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                   <span className="flex-1">{label}</span>
                 </Link>
                 {!isGuest && href === '/dossiers' && (
-                  <div className="pl-1 pr-0.5">
+                  <div className="pl-1 pr-0.5 -mt-0.5">
                     <DossierTreeNav />
                   </div>
                 )}

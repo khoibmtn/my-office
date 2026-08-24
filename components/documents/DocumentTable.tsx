@@ -905,6 +905,13 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
     )
   }, [selectedDocIds, documents])
 
+  const unassignedDocCount = useMemo(() => {
+    if (selectedDocIds.length === 0) return 0
+    return documents.filter(doc => 
+      selectedDocIds.includes(doc.id) && (!doc.dossierIds || doc.dossierIds.length === 0)
+    ).length
+  }, [selectedDocIds, documents])
+
   return (
     <>
       {/* === FILTERS === */}
@@ -919,45 +926,13 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
               )}
             </div>
 
-            {/* Batch Action Frame placed on top right header line */}
+            {/* Total doc count / selection badge */}
             {selectedDocIds.length > 0 && (
-              <div className="flex items-center gap-1.5 px-2.5 py-1 bg-blue-50 border border-blue-300 rounded-lg text-xs font-semibold text-blue-900 shadow-2xs animate-in fade-in duration-150 shrink-0">
-                <span className="flex items-center gap-1 text-blue-700 font-bold whitespace-nowrap mr-1">
+              <div className="flex items-center gap-1.5 px-2.5 py-1 bg-blue-50 border border-blue-200 rounded-lg text-xs font-semibold text-blue-900 shadow-2xs animate-in fade-in duration-150 shrink-0">
+                <span className="flex items-center gap-1 text-blue-700 font-bold whitespace-nowrap">
                   <Folder className="w-3.5 h-3.5 text-blue-600 shrink-0" />
                   Đã chọn {selectedDocIds.length} văn bản
                 </span>
-
-                {/* Icon Button 1: Add to Dossier (Multi-select) */}
-                <button
-                  onClick={() => setBatchAddModalOpen(true)}
-                  disabled={assigningBatch}
-                  className="p-1.5 px-2 bg-white border border-blue-300 rounded-md text-blue-700 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer shadow-2xs flex items-center gap-1 font-semibold text-xs transition-colors"
-                  title="Thêm văn bản đã chọn vào thêm Hồ sơ (Chọn nhiều)"
-                >
-                  <FolderPlus className="w-3.5 h-3.5 text-blue-600" />
-                  <span className="hidden sm:inline">Thêm vào Hồ sơ</span>
-                </button>
-
-                {/* Icon Button 2: Move to Dossier (Single-select) */}
-                <button
-                  onClick={() => setBatchMoveModalOpen(true)}
-                  disabled={assigningBatch || !selectedDocsHaveDossiers}
-                  className={`p-1.5 px-2 rounded-md focus:outline-none flex items-center gap-1 font-semibold text-xs transition-colors ${
-                    !selectedDocsHaveDossiers
-                      ? 'bg-slate-200 text-slate-400 border border-slate-200 cursor-not-allowed shadow-none opacity-70'
-                      : 'bg-amber-500 text-white hover:bg-amber-600 focus:ring-2 focus:ring-amber-500 cursor-pointer shadow-2xs'
-                  }`}
-                  title={
-                    !selectedDocsHaveDossiers
-                      ? "Văn bản đã chọn chưa thuộc hồ sơ nào — vui lòng chọn 'Thêm vào Hồ sơ'"
-                      : "Di chuyển hẳn sang Hồ sơ khác (Chỉ chọn 1)"
-                  }
-                >
-                  <ArrowRightLeft className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">Di chuyển</span>
-                </button>
-
-                {assigningBatch && <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-600 ml-1" />}
                 <button
                   onClick={() => setSelectedDocIds([])}
                   className="text-xs text-slate-400 hover:text-red-600 font-bold px-1 ml-1"
@@ -1339,6 +1314,42 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
             <span className="hidden sm:inline">Copy</span>
           </button>
 
+          {/* Button 1: Thêm vào Hồ sơ (Icon-only, luôn hiện, disabled khi không chọn văn bản) */}
+          <button
+            onClick={() => setBatchAddModalOpen(true)}
+            disabled={selectedDocIds.length === 0 || assigningBatch}
+            className={`badge-filter px-2 py-1 rounded shadow-2xs flex items-center justify-center transition-all border text-xs font-semibold shrink-0 ${
+              selectedDocIds.length === 0
+                ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed opacity-60 shadow-none'
+                : 'bg-blue-600 text-white border-blue-600 hover:bg-blue-700 cursor-pointer'
+            }`}
+            title={
+              selectedDocIds.length === 0
+                ? "Thêm vào Hồ sơ (Vui lòng chọn văn bản)"
+                : `Thêm ${selectedDocIds.length} văn bản đã chọn vào Hồ sơ`
+            }
+          >
+            <FolderPlus className="w-3.5 h-3.5" />
+          </button>
+
+          {/* Button 2: Di chuyển Hồ sơ (Icon-only, luôn hiện, disabled khi không chọn văn bản) */}
+          <button
+            onClick={() => setBatchMoveModalOpen(true)}
+            disabled={selectedDocIds.length === 0 || assigningBatch}
+            className={`badge-filter px-2 py-1 rounded shadow-2xs flex items-center justify-center transition-all border text-xs font-semibold shrink-0 ${
+              selectedDocIds.length === 0
+                ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed opacity-60 shadow-none'
+                : 'bg-amber-500 text-white border-amber-500 hover:bg-amber-600 cursor-pointer'
+            }`}
+            title={
+              selectedDocIds.length === 0
+                ? "Di chuyển sang Hồ sơ khác (Vui lòng chọn văn bản)"
+                : `Di chuyển ${selectedDocIds.length} văn bản đã chọn sang Hồ sơ khác`
+            }
+          >
+            <ArrowRightLeft className="w-3.5 h-3.5" />
+          </button>
+
           {/* Mobile count */}
           <span className="sm:hidden text-xs text-slate-400 font-normal self-center ml-auto shrink-0">
             {filteredDocs.length}/{baseDocs.length}
@@ -1713,6 +1724,7 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
       {batchMoveModalOpen && (
         <BatchMoveDossierModal
           selectedDocCount={selectedDocIds.length}
+          unassignedDocCount={unassignedDocCount}
           dossiers={dossiers}
           onConfirm={handleBatchMoveDossier}
           onClose={() => setBatchMoveModalOpen(false)}
