@@ -4,7 +4,7 @@ import React, { useEffect, useState, useMemo, useCallback, useRef, Suspense } fr
 import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { Loader2, FileText, LogIn, LogOut, Settings, Menu, X, User, Folder } from 'lucide-react'
-import { useAuth } from '@/hooks/useAuth'
+import { useAuth, AuthProvider } from '@/hooks/useAuth'
 import { useRole } from '@/hooks/useRole'
 import { usePermissions } from '@/hooks/usePermissions'
 import { Button } from '@/components/ui/button'
@@ -12,7 +12,7 @@ import { resetSession } from '@/lib/firebase'
 import { TagSidebarPanel } from '@/components/tags/TagSidebarPanel'
 import { DossierTreeNav } from '@/components/dossiers/DossierTreeNav'
 
-export default function AppLayout({ children }: { children: React.ReactNode }) {
+function InnerAppLayout({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth()
   const { role, isAdmin, isGuest, isStaff, staffName, logout: roleLogout } = useRole()
   const perms = usePermissions()
@@ -269,5 +269,13 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         </main>
       </div>
     </div>
+  )
+}
+
+export default function AppLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <AuthProvider>
+      <InnerAppLayout>{children}</InnerAppLayout>
+    </AuthProvider>
   )
 }
