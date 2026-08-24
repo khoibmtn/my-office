@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useEffect, useState, useMemo, Suspense } from 'react'
+import React, { useEffect, useState, useMemo, useCallback, useRef, Suspense } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { Loader2, FileText, LogIn, LogOut, Settings, Menu, X, User, Folder } from 'lucide-react'
@@ -20,6 +20,50 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [selectedTagId, setSelectedTagId] = useState<string | null>(null)
+
+  // Resizable sidebar width (min 200px, default 260px, max 480px)
+  const [sidebarWidth, setSidebarWidth] = useState(260)
+  const isResizingRef = useRef(false)
+  const sidebarWidthRef = useRef(sidebarWidth)
+  sidebarWidthRef.current = sidebarWidth
+
+  // Restore saved width from localStorage
+  useEffect(() => {
+    const saved = localStorage.getItem('sidebar_width')
+    if (saved) {
+      const w = parseInt(saved, 10)
+      if (!isNaN(w) && w >= 200 && w <= 480) {
+        setSidebarWidth(w)
+      }
+    }
+  }, [])
+
+  const startResizing = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+    isResizingRef.current = true
+    document.body.style.cursor = 'col-resize'
+    document.body.style.userSelect = 'none'
+
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      if (!isResizingRef.current) return
+      const newWidth = Math.min(Math.max(moveEvent.clientX, 200), 480)
+      setSidebarWidth(newWidth)
+    }
+
+    const handleMouseUp = () => {
+      if (isResizingRef.current) {
+        isResizingRef.current = false
+        document.body.style.cursor = ''
+        document.body.style.userSelect = ''
+        localStorage.setItem('sidebar_width', `${sidebarWidthRef.current}`)
+        window.removeEventListener('mousemove', handleMouseMove)
+        window.removeEventListener('mouseup', handleMouseUp)
+      }
+    }
+
+    window.addEventListener('mousemove', handleMouseMove)
+    window.addEventListener('mouseup', handleMouseUp)
+  }, [])
 
   const handleSelectTag = (tagId: string | null) => {
     setSelectedTagId(tagId)
@@ -67,16 +111,25 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         />
       )}
 
-      {/* Sidebar — fixed height, never scrolls */}
+      {/* Sidebar — fixed height, resizable width on desktop */}
       <aside
+        style={{ width: `${sidebarWidth}px` }}
         className={`
-          fixed inset-y-0 left-0 z-50 w-56 bg-white border-r border-slate-200
-          flex flex-col h-screen
+          fixed inset-y-0 left-0 z-50 bg-white border-r border-slate-200
+          flex flex-col h-screen relative group/sidebar
           transform transition-transform duration-200 ease-out
           lg:translate-x-0 lg:static lg:shrink-0 lg:z-auto
           ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
         `}
       >
+        {/* Resize handle bar on right border */}
+        <div
+          onMouseDown={startResizing}
+          className="hidden lg:block absolute top-0 -right-1 w-2.5 h-full cursor-col-resize z-30 group/handle"
+          title="Kéo để thay đổi độ rộng thanh bên"
+        >
+          <div className="w-1 h-full bg-transparent group-hover/handle:bg-blue-500/50 group-active/handle:bg-blue-600 transition-colors mx-auto" />
+        </div>
         {/* Top: Brand */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200 shrink-0">
           <span className="text-lg font-semibold text-slate-900">Văn bản</span>

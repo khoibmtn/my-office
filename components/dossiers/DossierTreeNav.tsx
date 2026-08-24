@@ -84,6 +84,7 @@ export function DossierTreeNav() {
       <div key={dossier.id} className="flex flex-col">
         <div
           onClick={() => handleSelect(dossier.id)}
+          title={`${dossier.name} (${count} văn bản)`}
           className={`
             group flex items-center justify-between py-1 px-2 rounded-md text-xs cursor-pointer select-none transition-colors
             ${isActive
