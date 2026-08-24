@@ -10,6 +10,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { usePermissions } from '@/hooks/usePermissions'
 import { useRole } from '@/hooks/useRole'
 import { useStaff } from '@/hooks/useStaff'
+import { QuickDossierTagPicker } from './QuickDossierTagPicker'
 import type { Document } from '@/types'
 
 function getDaysRemaining(ts: { toDate(): Date } | undefined): number | null {
@@ -402,6 +403,12 @@ export function DocumentModal({ docId, onClose }: DocumentModalProps) {
                     </div>
                   )}
                 </div>
+
+                {/* Quick Dossier & Tag Picker */}
+                <QuickDossierTagPicker
+                  document={doc}
+                  onUpdate={(fields) => setDoc(prev => prev ? { ...prev, ...fields } : prev)}
+                />
               </div>
 
               {/* File list */}

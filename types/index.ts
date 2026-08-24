@@ -38,6 +38,10 @@ export interface RolePermissions {
   canCompleteAssigned: boolean     // Bấm hoàn thành chỉ việc được giao
   canCopyTaskString: boolean
   canAccessSettings: boolean
+  canCreateDossier?: boolean
+  canEditDossier?: boolean
+  canDeleteDossier?: boolean
+  canTransferDossier?: boolean
 }
 
 export interface Attachment {
@@ -68,9 +72,13 @@ export interface Document {
   task?: string
   assignee?: string          // Legacy: staff name (kept for backward compat)
   assigneeId?: string        // New: staff ID
+  coAssigneeIds?: string[]   // Người phối hợp (mảng staffId)
+  coAssignees?: string[]     // Legacy/Short names người phối hợp
+  dossierIds?: string[]      // Danh sách ID các hồ sơ chứa văn bản này
   priority?: string
   notes?: string
-  tags?: string[]
+  tags?: string[]            // Legacy tag names
+  tagIds?: string[]          // Mảng ID các nhãn/tag (Tham chiếu /tags)
   textSnippet?: string
   createdAt: Timestamp
   updatedAt: Timestamp
@@ -88,9 +96,71 @@ export interface CreateDocumentInput {
   task?: string
   assignee?: string
   assigneeId?: string
+  coAssigneeIds?: string[]
+  dossierIds?: string[]
   priority?: string
   notes?: string
   tags?: string[]
+  tagIds?: string[]
   deadline?: Timestamp
   attachmentInputs: AttachmentInput[]
 }
+
+export interface DossierChecklistItem {
+  id: string
+  title: string
+  completed: boolean
+  completedAt?: Timestamp | null
+  completedBy?: string | null
+  order: number
+}
+
+export interface Dossier {
+  id: string
+  name: string
+  parentId: string | null
+  level: 1 | 2 | 3
+  createdBy: string
+  ownerId: string
+  description: string
+  checklist: DossierChecklistItem[]
+  tagIds: string[]
+  isArchived?: boolean
+  color?: string
+  order?: number
+  deletedAt?: Timestamp
+  deletedBy?: string
+  createdAt: Timestamp
+  updatedAt: Timestamp
+}
+
+export interface Tag {
+  id: string
+  name: string
+  color: string
+  createdBy: string
+  deletedAt?: Timestamp
+  deletedBy?: string
+  createdAt: Timestamp
+}
+
+export interface AuditLogMetadata {
+  fromOwnerId?: string
+  toOwnerId?: string
+  transferredChildIds?: string[]
+  reassignedDocumentIds?: string[]
+  field?: string
+  operation?: string
+  [key: string]: any
+}
+
+export interface AuditLog {
+  id: string
+  entityType: 'dossier' | 'document' | 'tag'
+  entityId: string
+  action: 'CREATE' | 'UPDATE' | 'DELETE' | 'TRANSFER' | 'ASSIGN'
+  actorId: string
+  metadata: AuditLogMetadata
+  createdAt: Timestamp
+}
+

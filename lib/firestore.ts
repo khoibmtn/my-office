@@ -22,8 +22,11 @@ export async function createDocument(input: CreateDocumentInput): Promise<string
     task: input.task ?? '',
     assignee: input.assignee ?? '',
     assigneeId: input.assigneeId ?? '',
+    coAssigneeIds: input.coAssigneeIds ?? [],
+    dossierIds: input.dossierIds ?? [],
     notes: input.notes ?? '',
     tags: input.tags ?? [],
+    tagIds: input.tagIds ?? [],
     deadline: input.deadline ?? null,
     priority: input.priority ?? 'normal',
     attachments: [],
@@ -55,7 +58,7 @@ export async function updateDocumentDriveInfo(
 
 export async function updateDocument(
   docId: string,
-  fields: Partial<{ title: string; originalLink: string; notes: string; status: DocumentStatus; assignee: string; assigneeId: string; priority: string; tags: string[]; deadline: unknown; completedDate: unknown; issueDate: unknown; sender: string; leader: string; driveViewUrl: string; mimeType: string }>
+  fields: Partial<{ title: string; originalLink: string; notes: string; status: DocumentStatus; assignee: string; assigneeId: string; coAssigneeIds: string[]; dossierIds: string[]; tagIds: string[]; priority: string; tags: string[]; deadline: unknown; completedDate: unknown; issueDate: unknown; sender: string; leader: string; driveViewUrl: string; mimeType: string }>
 ): Promise<void> {
   // Firestore rejects undefined — replace with empty string for optional string fields
   const safe = Object.fromEntries(

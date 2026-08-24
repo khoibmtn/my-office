@@ -1,15 +1,21 @@
 'use client'
 
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react'
-import { Loader2, Trash2, Eye, RefreshCw, CheckCircle2, Clock, CircleDot, Search, Pencil, ArrowUpDown, ClipboardCopy, Calendar, ChevronLeft, ChevronRight, X } from 'lucide-react'
+import { Loader2, Trash2, Eye, RefreshCw, CheckCircle2, Clock, CircleDot, Search, Pencil, ArrowUpDown, ClipboardCopy, Calendar, ChevronLeft, ChevronRight, X, Folder, ArrowRightLeft, FolderPlus, User, ChevronDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
 import type { Document, DocumentStatus } from '@/types'
 import { submitDocumentWithDriveCopy, deleteDocument, updateDocument } from '@/lib/firestore'
+import { toggleDocumentDossier, moveDocumentDossier } from '@/lib/dossiers'
+import { useDossiers } from '@/hooks/useDossiers'
+import { useTags } from '@/hooks/useTags'
 import { DocumentModal } from './DocumentModal'
+import { BatchAddDossierModal } from './BatchAddDossierModal'
+import { BatchMoveDossierModal } from './BatchMoveDossierModal'
 import Link from 'next/link'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useStaff } from '@/hooks/useStaff'
 import { useSettings } from '@/hooks/useSettings'
 import { usePermissions } from '@/hooks/usePermissions'
@@ -408,19 +414,130 @@ function Pagination({
 // === Main Component ===
 
 export function DocumentTable({ documents }: { documents: Document[] }) {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const urlTagId = searchParams.get('tagId')
+
   const { staff, getStaffName } = useStaff()
   const staffList = useMemo(() => staff.filter(s => s.isActive), [staff])
   const settings = useSettings()
   const perms = usePermissions()
   const { role, staffId: currentStaffId } = useRole()
+  const { dossiers } = useDossiers()
+  const { tags: allTags } = useTags()
+
+  const [selectedDocIds, setSelectedDocIds] = useState<string[]>([])
+  const [assigningBatch, setAssigningBatch] = useState(false)
+
   const [retrying, setRetrying] = useState<string | null>(null)
   const [deleting, setDeleting] = useState<string | null>(null)
   const [viewingId, setViewingId] = useState<string | null>(null)
   const [copyModalContent, setCopyModalContent] = useState<string | null>(null)
-  const [filterStatus, setFilterStatus] = useState<string>('pending')
+  const [filterStatus, setFilterStatus] = useState<string>('all')
   const [badgeFilters, setBadgeFilters] = useState<string[]>([])
   const [priorityBadgeFilters, setPriorityBadgeFilters] = useState<string[]>([])
   const [staffBadgeFilter, setStaffBadgeFilter] = useState<string | null>(null)
+  const [staffDropdownOpen, setStaffDropdownOpen] = useState(false)
+  const [staffSearchQuery, setStaffSearchQuery] = useState('')
+  const staffDropdownRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (staffDropdownRef.current && !staffDropdownRef.current.contains(event.target as Node)) {
+        setStaffDropdownOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  // Batch Modals State
+  const [batchAddModalOpen, setBatchAddModalOpen] = useState(false)
+  const [batchMoveModalOpen, setBatchMoveModalOpen] = useState(false)
+
+  // Find active tag object if urlTagId is present
+  const activeTag = useMemo(() => {
+    if (!urlTagId) return null
+    return allTags.find(t => t.id === urlTagId) || { id: urlTagId, name: urlTagId, color: '#3b82f6' }
+  }, [urlTagId, allTags])
+
+  // Batch toggle checkbox helpers
+  const handleToggleSelectAll = (checked: boolean, currentList: Document[]) => {
+    if (checked) {
+      setSelectedDocIds(currentList.map(d => d.id))
+    } else {
+      setSelectedDocIds([])
+    }
+  }
+
+  const handleToggleSelectDoc = (id: string) => {
+    setSelectedDocIds(prev =>
+      prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
+    )
+  }
+
+  const currentDossierIdFromUrl = searchParams.get('id')
+
+  const handleBatchMultiAssignDossiers = async (targetDossierIds: string[]) => {
+    if (targetDossierIds.length === 0 || selectedDocIds.length === 0) return
+    setAssigningBatch(true)
+    try {
+      await Promise.all(
+        selectedDocIds.flatMap(docId =>
+          targetDossierIds.map(dossierId =>
+            toggleDocumentDossier(docId, dossierId, 'add', currentStaffId || 'unknown')
+          )
+        )
+      )
+      setSelectedDocIds([])
+    } catch (err) {
+      console.error('[Batch multi assign failed]', err)
+    }
+    setAssigningBatch(false)
+  }
+
+  const handleBatchMoveDossier = async (targetDossierId: string) => {
+    if (!targetDossierId || selectedDocIds.length === 0) return
+    setAssigningBatch(true)
+    try {
+      await Promise.all(
+        selectedDocIds.map(docId =>
+          moveDocumentDossier(docId, currentDossierIdFromUrl, targetDossierId, currentStaffId || 'unknown')
+        )
+      )
+      setSelectedDocIds([])
+    } catch (err) {
+      console.error('[Batch move failed]', err)
+    }
+    setAssigningBatch(false)
+  }
+
+  const handleBatchRemoveFromCurrentDossier = async () => {
+    if (!currentDossierIdFromUrl || selectedDocIds.length === 0) return
+    setAssigningBatch(true)
+    try {
+      await Promise.all(
+        selectedDocIds.map(docId =>
+          toggleDocumentDossier(docId, currentDossierIdFromUrl, 'remove', currentStaffId || 'unknown')
+        )
+      )
+      setSelectedDocIds([])
+    } catch (err) {
+      console.error('[Batch remove failed]', err)
+    }
+    setAssigningBatch(false)
+  }
+
+  // Resolve dossier display name: Level 1 => "Name", Level 2 => "../Name", Level 3 => "../../Name"
+  const getDossierPathName = useCallback((dossierId: string): string => {
+    const d = dossiers.find(item => item.id === dossierId)
+    if (!d) return ''
+    const level = d.level || 1
+    if (level === 1) return d.name
+    if (level === 2) return `../${d.name}`
+    return `../../${d.name}`
+  }, [dossiers])
+
   // Auto-filter to staff's own documents when they log in
   const staffFilterApplied = useRef(false)
   useEffect(() => {
@@ -438,7 +555,7 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
   const [pageSize, setPageSize] = useState(20)
   
   const [colWidths, setColWidths] = useState<Record<string, number>>({
-    stt: 36, issueDate: 90, docNumber: 120, title: 300, status: 110, deadline: 90, remaining: 70, assignee: 100, actions: 110
+    stt: 50, issueDate: 90, docNumber: 120, title: 300, status: 110, deadline: 90, remaining: 70, assignee: 100, actions: 110
   })
 
   useEffect(() => {
@@ -559,6 +676,12 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
     return Object.entries(counts).sort((a, b) => a[0].localeCompare(b[0]))
   }, [baseDocs, getStaffName])
 
+  const filteredStaffStats = useMemo(() => {
+    if (!staffSearchQuery.trim()) return staffStats
+    const q = staffSearchQuery.trim().toLowerCase()
+    return staffStats.filter(([name]) => name.toLowerCase().includes(q))
+  }, [staffStats, staffSearchQuery])
+
   // Priority stats from baseDocs
   const priorityStats = useMemo(() => {
     const counts: Record<string, number> = {}
@@ -571,6 +694,15 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
 
   const filteredDocs = useMemo(() => {
     let result = baseDocs
+
+    // URL Tag filter
+    if (urlTagId) {
+      result = result.filter(d => {
+        if ((d.tagIds || []).includes(urlTagId)) return true
+        if (activeTag && (d.tags || []).some(t => t.toLowerCase() === activeTag.name.toLowerCase())) return true
+        return false
+      })
+    }
 
     // Fuzzy search across all fields
     if (searchQuery.trim()) {
@@ -589,7 +721,8 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
       result = result.filter(d => {
         const days = getDaysRemaining(d.deadline)
         return badgeFilters.some(bf => {
-          if (bf === 'completed') return d.status === 'completed'
+          if (bf === 'completed' || bf === 'completed_docs') return d.status === 'completed'
+          if (bf === 'pending_docs') return d.status !== 'completed'
           if (d.status === 'completed') return false
           if (bf === 'overdue') return days !== null && days < 0
           if (bf === 'expired') return days !== null && days === 0
@@ -663,7 +796,7 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
     }
 
     return result
-  }, [baseDocs, badgeFilters, priorityBadgeFilters, staffBadgeFilter, searchQuery, wordMatch, sortConfig])
+  }, [baseDocs, badgeFilters, priorityBadgeFilters, staffBadgeFilter, searchQuery, wordMatch, sortConfig, urlTagId, activeTag])
 
   // Reset page on filter change
   useEffect(() => { setCurrentPage(1) }, [searchQuery, badgeFilters, priorityBadgeFilters, staffBadgeFilter, filterStatus, timePeriod])
@@ -764,17 +897,34 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
     return ''
   }
 
+  // Check if any of the selected documents currently belong to at least one dossier
+  const selectedDocsHaveDossiers = useMemo(() => {
+    if (selectedDocIds.length === 0) return false
+    return documents.some(doc => 
+      selectedDocIds.includes(doc.id) && (doc.dossierIds || []).length > 0
+    )
+  }, [selectedDocIds, documents])
+
+  const unassignedDocCount = useMemo(() => {
+    if (selectedDocIds.length === 0) return 0
+    return documents.filter(doc => 
+      selectedDocIds.includes(doc.id) && (!doc.dossierIds || doc.dossierIds.length === 0)
+    ).length
+  }, [selectedDocIds, documents])
+
   return (
     <>
       {/* === FILTERS === */}
       <div className="flex flex-col gap-2 mb-3">
         {(timePeriod === 'today' || periodRange) && (
-          <div className="text-blue-600 font-bold text-sm lg:text-[15px] px-1">
-            {timePeriod === 'today' ? (
-              <>Thống kê văn bản đến hôm nay, ngày {new Date().toLocaleDateString('vi-VN')}</>
-            ) : (
-              <>Thống kê văn bản từ {periodRange!.from.toLocaleDateString('vi-VN')} đến {periodRange!.to.toLocaleDateString('vi-VN')}</>
-            )}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 px-1">
+            <div className="text-blue-600 font-bold text-sm lg:text-[15px]">
+              {timePeriod === 'today' ? (
+                <>Thống kê văn bản đến hôm nay, ngày {new Date().toLocaleDateString('vi-VN')}</>
+              ) : (
+                <>Thống kê văn bản từ {periodRange!.from.toLocaleDateString('vi-VN')} đến {periodRange!.to.toLocaleDateString('vi-VN')}</>
+              )}
+            </div>
           </div>
         )}
 
@@ -859,6 +1009,21 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
             </div>
           </div>
 
+          {/* Active Tag Filter Pill */}
+          {activeTag && (
+            <div className="flex items-center gap-1 px-2 py-0.5 bg-purple-50 border border-purple-200 rounded text-xs font-semibold text-purple-700">
+              <span className="w-2 h-2 rounded-full" style={{ background: activeTag.color }} />
+              <span>Nhãn: {activeTag.name}</span>
+              <button
+                onClick={() => router.push('/documents')}
+                className="ml-1 hover:text-red-600 font-bold"
+                title="Bỏ lọc nhãn"
+              >
+                ✕
+              </button>
+            </div>
+          )}
+
           {/* Search box */}
           <div className="search-box w-full sm:w-auto sm:min-w-[200px]">
             <Search size={16} />
@@ -922,17 +1087,18 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
         )}
       </div>
 
-      {/* Urgency + Staff badges */}
+      {/* Urgency + Staff badges & Batch Action Box */}
       <div className="flex flex-col xl:flex-row gap-2 mb-4 text-xs font-semibold items-start justify-between">
         {/* Row 1: Urgency Badges */}
         <div className="scroll-x-badges sm:flex sm:flex-wrap sm:gap-2 sm:overflow-visible items-start w-full xl:w-auto xl:flex-1 min-w-0">
           {[
+            ...(filterStatus === 'all' ? [{ key: 'pending_docs', count: baseDocs.length - stats.completed, color: '#f59e0b', label: 'Chưa hoàn thành' }] : []),
+            ...(filterStatus === 'all' || filterStatus === 'completed' ? [{ key: 'completed_docs', count: stats.completed, color: settings.completedColor, label: 'Hoàn thành' }] : []),
             { key: 'overdue', count: stats.overdue, color: settings.overdueColor, label: 'Quá hạn' },
             { key: 'expired', count: stats.expired, color: settings.expiredColor, label: 'Hết hạn (0 ngày)' },
             { key: 'urgent1', count: stats.urgent1, color: settings.urgent1Color, label: 'Cận hạn 1-3 ngày' },
             { key: 'urgent2', count: stats.urgent2, color: settings.urgent2Color, label: 'Cận hạn 4-7 ngày' },
             { key: 'normal', count: stats.normal, color: settings.normalColor, label: 'Còn hạn > 7 ngày' },
-            ...(filterStatus === 'all' ? [{ key: 'completed', count: stats.completed, color: settings.completedColor, label: 'Hoàn thành' }] : [])
           ].map(b => {
             if (b.count === 0) return null
             const isSelected = badgeFilters.includes(b.key)
@@ -944,7 +1110,7 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
                     prev.includes(b.key) ? prev.filter(x => x !== b.key) : [...prev, b.key]
                   )
                 }}
-                className="badge-filter px-2 py-1 rounded shadow-sm flex items-center gap-1 transition-all border whitespace-nowrap shrink-0"
+                className="badge-filter px-2 py-1 rounded shadow-sm flex items-center gap-1 transition-all border whitespace-nowrap shrink-0 text-xs"
                 style={{ 
                   '--badge-color': b.color,
                   background: isSelected ? b.color : `color-mix(in srgb, ${b.color} 25%, #ffffff)`,
@@ -960,29 +1126,107 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
           })}
         </div>
 
-        {/* Row 2: Staff Badges & Actions */}
-        <div className="flex items-start gap-2 w-full xl:w-auto min-w-0">
-          <div className="scroll-x-badges flex-1 min-w-0 sm:flex sm:flex-wrap sm:gap-2 sm:overflow-visible items-start xl:justify-end">
-            {staffStats.map(([name, count]) => {
-              const isSelected = staffBadgeFilter === name
-              return (
-                <button
-                  key={name}
-                  onClick={() => setStaffBadgeFilter(staffBadgeFilter === name ? null : name)}
-                  className="badge-filter px-2 py-1 rounded shadow-sm flex items-center gap-1 transition-all border text-xs font-semibold whitespace-nowrap shrink-0"
-                  style={{
-                    '--badge-color': isSelected ? '#475569' : '#475569',
-                    background: isSelected ? '#475569' : '#f1f5f9',
-                    borderColor: isSelected ? '#334155' : '#cbd5e1',
-                    color: isSelected ? '#fff' : '#475569',
-                    boxShadow: isSelected ? '0 0 0 2px #fff, 0 0 0 4px #475569' : 'none'
-                  } as React.CSSProperties}
+        {/* Row 2: Staff Dropdown Filter & Copy (Right) */}
+        <div className="flex items-center justify-end gap-2 w-full xl:w-auto shrink-0 ml-auto">
+          {/* Smart Staff Filter Dropdown */}
+          <div className="relative shrink-0" ref={staffDropdownRef}>
+            <button
+              onClick={() => setStaffDropdownOpen(!staffDropdownOpen)}
+              className={`px-2.5 py-1 rounded-md text-xs font-semibold border transition-all flex items-center gap-1.5 shadow-2xs ${
+                staffBadgeFilter
+                  ? 'bg-slate-800 text-white border-slate-700 ring-2 ring-slate-400'
+                  : 'bg-white border-slate-300 text-slate-700 hover:bg-slate-50 hover:border-slate-400'
+              }`}
+            >
+              <User className="w-3.5 h-3.5" style={{ color: staffBadgeFilter ? '#fff' : '#64748b' }} />
+              <span className="whitespace-nowrap">
+                {staffBadgeFilter ? `Cán bộ: ${staffBadgeFilter}` : `Cán bộ (${staffStats.length})`}
+              </span>
+              {staffBadgeFilter ? (
+                <span
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setStaffBadgeFilter(null)
+                  }}
+                  className="hover:bg-slate-700 rounded px-1 ml-0.5 text-xs text-slate-300 hover:text-white"
+                  title="Bỏ chọn cán bộ"
                 >
-                  {name}: {count}
-                  {isSelected && <span className="opacity-70 hover:opacity-100 font-normal ml-1 text-sm leading-none">×</span>}
-                </button>
-              )
-            })}
+                  ✕
+                </span>
+              ) : (
+                <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+              )}
+            </button>
+
+            {staffDropdownOpen && (
+              <div className="absolute right-0 top-full mt-1.5 w-64 bg-white border border-slate-200 rounded-xl shadow-xl z-[100] p-2 text-xs animate-in fade-in zoom-in-95 duration-100">
+                <div className="flex items-center justify-between pb-1.5 mb-1.5 border-b border-slate-150">
+                  <span className="font-bold text-slate-500 uppercase text-[10px] tracking-wider">Cán bộ được giao ({staffStats.length})</span>
+                  {staffBadgeFilter && (
+                    <button
+                      onClick={() => {
+                        setStaffBadgeFilter(null)
+                        setStaffDropdownOpen(false)
+                      }}
+                      className="text-blue-600 hover:underline font-bold text-[11px]"
+                    >
+                      Bỏ chọn
+                    </button>
+                  )}
+                </div>
+
+                {staffStats.length > 5 && (
+                  <div className="mb-1.5 relative">
+                    <Search className="w-3 h-3 text-slate-400 absolute left-2 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      value={staffSearchQuery}
+                      onChange={e => setStaffSearchQuery(e.target.value)}
+                      placeholder="Tìm cán bộ..."
+                      className="w-full pl-7 pr-2 py-1 border border-slate-200 rounded-md text-[11px] bg-slate-50 focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    />
+                  </div>
+                )}
+
+                <div className="max-h-56 overflow-y-auto space-y-0.5 pr-0.5">
+                  <button
+                    onClick={() => {
+                      setStaffBadgeFilter(null)
+                      setStaffDropdownOpen(false)
+                    }}
+                    className={`w-full text-left px-2.5 py-1.5 rounded-md flex items-center justify-between font-semibold transition-colors ${
+                      !staffBadgeFilter ? 'bg-blue-50 text-blue-700 font-bold' : 'hover:bg-slate-100 text-slate-700'
+                    }`}
+                  >
+                    <span>Tất cả cán bộ</span>
+                    <span className="text-slate-400 font-mono text-[11px]">({baseDocs.length})</span>
+                  </button>
+
+                  {filteredStaffStats.map(([name, count]) => {
+                    const isSelected = staffBadgeFilter === name
+                    return (
+                      <button
+                        key={name}
+                        onClick={() => {
+                          setStaffBadgeFilter(isSelected ? null : name)
+                          setStaffDropdownOpen(false)
+                        }}
+                        className={`w-full text-left px-2.5 py-1.5 rounded-md flex items-center justify-between transition-colors ${
+                          isSelected ? 'bg-blue-50 text-blue-700 font-bold' : 'hover:bg-slate-100 text-slate-700'
+                        }`}
+                      >
+                        <span className="truncate pr-2">{name}</span>
+                        <span className={`px-1.5 py-0.2 rounded font-mono text-[10px] ${
+                          isSelected ? 'bg-blue-200 text-blue-900 font-bold' : 'bg-slate-100 text-slate-600'
+                        }`}>
+                          {count}
+                        </span>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
           </div>
 
           <button
@@ -1053,6 +1297,42 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
             <span className="hidden sm:inline">Copy</span>
           </button>
 
+          {/* Button 1: Thêm vào Hồ sơ (Icon-only, luôn hiện, disabled khi không chọn văn bản) */}
+          <button
+            onClick={() => setBatchAddModalOpen(true)}
+            disabled={selectedDocIds.length === 0 || assigningBatch}
+            className={`px-2 py-1 rounded-lg flex items-center justify-center transition-all border text-xs font-semibold shrink-0 h-7 ${
+              selectedDocIds.length === 0
+                ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed opacity-50'
+                : 'bg-blue-600 text-white border-blue-600 hover:bg-blue-700 active:scale-95 cursor-pointer shadow-xs'
+            }`}
+            title={
+              selectedDocIds.length === 0
+                ? "Thêm vào Hồ sơ (Vui lòng chọn văn bản)"
+                : `Thêm ${selectedDocIds.length} văn bản đã chọn vào Hồ sơ`
+            }
+          >
+            <FolderPlus className="w-4 h-4" />
+          </button>
+
+          {/* Button 2: Di chuyển Hồ sơ (Icon-only, luôn hiện, disabled khi không chọn văn bản) */}
+          <button
+            onClick={() => setBatchMoveModalOpen(true)}
+            disabled={selectedDocIds.length === 0 || assigningBatch}
+            className={`px-2 py-1 rounded-lg flex items-center justify-center transition-all border text-xs font-semibold shrink-0 h-7 ${
+              selectedDocIds.length === 0
+                ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed opacity-50'
+                : 'bg-amber-500 text-white border-amber-500 hover:bg-amber-600 active:scale-95 cursor-pointer shadow-xs'
+            }`}
+            title={
+              selectedDocIds.length === 0
+                ? "Di chuyển sang Hồ sơ khác (Vui lòng chọn văn bản)"
+                : `Di chuyển ${selectedDocIds.length} văn bản đã chọn sang Hồ sơ khác`
+            }
+          >
+            <ArrowRightLeft className="w-4 h-4" />
+          </button>
+
           {/* Mobile count */}
           <span className="sm:hidden text-xs text-slate-400 font-normal self-center ml-auto shrink-0">
             {filteredDocs.length}/{baseDocs.length}
@@ -1067,7 +1347,19 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
             <Table className="doc-table w-full">
               <TableHeader>
                 <TableRow className="doc-table-header">
-                  <ThResizable width={colWidths.stt} minWidth={30} onWidthChange={(w: number) => handleWidthChange('stt', w)} className="cursor-pointer hover:bg-slate-700/50" onClick={() => setSortConfig(null)}>#</ThResizable>
+                  <ThResizable width={colWidths.stt} minWidth={45} onWidthChange={(w: number) => handleWidthChange('stt', w)} className="cursor-pointer hover:bg-slate-700/50" onClick={() => setSortConfig(null)}>
+                    <div className="flex items-center justify-center gap-1.5">
+                      <input
+                        type="checkbox"
+                        checked={pagedDocs.length > 0 && selectedDocIds.length === pagedDocs.length}
+                        onChange={e => handleToggleSelectAll(e.target.checked, pagedDocs)}
+                        onClick={e => e.stopPropagation()}
+                        className="rounded border-slate-400 text-blue-600 focus:ring-blue-500 cursor-pointer w-3.5 h-3.5"
+                        title="Chọn tất cả"
+                      />
+                      <span>#</span>
+                    </div>
+                  </ThResizable>
                   <ThResizable width={colWidths.issueDate} minWidth={60} onWidthChange={(w: number) => handleWidthChange('issueDate', w)} className="cursor-pointer hover:bg-slate-700/50 hidden md:table-cell" onClick={() => handleSort('issueDate')}>Ngày ban hành <ArrowUpDown className="h-3 w-3 inline ml-1"/></ThResizable>
                   <ThResizable width={colWidths.docNumber} minWidth={80} onWidthChange={(w: number) => handleWidthChange('docNumber', w)} className="cursor-pointer hover:bg-slate-700/50" onClick={() => handleSort('docNumber')}>Mã hiệu <ArrowUpDown className="h-3 w-3 inline ml-1"/></ThResizable>
                   <ThResizable width={colWidths.title} minWidth={150} flexible onWidthChange={(w: number) => handleWidthChange('title', w)} className="cursor-pointer hover:bg-slate-700/50" onClick={() => handleSort('title')}>Tiêu đề <ArrowUpDown className="h-3 w-3 inline ml-1"/></ThResizable>
@@ -1084,14 +1376,23 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
                   const eff = getEffectiveStatus(doc, docEffStatus)
                   const rowClass = getRowClass(doc)
                   const prio = priorityLabels[doc.priority || 'normal']
+                  const isChecked = selectedDocIds.includes(doc.id)
 
                   return (
                     <TableRow
                       key={doc.id}
-                      className={`doc-row ${idx % 2 === 0 ? 'row-even' : 'row-odd'} ${rowClass}`}
+                      className={`doc-row ${idx % 2 === 0 ? 'row-even' : 'row-odd'} ${rowClass} ${isChecked ? '!bg-blue-50/80' : ''}`}
                     >
-                      <TableCell className="text-center text-slate-400 font-mono text-xs">
-                        {showPagination ? (safePage - 1) * pageSize + idx + 1 : idx + 1}
+                      <TableCell className="text-center text-slate-500 font-mono text-xs">
+                        <div className="flex items-center justify-center gap-1.5">
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={() => handleToggleSelectDoc(doc.id)}
+                            className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer w-3.5 h-3.5"
+                          />
+                          <span>{showPagination ? (safePage - 1) * pageSize + idx + 1 : idx + 1}</span>
+                        </div>
                       </TableCell>
                       <TableCell className="text-xs hidden md:table-cell">
                         <div className="font-medium">{formatDate(doc.issueDate)}</div>
@@ -1124,6 +1425,85 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
                               </span>
                             )}
                           </span>
+
+                          {/* Dossier & Tag Badges under Title */}
+                          <div className="flex flex-wrap items-center gap-1 mt-0.5">
+                            {/* Dossier Badges */}
+                            {(doc.dossierIds || []).map(did => {
+                              const pathName = getDossierPathName(did)
+                              if (!pathName) return null
+                              return (
+                                <span
+                                  key={did}
+                                  className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-blue-50 text-blue-700 border border-blue-200"
+                                >
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      router.push(`/dossiers?id=${did}`)
+                                    }}
+                                    className="flex items-center gap-1 hover:text-blue-900 transition-colors"
+                                    title="Bấm để mở hồ sơ này trong Quản lý Hồ sơ"
+                                  >
+                                    <Folder className="w-3 h-3 text-blue-600 shrink-0" />
+                                    <span>{pathName}</span>
+                                  </button>
+                                  {perms.canEditDocument && (
+                                    <button
+                                      onClick={async (e) => {
+                                        e.stopPropagation()
+                                        await toggleDocumentDossier(doc.id, did, 'remove', currentStaffId || 'unknown')
+                                      }}
+                                      className="hover:text-red-600 text-blue-400 font-bold ml-0.5 px-0.5 rounded hover:bg-blue-100 transition-colors"
+                                      title="Loại văn bản khỏi hồ sơ này"
+                                    >
+                                      ✕
+                                    </button>
+                                  )}
+                                </span>
+                              )
+                            })}
+
+                            {/* Tag Badges */}
+                            {(() => {
+                              const docTags = allTags.filter(t => (doc.tagIds || []).includes(t.id))
+                              const legacyTagNames = (doc.tags || []).filter(tn => !docTags.some(dt => dt.name.toLowerCase() === tn.toLowerCase()))
+                              
+                              return (
+                                <>
+                                  {docTags.map(t => {
+                                    const isCurrentFilter = urlTagId === t.id
+                                    return (
+                                      <button
+                                        key={t.id}
+                                        onClick={(e) => {
+                                          e.stopPropagation()
+                                          if (isCurrentFilter) router.push('/documents')
+                                          else router.push(`/documents?tagId=${t.id}`)
+                                        }}
+                                        className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold transition-colors border shadow-xs ${
+                                          isCurrentFilter ? 'ring-2 ring-purple-500' : ''
+                                        }`}
+                                        style={{ background: `color-mix(in srgb, ${t.color} 15%, #ffffff)`, color: t.color, borderColor: `color-mix(in srgb, ${t.color} 30%, #ffffff)` }}
+                                        title="Bấm để lọc văn bản cùng nhãn"
+                                      >
+                                        <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: t.color }} />
+                                        <span>{t.name}</span>
+                                        {isCurrentFilter && <span className="font-bold ml-0.5">✕</span>}
+                                      </button>
+                                    )
+                                  })}
+
+                                  {legacyTagNames.map(tn => (
+                                    <span key={tn} className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-600">
+                                      {tn}
+                                    </span>
+                                  ))}
+                                </>
+                              )
+                            })()}
+                          </div>
+
                           {doc.notes && (
                             <span className="text-[11px] text-slate-500 italic mt-0.5 line-clamp-2" title={doc.notes}>
                               📝 <Highlight text={doc.notes} query={searchQuery} />
@@ -1313,6 +1693,25 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
             </div>
           </div>
         </div>
+      )}
+
+      {batchAddModalOpen && (
+        <BatchAddDossierModal
+          selectedDocCount={selectedDocIds.length}
+          dossiers={dossiers}
+          onConfirm={handleBatchMultiAssignDossiers}
+          onClose={() => setBatchAddModalOpen(false)}
+        />
+      )}
+
+      {batchMoveModalOpen && (
+        <BatchMoveDossierModal
+          selectedDocCount={selectedDocIds.length}
+          unassignedDocCount={unassignedDocCount}
+          dossiers={dossiers}
+          onConfirm={handleBatchMoveDossier}
+          onClose={() => setBatchMoveModalOpen(false)}
+        />
       )}
 
       <style jsx global>{`

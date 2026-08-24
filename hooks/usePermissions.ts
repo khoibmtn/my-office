@@ -19,6 +19,10 @@ const ADMIN_PERMISSIONS: RolePermissions = {
   canCompleteAssigned: true,
   canCopyTaskString: true,
   canAccessSettings: true,
+  canCreateDossier: true,
+  canEditDossier: true,
+  canDeleteDossier: true,
+  canTransferDossier: true,
 }
 
 const DEFAULT_STAFF: RolePermissions = {
@@ -34,6 +38,10 @@ const DEFAULT_STAFF: RolePermissions = {
   canCompleteAssigned: true,
   canCopyTaskString: true,
   canAccessSettings: false,
+  canCreateDossier: true,
+  canEditDossier: true,
+  canDeleteDossier: true,
+  canTransferDossier: true,
 }
 
 const DEFAULT_GUEST: RolePermissions = {
@@ -49,6 +57,10 @@ const DEFAULT_GUEST: RolePermissions = {
   canCompleteAssigned: false,
   canCopyTaskString: true,
   canAccessSettings: false,
+  canCreateDossier: false,
+  canEditDossier: false,
+  canDeleteDossier: false,
+  canTransferDossier: false,
 }
 
 export function usePermissions(): RolePermissions & { loading: boolean } {

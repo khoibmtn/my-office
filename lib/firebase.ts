@@ -81,54 +81,31 @@ export function ensureAuth(): Promise<User | null> {
 async function _doEnsureAuth(): Promise<User | null> {
   const firebaseAuth = auth()
 
-  // 1. Check if already signed in (Firebase persists auth in IndexedDB)
+  await firebaseAuth.authStateReady()
+
+  // 1. Check if already signed in
   if (firebaseAuth.currentUser) {
-    console.log('[Auth] Already signed in:', firebaseAuth.currentUser.isAnonymous ? 'anonymous' : 'Google')
     _saveTokens(firebaseAuth.currentUser)
     return firebaseAuth.currentUser
   }
 
-  // 2. Try to process redirect result (if returning from Google sign-in)
-  try {
-    const redirectResult = await Promise.race([
-      getRedirectResult(firebaseAuth),
-      new Promise<null>((resolve) => setTimeout(() => resolve(null), 3000)),
-    ])
-    if (redirectResult?.user) {
-      console.log('[Auth] Signed in via redirect:', redirectResult.user.email)
-      const credential = GoogleAuthProvider.credentialFromResult(redirectResult)
-      if (credential?.accessToken) {
-        localStorage.setItem('google_access_token', credential.accessToken)
+  // 3. Process redirect result ONLY if redirect flow was initiated
+  if (typeof window !== 'undefined' && sessionStorage.getItem('firebase_redirect_in_progress')) {
+    try {
+      sessionStorage.removeItem('firebase_redirect_in_progress')
+      const redirectResult = await getRedirectResult(firebaseAuth)
+      if (redirectResult?.user) {
+        _saveTokens(redirectResult.user)
+        return redirectResult.user
       }
-      _saveTokens(redirectResult.user)
-      return redirectResult.user
+    } catch (err: any) {
+      console.warn('[Auth] Redirect result error (non-fatal):', err?.code || err)
     }
-  } catch (err: any) {
-    console.warn('[Auth] Redirect result error (non-fatal):', err?.code || err)
   }
 
-  // 3. Wait briefly for Firebase to restore persisted auth from IndexedDB
-  const restoredUser = await new Promise<User | null>((resolve) => {
-    // onAuthStateChanged fires once with the persisted user (or null)
-    const unsubscribe = firebaseAuth.onAuthStateChanged((user) => {
-      unsubscribe()
-      resolve(user)
-    })
-    // Timeout: don't wait forever
-    setTimeout(() => resolve(null), 3000)
-  })
-
-  if (restoredUser) {
-    console.log('[Auth] Restored persisted user:', restoredUser.isAnonymous ? 'anonymous' : restoredUser.email)
-    _saveTokens(restoredUser)
-    return restoredUser
-  }
-
-  // 4. No user at all → sign in anonymously
+  // 4. Anonymous sign-in fallback if still no user
   try {
-    console.log('[Auth] No user found, signing in anonymously...')
     const anonResult = await signInAnonymously(firebaseAuth)
-    console.log('[Auth] Signed in anonymously')
     return anonResult.user
   } catch (err) {
     console.error('[Auth] Anonymous sign-in failed:', err)

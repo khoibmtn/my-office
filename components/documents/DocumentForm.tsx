@@ -31,7 +31,22 @@ export function DocumentForm() {
   const [status, setStatus] = useState<DocumentStatus>('pending')
   const [deadline, setDeadline] = useState('')
   const [assigneeId, setAssigneeId] = useState('')
+  const [coAssigneeIds, setCoAssigneeIds] = useState<string[]>([])
   const [tags, setTags] = useState('')
+
+  const handleToggleCoAssignee = (id: string) => {
+    setCoAssigneeIds(prev =>
+      prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
+    )
+  }
+
+  // Handle main assignee change: exclude from co-assignees
+  const handleAssigneeChange = (id: string) => {
+    setAssigneeId(id)
+    if (id) {
+      setCoAssigneeIds(prev => prev.filter(item => item !== id))
+    }
+  }
   const [attachments, setAttachments] = useState<AttachmentRow[]>([
     { id: uuid(), title: '', originalLink: '' },
   ])
@@ -67,6 +82,7 @@ export function DocumentForm() {
         notes: notes || undefined,
         assignee: member?.shortName || '',
         assigneeId: member?.id || '',
+        coAssigneeIds,
         tags: tags ? tags.split(',').map((t) => t.trim()).filter(Boolean) : [],
         attachmentInputs: attachments.map(({ title, originalLink }) => ({
           title,
@@ -167,18 +183,46 @@ export function DocumentForm() {
       </div>
 
       <div className="flex flex-col gap-1">
-        <Label htmlFor="assignee">Người nhận</Label>
+        <Label htmlFor="assignee">Người thực hiện chính</Label>
         <select
           id="assignee"
           value={assigneeId}
-          onChange={(e) => setAssigneeId(e.target.value)}
-          className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
+          onChange={(e) => handleAssigneeChange(e.target.value)}
+          className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm font-medium"
         >
           <option value="">-- Chưa giao --</option>
           {activeStaff.map(s => (
             <option key={s.id} value={s.id}>{s.shortName} — {s.fullName}</option>
           ))}
         </select>
+      </div>
+
+      <div className="flex flex-col gap-1.5">
+        <Label>Người phối hợp (Nhiều người, chỉ xem)</Label>
+        <div className="flex flex-wrap gap-2 p-2.5 border border-slate-200 rounded-md bg-slate-50/50">
+          {activeStaff
+            .filter(s => s.id !== assigneeId)
+            .map(s => {
+              const checked = coAssigneeIds.includes(s.id)
+              return (
+                <label
+                  key={s.id}
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium cursor-pointer border transition-colors ${
+                    checked ? 'bg-blue-100 border-blue-300 text-blue-800' : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={() => handleToggleCoAssignee(s.id)}
+                    className="sr-only"
+                  />
+                  <span>{checked ? '✓' : '+'}</span>
+                  <span>{s.shortName}</span>
+                </label>
+              )
+            })}
+        </div>
       </div>
 
       <div className="flex flex-col gap-1">
