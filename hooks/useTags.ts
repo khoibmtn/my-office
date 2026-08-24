@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { collection, onSnapshot, query, where, orderBy } from 'firebase/firestore'
+import { collection, onSnapshot } from 'firebase/firestore'
 import { db, ensureAuth } from '@/lib/firebase'
 import type { Tag } from '@/types'
 
@@ -13,11 +13,18 @@ export function useTags() {
     let unsub: (() => void) | null = null
 
     ensureAuth().then(() => {
-      const q = query(collection(db(), 'tags'), where('deletedAt', '==', null), orderBy('createdAt', 'desc'))
+      const col = collection(db(), 'tags')
       unsub = onSnapshot(
-        q,
+        col,
         (snap) => {
-          setTags(snap.docs.map(d => ({ id: d.id, ...d.data() } as Tag)))
+          const all = snap.docs.map(d => ({ id: d.id, ...d.data() } as Tag))
+          const active = all.filter(t => !t.deletedAt)
+          active.sort((a, b) => {
+            const tA = (a.createdAt as any)?.seconds || 0
+            const tB = (b.createdAt as any)?.seconds || 0
+            return tB - tA
+          })
+          setTags(active)
           setLoading(false)
         },
         (err) => {

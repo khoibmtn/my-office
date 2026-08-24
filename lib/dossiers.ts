@@ -28,11 +28,14 @@ export async function createDossier(input: {
   const dupQ = query(
     collection(db(), 'dossiers'),
     where('ownerId', '==', input.actorId),
-    where('parentId', '==', input.parentId || null),
-    where('deletedAt', '==', null)
+    where('parentId', '==', input.parentId || null)
   )
   const dupSnap = await getDocs(dupQ)
-  const isDuplicate = dupSnap.docs.some(d => (d.data() as Dossier).name.trim().toLowerCase() === normName)
+  const isDuplicate = dupSnap.docs
+    .map(d => d.data() as Dossier)
+    .filter(d => !d.deletedAt)
+    .some(d => d.name.trim().toLowerCase() === normName)
+
   if (isDuplicate) {
     throw new Error(`Thư mục "${input.name.trim()}" đã tồn tại ở cấp này`)
   }
@@ -47,6 +50,7 @@ export async function createDossier(input: {
     description: input.description || '',
     checklist: [],
     tagIds: [],
+    deletedAt: null,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   })
@@ -89,12 +93,12 @@ export async function deleteDossier(
   // Child prevention invariant
   const childQ = query(
     collection(db(), 'dossiers'),
-    where('parentId', '==', dossierId),
-    where('deletedAt', '==', null)
+    where('parentId', '==', dossierId)
   )
   const childSnap = await getDocs(childQ)
-  if (!childSnap.empty) {
-    throw new Error(`Hồ sơ này đang có ${childSnap.size} hồ sơ con. Vui lòng di chuyển hoặc xóa các hồ sơ con trước khi xóa!`)
+  const activeChildren = childSnap.docs.map(d => d.data() as Dossier).filter(d => !d.deletedAt)
+  if (activeChildren.length > 0) {
+    throw new Error(`Hồ sơ này đang có ${activeChildren.length} hồ sơ con. Vui lòng di chuyển hoặc xóa các hồ sơ con trước khi xóa!`)
   }
 
   const dossierSnap = await getDoc(doc(db(), 'dossiers', dossierId))
@@ -155,11 +159,12 @@ export async function transferDossier(params: {
   // Fetch all child dossiers
   const allChildrenQ = query(
     collection(db(), 'dossiers'),
-    where('ownerId', '==', dossier.ownerId),
-    where('deletedAt', '==', null)
+    where('ownerId', '==', dossier.ownerId)
   )
   const allChildrenSnap = await getDocs(allChildrenQ)
-  const allChildren = allChildrenSnap.docs.map(d => ({ id: d.id, ...d.data() } as Dossier))
+  const allChildren = allChildrenSnap.docs
+    .map(d => ({ id: d.id, ...d.data() } as Dossier))
+    .filter(d => !d.deletedAt)
 
   // Find all descendants
   const descendantIds = new Set<string>()

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { collection, onSnapshot, query, where, orderBy } from 'firebase/firestore'
+import { collection, onSnapshot } from 'firebase/firestore'
 import { db, ensureAuth } from '@/lib/firebase'
 import { useRole } from './useRole'
 import type { Dossier } from '@/types'
@@ -22,14 +22,19 @@ export function useDossiers() {
       }
 
       const col = collection(db(), 'dossiers')
-      const q = isAdmin
-        ? query(col, where('deletedAt', '==', null), orderBy('name', 'asc'))
-        : query(col, where('ownerId', '==', staffId), where('deletedAt', '==', null), orderBy('name', 'asc'))
-
       unsub = onSnapshot(
-        q,
+        col,
         (snap) => {
-          setDossiers(snap.docs.map(d => ({ id: d.id, ...d.data() } as Dossier)))
+          const all = snap.docs.map(d => ({ id: d.id, ...d.data() } as Dossier))
+          // Client-side filter out soft-deleted items
+          const active = all.filter(d => !d.deletedAt)
+          // Filter by owner if not admin
+          const userDossiers = isAdmin
+            ? active
+            : active.filter(d => !d.ownerId || d.ownerId === staffId || d.ownerId === 'admin' || d.ownerId === 'unknown')
+
+          userDossiers.sort((a, b) => a.name.localeCompare(b.name, 'vi'))
+          setDossiers(userDossiers)
           setLoading(false)
         },
         (err) => {

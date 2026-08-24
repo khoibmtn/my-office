@@ -1,5 +1,5 @@
 import {
-  collection, doc, getDocs, query, where, serverTimestamp, writeBatch
+  collection, doc, getDocs, query, serverTimestamp, writeBatch
 } from 'firebase/firestore'
 import { db } from './firebase'
 import { appendAuditLogToBatch } from './audit'
@@ -16,9 +16,12 @@ export async function createTag(name: string, actorId: string): Promise<string> 
   const normalized = name.trim().toLowerCase()
   if (!normalized) throw new Error('Tên nhãn không được để trống')
 
-  const q = query(collection(db(), 'tags'), where('deletedAt', '==', null))
-  const snap = await getDocs(q)
-  const existing = snap.docs.find(d => (d.data() as Tag).name.trim().toLowerCase() === normalized)
+  const snap = await getDocs(collection(db(), 'tags'))
+  const existing = snap.docs
+    .map(d => ({ id: d.id, ...d.data() } as Tag))
+    .filter(t => !t.deletedAt)
+    .find(t => t.name.trim().toLowerCase() === normalized)
+
   if (existing) return existing.id
 
   const tagRef = doc(collection(db(), 'tags'))
@@ -28,6 +31,7 @@ export async function createTag(name: string, actorId: string): Promise<string> 
     name: name.trim(),
     color,
     createdBy: actorId,
+    deletedAt: null,
     createdAt: serverTimestamp(),
   })
   appendAuditLogToBatch(batch, 'tag', tagRef.id, 'CREATE', actorId, { name: name.trim() })
@@ -50,9 +54,13 @@ export async function resolveTagIds(tagIds: string[]): Promise<Tag[]> {
   if (!tagIds || tagIds.length === 0) return []
   const missing = tagIds.filter(id => !tagCache.has(id))
   if (missing.length > 0) {
-    const q = query(collection(db(), 'tags'), where('deletedAt', '==', null))
-    const snap = await getDocs(q)
-    snap.docs.forEach(d => tagCache.set(d.id, { id: d.id, ...d.data() } as Tag))
+    const snap = await getDocs(collection(db(), 'tags'))
+    snap.docs.forEach(d => {
+      const data = d.data() as Tag
+      if (!data.deletedAt) {
+        tagCache.set(d.id, { ...data, id: d.id })
+      }
+    })
   }
   return tagIds.map(id => tagCache.get(id)).filter(Boolean) as Tag[]
 }
