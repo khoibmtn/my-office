@@ -126,6 +126,7 @@ export interface Dossier {
   checklist: DossierChecklistItem[]
   tagIds: string[]
   isArchived?: boolean
+  color?: string
   deletedAt?: Timestamp
   deletedBy?: string
   createdAt: Timestamp

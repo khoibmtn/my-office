@@ -116,7 +116,10 @@ export function DossierTreeNav() {
               <span className="w-4 h-4 shrink-0" />
             )}
 
-            <Folder className={`w-3.5 h-3.5 shrink-0 ${isActive ? 'text-blue-600 fill-blue-100' : 'text-slate-400 group-hover:text-slate-600'}`} />
+            <Folder
+              className="w-3.5 h-3.5 shrink-0"
+              style={{ color: dossier.color || '#3b82f6', fill: dossier.color || '#3b82f6' }}
+            />
             
             <span className="truncate font-medium" title={`${dossier.name} (${count} văn bản)`}>{dossier.name}</span>
           </div>

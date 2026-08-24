@@ -325,13 +325,15 @@ export function DossierTable({
                           <span className="w-4 h-4 shrink-0" />
                         )}
 
-                        <Folder className={`w-4 h-4 shrink-0 mt-0.5 ${
-                          isArchived
-                            ? 'text-purple-500'
-                            : dossier.level === 1
-                            ? 'text-blue-600 fill-blue-100'
-                            : 'text-blue-500'
-                        }`} />
+                        {(() => {
+                          const folderColor = isArchived ? '#a855f7' : (dossier.color || '#3b82f6')
+                          return (
+                            <Folder
+                              className="w-4 h-4 shrink-0 mt-0.5"
+                              style={{ color: folderColor, fill: folderColor }}
+                            />
+                          )
+                        })()}
 
                         <div className="flex flex-col min-w-0">
                           <div className="flex items-center gap-1.5 flex-wrap">

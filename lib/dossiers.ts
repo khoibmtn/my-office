@@ -10,6 +10,7 @@ export async function createDossier(input: {
   name: string
   parentId: string | null
   description?: string
+  color?: string
   actorId: string
 }): Promise<string> {
   const dossierRef = doc(collection(db(), 'dossiers'))
@@ -48,6 +49,7 @@ export async function createDossier(input: {
     createdBy: input.actorId,
     ownerId: input.actorId,
     description: input.description || '',
+    color: input.color || '#3b82f6',
     checklist: [],
     tagIds: [],
     deletedAt: null,
@@ -59,6 +61,7 @@ export async function createDossier(input: {
     name: input.name.trim(),
     level,
     parentId: input.parentId,
+    color: input.color,
   })
 
   await batch.commit()
@@ -70,6 +73,7 @@ export async function updateDossier(
   fields: Partial<{
     name: string
     description: string
+    color: string
     checklist: DossierChecklistItem[]
     tagIds: string[]
   }>,

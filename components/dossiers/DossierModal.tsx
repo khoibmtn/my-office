@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState } from 'react'
-import { X, Loader2, FolderPlus, Pencil } from 'lucide-react'
+import { X, Loader2, FolderPlus, Pencil, Folder, Check } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import type { Dossier } from '@/types'
 import { createDossier, updateDossier } from '@/lib/dossiers'
@@ -14,6 +14,17 @@ interface DossierModalProps {
   onClose: () => void
   onSuccess: () => void
 }
+
+const PRESET_COLORS = [
+  { name: 'Xanh dương', hex: '#2563eb' },
+  { name: 'Xanh lá', hex: '#10b981' },
+  { name: 'Vàng cam', hex: '#f59e0b' },
+  { name: 'Đỏ hồng', hex: '#f43f5e' },
+  { name: 'Tím', hex: '#8b5cf6' },
+  { name: 'Xanh lam', hex: '#06b6d4' },
+  { name: 'Chàm', hex: '#4f46e5' },
+  { name: 'Xám', hex: '#64748b' },
+]
 
 export function DossierModal({
   editingDossier,
@@ -29,6 +40,7 @@ export function DossierModal({
     editingDossier ? editingDossier.parentId : (parentDossier ? parentDossier.id : null)
   )
   const [description, setDescription] = useState(editingDossier?.description || '')
+  const [color, setColor] = useState(editingDossier?.color || '#2563eb')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
 
@@ -48,7 +60,7 @@ export function DossierModal({
       if (isEdit && editingDossier) {
         await updateDossier(
           editingDossier.id,
-          { name: name.trim(), description: description.trim() },
+          { name: name.trim(), description: description.trim(), color },
           staffId || 'unknown'
         )
       } else {
@@ -56,6 +68,7 @@ export function DossierModal({
           name: name.trim(),
           parentId: parentId || null,
           description: description.trim(),
+          color,
           actorId: staffId || 'unknown',
         })
       }
@@ -93,6 +106,46 @@ export function DossierModal({
               autoFocus
               className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
+          </div>
+
+          {/* Color Picker for Folder Icon */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1.5 flex items-center justify-between">
+              <span>Màu biểu tượng thư mục</span>
+              <span className="flex items-center gap-1.5 text-xs text-slate-600 font-semibold bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200">
+                <Folder className="w-3.5 h-3.5" style={{ color: color, fill: color }} />
+                <span>Xem trước</span>
+              </span>
+            </label>
+            <div className="flex items-center gap-2 flex-wrap pt-0.5">
+              {PRESET_COLORS.map(c => (
+                <button
+                  key={c.hex}
+                  type="button"
+                  onClick={() => setColor(c.hex)}
+                  className={`w-7 h-7 rounded-full transition-all flex items-center justify-center ${
+                    color.toLowerCase() === c.hex.toLowerCase()
+                      ? 'ring-2 ring-offset-2 ring-slate-800 scale-110 shadow-sm'
+                      : 'hover:scale-105'
+                  }`}
+                  style={{ backgroundColor: c.hex }}
+                  title={c.name}
+                >
+                  {color.toLowerCase() === c.hex.toLowerCase() && (
+                    <Check className="w-3.5 h-3.5 text-white drop-shadow-xs" />
+                  )}
+                </button>
+              ))}
+              <div className="relative flex items-center">
+                <input
+                  type="color"
+                  value={color}
+                  onChange={e => setColor(e.target.value)}
+                  className="w-7 h-7 rounded-full cursor-pointer border-0 p-0 overflow-hidden shadow-xs"
+                  title="Tùy chỉnh màu"
+                />
+              </div>
+            </div>
           </div>
 
           {!isEdit && (

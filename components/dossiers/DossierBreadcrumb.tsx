@@ -31,7 +31,10 @@ export function DossierBreadcrumb({ currentPath, onNavigate }: DossierBreadcrumb
                   : 'hover:text-blue-600 text-slate-600'
               }`}
             >
-              <Folder className={`w-4 h-4 shrink-0 ${isLast ? 'text-blue-600 fill-blue-50' : 'text-slate-400'}`} />
+              <Folder
+                className="w-4 h-4 shrink-0"
+                style={{ color: item.color || '#3b82f6', fill: item.color || '#3b82f6' }}
+              />
               <span className="truncate">{item.name}</span>
             </button>
           </React.Fragment>
