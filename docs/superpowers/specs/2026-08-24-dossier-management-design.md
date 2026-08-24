@@ -2,7 +2,7 @@
 
 **Ngày cập nhật:** 2026-08-24  
 **Dự án:** `my-office` — Ứng dụng Quản lý Văn bản Hành chính  
-**Trạng thái:** Đã cập nhật theo phản biện kiến trúc Production-Grade  
+**Trạng thái:** Đã tinh chỉnh kiến trúc chuẩn Production-Grade (Đã duyệt phản biện)  
 
 ---
 
@@ -13,32 +13,26 @@ Tính năng mới mở rộng hệ thống `my-office` với 3 trụ cột chín
 2. **Người phối hợp (Co-assignees):** Bổ sung danh sách người phối hợp (nhiều người) song song với Người thực hiện chính (1 người). Người phối hợp có quyền xem văn bản nhưng không được hoàn thành hay chỉnh sửa ngày hoàn thành.
 3. **Hệ thống Tag / Nhãn thông minh (macOS Finder style):** Gán tag màu cho Văn bản và Hồ sơ (`tagIds`); tích hợp bộ lọc Tag ở Sidebar bên trái với chế độ "5 nhãn phổ biến + Hiển thị tất cả + Tìm kiếm nhãn".
 4. **Tích hợp Quick Picker:** Cho phép thêm/bớt Hồ sơ chứa và Tag ngay trong Modal xem văn bản (`DocumentViewer`).
-5. **Nhật ký Hệ thống (Audit Log):** Ghi vết tất cả hành động thêm/sửa/xóa/chuyển giao hồ sơ và phân công văn bản.
+5. **Nhật ký Hệ thống (Audit Log):** Ghi vết tất cả hành động thêm/sửa/xóa/chuyển giao hồ sơ và phân công văn bản qua Business Service Layer.
 
 ---
 
-## 2. Phân quyền & Vai trò (RBAC 3 Tầng)
+## 2. Phân quyền & Vai trò (RBAC 3 Tầng & Access Matrix)
 
 ### 2.1. Kiến trúc Bảo mật 3 Tầng
 - **Tầng 1 (UI Permission):** Ẩn/hiện menu `/dossiers`, các nút thao tác trên giao diện.
-- **Tầng 2 (App Authorization):** Kiểm tra vai trò trong React Hooks (`usePermissions`, `useRole`) trước khi thực thi hàm API.
-- **Tầng 3 (Firestore Security Rules):** Chặn trực tiếp từ database server nếu gọi API sai quyền.
+- **Tầng 2 (Application Authorization):** Kiểm tra vai trò và điều kiện trong Business Service Layer trước khi gọi Firestore API.
+- **Tầng 3 (Firestore Security Rules):** Chặn trực tiếp từ database server dựa trên `request.auth` và `resource.data`.
 
-### 2.2. Phân định Quyền Sở hữu Hồ sơ (`ownerId`) vs Người thực hiện Văn bản (`assigneeId`)
-- `Dossier.ownerId`: Người sở hữu và quản lý Hồ sơ.
-- `Document.assigneeId`: Người thực hiện chính văn bản.
-- Chuyển giao Hồ sơ **không tự động thay đổi `assigneeId` của văn bản đã hoàn thành**.
+### 2.2. Ma trận Phân quyền Quyền Hạn (Access Matrix)
 
-### 2.3. Ma trận Phân quyền
-
-| Chức năng | Admin | Staff (Nhân viên) | Guest |
-|---|---|---|---|
-| Menu "Quản lý Hồ sơ" ở Sidebar | Hiển thị | Hiển thị | Ẩn hoàn toàn |
-| Xem Hồ sơ | Quản lý Hồ sơ do Admin sở hữu hoặc được chuyển | Quản lý Hồ sơ do Staff sở hữu (`ownerId == staffId`) | Không |
-| Thêm / Sửa / Xóa Hồ sơ | Có | Phụ thuộc permission switch | Không |
-| Chuyển giao Hồ sơ | Có | Phụ thuộc permission switch | Không |
-| Hoàn thành văn bản | Tất cả văn bản | Chỉ văn bản làm Người chính (`assigneeId`) | Không |
-| Xem văn bản làm Người phối hợp | Có | Có (`coAssigneeIds.includes(staffId)`) | Có |
+| Vai trò (Role) | Thư mục Hồ sơ (Dossier) | Văn bản (Document) |
+|---|---|---|
+| **Admin** | Full CRUD tất cả Hồ sơ toàn hệ thống | Full CRUD tất cả Văn bản |
+| **Staff (Owner)** | Full CRUD Hồ sơ do mình sở hữu (`ownerId == staffId`) | Phụ thuộc phân công (Chính / Phối hợp) |
+| **Staff (Assignee)** | Không mặc nhiên quản lý Hồ sơ chứa | Full workflow (Hoàn thành, sửa ngày) |
+| **Staff (Co-assignee)** | Không mặc nhiên quản lý Hồ sơ chứa | Chỉ xem metadata, đính kèm, iframe (Read-only) |
+| **Guest** | Không xem được (Ẩn menu `/dossiers`) | Chỉ xem theo quyền guest hiện tại |
 
 Các công tắc cấu hình trong `/settings/permissions`:
 - `canCreateDossier`: Cho phép tạo hồ sơ
@@ -56,7 +50,7 @@ export interface DossierChecklistItem {
   id: string              // nanoid (8 chars)
   title: string           // Tên công việc/hạng mục
   completed: boolean      // Trạng thái hoàn thành
-  completedAt?: Timestamp // Thời điểm hoàn thành
+  completedAt?: Timestamp // Thời điểm hoàn thành (tự động gán serverTimestamp)
   completedBy?: string    // staffId người tích hoàn thành
   order: number           // Thứ tự sắp xếp
 }
@@ -65,22 +59,24 @@ export interface Dossier {
   id: string              // Firestore docId
   name: string            // Tên hồ sơ
   parentId: string | null // ID hồ sơ cha (null nếu Cấp 1)
-  level: 1 | 2 | 3        // Cấp hồ sơ (1, 2, 3)
+  level: 1 | 2 | 3        // Cấp hồ sơ (Server tự tính toán dựa trên parent.level + 1)
   createdBy: string       // staffId người tạo ban đầu (Audit log)
   ownerId: string         // staffId người sở hữu/quản lý hiện tại (Source of Truth)
   description: string     // Ghi chú cấu trúc, mục đích hồ sơ
   checklist: DossierChecklistItem[] // Danh sách tiến độ
-  tagIds: string[]        // [CHUẨN HÓA] Mảng ID các nhãn/tag
+  tagIds: string[]        // Mảng ID các nhãn/tag (Tham chiếu `/tags`)
+  deletedAt?: Timestamp   // Thời điểm xóa mềm (Soft delete)
+  deletedBy?: string      // staffId người xóa
   createdAt: Timestamp
   updatedAt: Timestamp
 }
 ```
 
-### 3.2. Collection `/tags/{tagId}`
+### 3.2. Collection `/tags/{tagId}` (Dùng chung toàn hệ thống)
 ```typescript
 export interface Tag {
   id: string              // Firestore docId
-  name: string            // Tên nhãn (unique string)
+  name: string            // Tên nhãn (unique global, normalized lowercase check)
   color: string           // Mã màu (vd: #EF4444, #3B82F6...)
   createdBy: string       // staffId người tạo
   createdAt: Timestamp
@@ -89,13 +85,23 @@ export interface Tag {
 
 ### 3.3. Collection `/auditLogs/{logId}` (Nhật ký Hệ thống)
 ```typescript
+export interface AuditLogMetadata {
+  fromOwnerId?: string
+  toOwnerId?: string
+  transferredChildIds?: string[]
+  reassignedDocumentIds?: string[]
+  field?: string
+  operation?: string
+  [key: string]: any
+}
+
 export interface AuditLog {
   id: string              // Firestore docId
-  entityType: 'dossier' | 'document'
+  entityType: 'dossier' | 'document' | 'tag'
   entityId: string
   action: 'CREATE' | 'UPDATE' | 'DELETE' | 'TRANSFER' | 'ASSIGN'
   actorId: string         // staffId người thực hiện
-  metadata: Record<string, any> // Chi tiết thay đổi (ví dụ: fromUserId, toUserId...)
+  metadata: AuditLogMetadata // Đã chuẩn hóa chi tiết
   createdAt: Timestamp
 }
 ```
@@ -107,48 +113,40 @@ export interface Document {
   assigneeId?: string        // Người thực hiện chính (1 staffId)
   coAssigneeIds?: string[]   // Người phối hợp (mảng staffId)
   dossierIds?: string[]      // Mảng ID các hồ sơ chứa văn bản này
-  tagIds?: string[]          // [CHUẨN HÓA] Mảng ID các nhãn/tag
+  tagIds?: string[]          // Mảng ID các nhãn/tag (Tham chiếu `/tags`)
 }
 ```
 
 ---
 
-## 4. Giao diện & Quy tắc Luồng Nghiệp vụ
+## 4. Các Invariant Kỹ thuật & Logic Nghiệp vụ Chi tiết
 
-### 4.1. Giao diện Trang `/dossiers`
-- **Breadcrumb:** Đường dẫn thư mục `Hồ sơ của tôi / Kế hoạch / Chỉ đạo tuyến`.
-- **Thanh Công cụ:** Nút `+ Thêm hồ sơ`, `Chuyển hồ sơ`, `Ghi chú & Tiến độ`, Ô tìm kiếm (`[ ] Tìm trong thư mục này` / `[x] Tìm toàn bộ`).
-  - Khi tìm toàn bộ: Hiển thị thêm cột `📍 Vị trí lưu` (ví dụ: `Kế hoạch > Chỉ đạo tuyến`).
-- **Tầng trên (Folders):** Thẻ thông tin các hồ sơ con (Tên, icon folder, số lượng văn bản, % tiến độ).
-- **Tầng dưới (Document Table):** Tái sử dụng component `DocumentTable` đầy đủ chức năng (giao việc, xem/sửa/xóa, phân trang, filter status).
-- **Panel bên phải (Collapsible):**
-  - Textarea ghi chú mô tả mục đích hồ sơ (**tự động lưu dạng debounce 1000ms / onBlur** để tránh ghi Firestore liên tục).
-  - Progress bar + danh sách Checklist có thông tin người tích và thời gian tích.
+### 4.1. Invariants Xóa Hồ sơ (Dossier Deletion Invariants)
+1. **Ràng buộc Hồ sơ con (Child Invariant):** Không cho phép xóa trực tiếp Hồ sơ cha nếu vẫn còn Hồ sơ con bên trong. Hiển thị thông báo: *"Hồ sơ này đang có X hồ sơ con. Vui lòng di chuyển hoặc xóa các hồ sơ con trước khi xóa."*
+2. **Ràng buộc Mảng `dossierIds` của Văn bản (Document Invariant):**
+   - Khi xóa một Hồ sơ $D_2$, hệ thống **chỉ xóa duy nhất $D_2$** khỏi mảng `dossierIds` của văn bản (và thêm $D_{parent}$ nếu chọn Option A và chưa có $D_{parent}$).
+   - **TUYỆT ĐỐI KHÔNG** đè hoặc làm mất các ID hồ sơ khác ($D_1, D_3$) mà văn bản đó đang thuộc về.
+3. **Soft Delete:** Thực hiện gán `deletedAt` và `deletedBy`. Chỉ Admin có quyền xóa vĩnh viễn (Hard delete).
 
-### 4.2. Logic Xóa Hồ sơ (Dossier Deletion Popup Prompt)
-Khi người dùng bấm xóa một hồ sơ, hệ thống sẽ mở **Modal xác nhận chọn 1 trong 2 tùy chọn**:
-- **Tùy chọn A:** *"Xóa hồ sơ và chuyển toàn bộ văn bản bên trong lên Hồ sơ cấp cha"* (Loại bỏ ID hồ sơ bị xóa, thêm ID hồ sơ cha vào `dossierIds`).
-- **Tùy chọn B:** *"Xóa hồ sơ và giải phóng toàn bộ văn bản ra ngoài hồ sơ"* (Loại bỏ ID hồ sơ bị xóa khỏi `dossierIds`, văn bản trở thành văn bản tự do).
+### 4.2. Invariants Chuyển giao Hồ sơ (Dossier Transfer Invariants)
+1. **Ràng buộc Cây Hồ sơ con không được chọn (Deterministic Hierarchy Rule):**
+   - Khi chuyển giao Hồ sơ $B$ sang Target User, bất kỳ Hồ sơ con $C$ nào **KHÔNG được chọn chuyển giao** sẽ được set `C.parentId = null` (trở thành Hồ sơ Cấp 1 độc lập thuộc sở hữu của Owner cũ).
+   - Đảm bảo 100% **không xảy ra lỗi Cross-owner hierarchy** (Hồ sơ cha thuộc User B nhưng Hồ sơ con thuộc User A).
+2. **Xử lý Trùng tên:** Tự động kiểm tra trùng tên theo bộ `(ownerId, parentId, normalizedName)`. Nếu trùng tên ở người nhận, tự động thêm suffix ` (Khôi chuyển)`.
+3. **Phân công Văn bản:**
+   - **Văn bản ĐÃ HOÀN THÀNH:** Giữ nguyên Người thực hiện chính (`assigneeId`) tại thời điểm hoàn thành.
+   - **Văn bản CHƯA HOÀN THÀNH:** Bật tùy chọn `[x] Gán Người thực hiện chính sang người mới`. Nếu tích -> cập nhật `assigneeId = targetUser`.
+4. **Server-side Atomic Operation:** Toàn bộ nghiệp vụ Transfer được xử lý tập trung tại Business Service (`lib/dossiers.ts`), chạy qua Firestore WriteBatch/Transaction để đảm bảo tính toàn vẹn (Atomic), không thực hiện các câu lệnh write lẻ tẻ ở Client.
 
-### 4.3. Logic Chuyển giao Hồ sơ (Dossier Transfer Logic)
-Khi bấm "Chuyển hồ sơ", hiển thị Modal gồm:
-1. Dropdown chọn **Người nhận mới (Target User)**.
-2. Danh sách Checkbox cây hồ sơ con (Cấp 2, 3) thuộc Hồ sơ đang chọn (Mặc định tích chọn tất cả).
-3. **Quy tắc phân công Văn bản:**
-   - **Văn bản ĐÃ HOÀN THÀNH:** Giữ nguyên Người thực hiện chính (`assigneeId`) tại thời điểm hoàn thành. **Không gán người chính mới**.
-   - **Văn bản CHƯA HOÀN THÀNH:** Hiển thị công tắc tùy chọn `[x] Gán Người thực hiện chính của văn bản chưa hoàn thành sang người mới`. Nếu tích chọn -> Cập nhật `assigneeId = targetUser`. Nếu bỏ chọn -> Giữ nguyên `assigneeId` cũ.
-4. **Xử lý trùng tên:** Nếu bên người nhận đã có hồ sơ cùng tên, tự động nối đuôi tên dạng `Kế hoạch (Khôi chuyển)`.
-5. **Xử lý Hồ sơ con KHÔNG được tích chọn:** Set `parentId = null` (trở thành Hồ sơ Cấp 1 tự do) hoặc gán về Cấp cha thuộc sở hữu của User hiện tại để tránh lỗi "Cross-owner hierarchy".
+### 4.3. Quy tắc Đặt tên & Cấp Hồ sơ (Level & Naming Rules)
+- **Tính toán Cấp (Level):** Server/Service tự tính `level = parentId ? parent.level + 1 : 1`. Từ chối tạo nếu `level > 3`.
+- **Độc nhất Tên Hồ sơ (Name Uniqueness):** Tên hồ sơ là duy nhất trong cùng một hồ sơ cha của cùng một Owner: `(ownerId, parentId, name.trim().toLowerCase())`.
 
-### 4.4. Người phối hợp (Co-assignees)
-- Multi-select dropdown chọn người phối hợp `coAssigneeIds` trong `DocumentModal`.
-- Người thực hiện chính tự động bị loại khỏi danh sách chọn Người phối hợp.
-- Người phối hợp chỉ có quyền xem văn bản. Nút Hoàn thành và ô chỉnh ngày hoàn thành bị vô hiệu hóa kèm tooltip thông báo.
-
-### 4.5. Panel Tag Sidebar Finder & Quick Picker Viewer
-- Sidebar bên trái hiển thị mục `NHÃN (TAGS)` liệt kê 5 tag phổ biến nhất + nút `Hiển thị tất cả` (mở Modal danh sách đầy đủ kèm ô Tìm kiếm tag).
-- Lọc theo Tag ID (`tagIds`).
-- Trong `DocumentViewer`: Cột trái hiển thị mục `Hồ sơ chứa` và `Nhãn (Tags)` cho phép thêm/bớt nhanh trực tiếp.
+### 4.4. Cấu trúc Business Service Layer
+Các React UI Component tuyệt đối không gọi trực tiếp Firestore CRUD mà phải qua Business Service:
+- `lib/dossiers.ts`: `createDossier()`, `updateDossier()`, `deleteDossier()`, `transferDossier()`, `addDocumentToDossier()`, `removeDocumentFromDossier()`.
+- `lib/tags.ts`: `createTag()`, `updateTag()`, `deleteTag()`, `resolveTagIds()`.
+- `lib/audit.ts`: `logAuditAction()`.
 
 ---
 
@@ -156,28 +154,27 @@ Khi bấm "Chuyển hồ sơ", hiển thị Modal gồm:
 
 ```mermaid
 graph TD
-    A[Phase 1: Core Dossier Engine] --> B[Phase 2: Workflow & Transfer]
+    A[Phase 1: Core Engine & Business Service Layer] --> B[Phase 2: Workflow & Transfer]
     B --> C[Phase 3: Tags & Finder Polish]
     
-    subgraph Phase 1: Core Dossier Engine
-    A1[Schema & Types: Dossier, tagIds, coAssigneeIds]
-    A2[RBAC & Firestore Rules 3 Tầng]
-    A3[Dossier CRUD & Hierarchy Tree]
-    A4[Page /dossiers & Breadcrumb Navigation]
-    A5[Document ↔ Dossier Mapping in DocumentTable]
+    subgraph Phase 1: Core Engine & Business Service Layer
+    A1[Schema & Types: Dossier, Tag, AuditLog, Document]
+    A2[Business Service Layer: lib/dossiers.ts, lib/audit.ts]
+    A3[RBAC & 3-Tier Firestore Security Rules]
+    A4[Page /dossiers, Breadcrumb & Dossier Table]
+    A5[Document ↔ Dossier Mapping & Delete Invariant]
     end
     
     subgraph Phase 2: Workflow & Transfer
     B1[Co-assignees Multi-select & View-only Permissions]
-    B2[Transfer Dossier Modal with Options]
-    B3[Delete Dossier Prompt Options A & B]
+    B2[Transfer Dossier Atomic Operation with Options]
+    B3[Delete Dossier Prompt & Child Prevention Check]
     B4[Checklist Metadata & Debounced Description Notes]
-    B5[Audit Log Collection & Triggers]
     end
     
     subgraph Phase 3: Tags & Finder Polish
-    C1[Tags Collection /tags & Tag ID resolution]
-    C2[Sidebar Finder Tag Panel with Top 5 & Search]
+    C1[Tags Service lib/tags.ts & Global Tag Unique Check]
+    C2[Sidebar Finder Tag Panel with Top 5 & Search Modal]
     C3[DocumentViewer Quick Dossier & Tag Pickers]
     C4[Global Search with Location Pathing]
     end
@@ -187,15 +184,14 @@ graph TD
 
 ## 6. Kế hoạch Kiểm thử & Xác minh Comprehensive (Verification Plan)
 
-1. **Kiểm thử Bảo mật (Security Rules & RBAC):**
-   - Đăng nhập Guest -> Gọi direct Firestore query `/dossiers` -> Phải nhận `permission-denied`.
-   - Đăng nhập Staff A -> Truy vấn `/dossiers` của Staff B -> Phải nhận `permission-denied` từ Firestore Rules.
-2. **Kiểm thử Xóa Hồ sơ (Prompt Options):**
-   - Chọn Option A -> Xác minh văn bản được đẩy lên hồ sơ cha.
-   - Chọn Option B -> Xác minh văn bản thành văn bản tự do.
-3. **Kiểm thử Chuyển giao Hồ sơ:**
-   - Chuyển hồ sơ có văn bản hoàn thành & chưa hoàn thành -> Xác minh văn bản hoàn thành giữ nguyên `assigneeId`, văn bản chưa hoàn thành gán đúng theo tùy chọn user.
-4. **Kiểm thử Tag ID & Rename:**
-   - Tạo tag -> Gán `tagId` -> Đổi tên tag -> Xác minh tất cả văn bản & hồ sơ cập nhật tên nhãn tức thì không cần scan database.
-5. **Kiểm thử Audit Log:**
-   - Tạo/Sửa/Xóa/Chuyển hồ sơ -> Kiểm tra collection `/auditLogs` lưu đầy đủ `actorId`, `action`, `metadata`.
+1. **Kiểm thử Invariants Xóa Hồ sơ:**
+   - Xóa Hồ sơ $D_2$ của Văn bản có `dossierIds = [D_1, D_2, D_3]` -> Xác minh mảng giữ nguyên `[D_1, D_3]`, không bị xóa sạch hoặc đè mảng.
+   - Thử xóa Hồ sơ cha có 2 hồ sơ con -> Bị chặn với thông báo yêu cầu xóa/di chuyển hồ sơ con trước.
+2. **Kiểm thử Deterministic Transfer & Hierarchy:**
+   - Chuyển Hồ sơ $B$ sang User X (bỏ chọn Hồ sơ con $C$) -> Xác minh $C.parentId == null$, trở thành Cấp 1 của Owner cũ. Đảm bảo không xảy ra lỗi cross-owner.
+3. **Kiểm thử Tag ID Resolution & Rename (Sửa Test đúng):**
+   - Đổi tên Tag trong `/tags/{tagId}` -> Xác minh Văn bản và Hồ sơ **giữ nguyên `tagIds`**, UI tự động hiển thị tên nhãn mới qua Service `resolveTagIds()` mà không cần scan hay update Document.
+4. **Kiểm thử Audit Log Phase 1:**
+   - Thực hiện Tạo/Sửa/Xóa/Chuyển giao Hồ sơ -> Xác minh collection `/auditLogs` lưu chính xác `actorId`, `metadata` chuẩn hóa.
+5. **Kiểm thử Security Rules Tầng 3:**
+   - Dùng tài khoản Staff A gọi direct read query `/dossiers` của Staff B -> Firestore từ chối với lỗi `permission-denied`.
