@@ -1,14 +1,17 @@
 'use client'
 
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef, useMemo } from 'react'
 import {
   X, CheckSquare, Plus, Trash2, FileText, Loader2, StickyNote,
-  MessageSquare, Send, CornerDownLeft, User, Share2
+  MessageSquare, Send, CornerDownLeft, User, Share2, Pencil,
+  ChevronUp, ChevronDown, Check
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import type { Dossier, DossierChecklistItem, DossierComment } from '@/types'
 import { updateDossier, addDossierComment, deleteDossierComment } from '@/lib/dossiers'
 import { useRole } from '@/hooks/useRole'
+import { useDocuments } from '@/hooks/useDocuments'
+import { useDossiers } from '@/hooks/useDossiers'
 
 interface DossierPanelProps {
   dossier: Dossier
@@ -45,8 +48,44 @@ function formatCommentTime(ts: any): string {
 
 export function DossierPanel({ dossier, onClose, canEdit, onShare }: DossierPanelProps) {
   const { staffId, staffName, role, isAdmin } = useRole()
-  const isOwner = dossier.ownerId === staffId || (isAdmin && (dossier.ownerId === 'admin' || !dossier.ownerId)) || isAdmin
-  const canEditChecklist = isOwner || isAdmin
+  const { documents } = useDocuments()
+  const { dossiers } = useDossiers()
+
+  const isOwner =
+    dossier.ownerId === staffId ||
+    (isAdmin && (dossier.ownerId === 'admin' || !dossier.ownerId)) ||
+    isAdmin
+
+  // Collect all descendant folder IDs in this dossier tree (including this dossier)
+  const treeDossierIds = useMemo(() => {
+    const ids = new Set<string>([dossier.id])
+    const collect = (pid: string) => {
+      dossiers.filter(d => d.parentId === pid && !d.deletedAt).forEach(child => {
+        ids.add(child.id)
+        collect(child.id)
+      })
+    }
+    collect(dossier.id)
+    return ids
+  }, [dossier.id, dossiers])
+
+  // Check if current user is assigned or co-assigned to at least 1 document in this dossier or any of its subfolders
+  const hasAssignedDocInTree = useMemo(() => {
+    if (isAdmin || isOwner) return true
+    if (!documents || !staffId) return false
+    return documents.some(doc => {
+      const inTree = (doc.dossierIds || []).some(did => treeDossierIds.has(did))
+      if (!inTree) return false
+      const isAssigned =
+        doc.assigneeId === staffId ||
+        (doc.coAssigneeIds || []).includes(staffId) ||
+        (staffName && doc.assignee === staffName)
+      return isAssigned
+    })
+  }, [isAdmin, isOwner, documents, staffId, staffName, treeDossierIds])
+
+  // Permission for checklist: Owner, Admin, OR shared user with at least 1 assigned document in the tree
+  const canEditChecklist = isOwner || isAdmin || hasAssignedDocInTree
   const canShare = isOwner || isAdmin
   
   // Section 1: Description
@@ -60,6 +99,8 @@ export function DossierPanel({ dossier, onClose, canEdit, onShare }: DossierPane
   // Section 3: Checklist
   const [checklist, setChecklist] = useState<DossierChecklistItem[]>(dossier.checklist || [])
   const [newTaskTitle, setNewTaskTitle] = useState('')
+  const [editingTaskId, setEditingTaskId] = useState<string | null>(null)
+  const [editingTaskTitle, setEditingTaskTitle] = useState('')
 
   // Section 4: Comments (Chat)
   const [comments, setComments] = useState<DossierComment[]>(dossier.comments || [])
@@ -74,6 +115,8 @@ export function DossierPanel({ dossier, onClose, canEdit, onShare }: DossierPane
     setNotes(dossier.notes || '')
     setChecklist(dossier.checklist || [])
     setComments(dossier.comments || [])
+    setEditingTaskId(null)
+    setEditingTaskTitle('')
   }, [dossier])
 
   // Scroll to bottom of chat when comments change
@@ -168,6 +211,38 @@ export function DossierPanel({ dossier, onClose, canEdit, onShare }: DossierPane
     const newList = [...checklist, newItem]
     setNewTaskTitle('')
     saveChecklist(newList)
+  }
+
+  const handleStartEditTask = (item: DossierChecklistItem) => {
+    if (!canEditChecklist) return
+    setEditingTaskId(item.id)
+    setEditingTaskTitle(item.title)
+  }
+
+  const handleSaveEditTask = (taskId: string) => {
+    if (!editingTaskTitle.trim()) return
+    const newList = checklist.map(item =>
+      item.id === taskId ? { ...item, title: editingTaskTitle.trim() } : item
+    )
+    setEditingTaskId(null)
+    setEditingTaskTitle('')
+    saveChecklist(newList)
+  }
+
+  const handleCancelEditTask = () => {
+    setEditingTaskId(null)
+    setEditingTaskTitle('')
+  }
+
+  const handleMoveTask = (index: number, direction: 'up' | 'down') => {
+    if (!canEditChecklist) return
+    const targetIndex = direction === 'up' ? index - 1 : index + 1
+    if (targetIndex < 0 || targetIndex >= checklist.length) return
+    const newList = [...checklist]
+    const [moved] = newList.splice(index, 1)
+    newList.splice(targetIndex, 0, moved)
+    const updatedList = newList.map((item, idx) => ({ ...item, order: idx + 1 }))
+    saveChecklist(updatedList)
   }
 
   const handleDeleteTask = (taskId: string) => {
@@ -324,39 +399,120 @@ export function DossierPanel({ dossier, onClose, canEdit, onShare }: DossierPane
               {checklist.length === 0 ? (
                 <p className="text-xs text-slate-400 italic text-center py-2">Chưa có công việc nào trong checklist</p>
               ) : (
-                checklist.map(item => (
+                checklist.map((item, idx) => (
                   <div
                     key={item.id}
-                    className={`flex items-start gap-2.5 p-2 rounded-lg border transition-colors ${
-                      item.completed ? 'bg-emerald-100/50 border-emerald-200' : 'bg-white border-emerald-200/70 hover:border-emerald-300'
+                    className={`group/task flex items-start gap-2 p-2 rounded-lg border transition-all ${
+                      item.completed
+                        ? 'bg-emerald-100/50 border-emerald-200'
+                        : 'bg-white border-emerald-200/70 hover:border-emerald-300 shadow-2xs'
                     }`}
                   >
-                    <input
-                      type="checkbox"
-                      checked={item.completed}
-                      onChange={() => handleToggleTask(item.id)}
-                      disabled={!canEdit}
-                      className="mt-0.5 w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer disabled:cursor-not-allowed"
-                    />
-                    <div className="flex-1 min-w-0">
-                      <p className={`text-xs leading-tight ${item.completed ? 'line-through text-slate-400' : 'text-slate-800 font-medium'}`}>
-                        {item.title}
-                      </p>
-                      {item.completed && item.completedBy && (
-                        <span className="text-[10px] text-slate-400 italic block mt-0.5">
-                          ✓ {item.completedBy}
-                        </span>
-                      )}
-                    </div>
-                    {canEdit && (
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteTask(item.id)}
-                        className="p-1 text-slate-300 hover:text-red-600 transition-colors cursor-pointer"
-                        title="Xóa công việc"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                    {editingTaskId === item.id ? (
+                      // Inline edit mode
+                      <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                        <input
+                          type="text"
+                          value={editingTaskTitle}
+                          onChange={e => setEditingTaskTitle(e.target.value)}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault()
+                              handleSaveEditTask(item.id)
+                            } else if (e.key === 'Escape') {
+                              handleCancelEditTask()
+                            }
+                          }}
+                          autoFocus
+                          placeholder="Tên công việc..."
+                          className="flex-1 px-2 py-1 text-xs border border-emerald-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white text-slate-800"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleSaveEditTask(item.id)}
+                          disabled={!editingTaskTitle.trim()}
+                          className="p-1 rounded bg-emerald-600 hover:bg-emerald-700 text-white transition-colors disabled:opacity-50"
+                          title="Lưu (Enter)"
+                        >
+                          <Check className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleCancelEditTask}
+                          className="p-1 rounded bg-slate-200 hover:bg-slate-300 text-slate-700 transition-colors"
+                          title="Hủy (Esc)"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    ) : (
+                      // Normal display mode
+                      <>
+                        <input
+                          type="checkbox"
+                          checked={item.completed}
+                          onChange={() => handleToggleTask(item.id)}
+                          disabled={!canEditChecklist}
+                          className="mt-0.5 w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer disabled:cursor-not-allowed shrink-0"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-xs leading-tight break-words ${item.completed ? 'line-through text-slate-400' : 'text-slate-800 font-medium'}`}>
+                            {item.title}
+                          </p>
+                          {item.completed && item.completedBy && (
+                            <span className="text-[10px] text-emerald-700/80 italic block mt-0.5">
+                              ✓ {item.completedBy}
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Action buttons (Move Up, Move Down, Edit, Delete) */}
+                        {canEditChecklist && (
+                          <div className="flex items-center gap-0.5 opacity-70 group-hover/task:opacity-100 transition-opacity shrink-0">
+                            {/* Move Up */}
+                            <button
+                              type="button"
+                              onClick={() => handleMoveTask(idx, 'up')}
+                              disabled={idx === 0}
+                              className="p-1 text-slate-400 hover:text-emerald-700 disabled:opacity-20 disabled:hover:text-slate-400 transition-colors"
+                              title="Di chuyển lên trên"
+                            >
+                              <ChevronUp className="w-3.5 h-3.5" />
+                            </button>
+
+                            {/* Move Down */}
+                            <button
+                              type="button"
+                              onClick={() => handleMoveTask(idx, 'down')}
+                              disabled={idx === checklist.length - 1}
+                              className="p-1 text-slate-400 hover:text-emerald-700 disabled:opacity-20 disabled:hover:text-slate-400 transition-colors"
+                              title="Di chuyển xuống dưới"
+                            >
+                              <ChevronDown className="w-3.5 h-3.5" />
+                            </button>
+
+                            {/* Edit */}
+                            <button
+                              type="button"
+                              onClick={() => handleStartEditTask(item)}
+                              className="p-1 text-slate-400 hover:text-blue-600 transition-colors"
+                              title="Chỉnh sửa công việc"
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </button>
+
+                            {/* Delete */}
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteTask(item.id)}
+                              className="p-1 text-slate-400 hover:text-red-600 transition-colors"
+                              title="Xóa công việc"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        )}
+                      </>
                     )}
                   </div>
                 ))
@@ -364,7 +520,7 @@ export function DossierPanel({ dossier, onClose, canEdit, onShare }: DossierPane
             </div>
 
             {/* Add new task input */}
-            {canEdit && (
+            {canEditChecklist && (
               <form onSubmit={handleAddTask} className="flex gap-1.5">
                 <input
                   type="text"
