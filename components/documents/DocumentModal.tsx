@@ -328,8 +328,9 @@ export function DocumentModal({ docId, onClose }: DocumentModalProps) {
                         const member = staff.find(s => s.id === e.target.value)
                         handleUpdateAssignee(member?.shortName || '')
                         if (member) {
-                          updateDocument(doc.id, { assigneeId: member.id, assignee: member.shortName })
-                          setDoc(prev => prev ? { ...prev, assigneeId: member.id, assignee: member.shortName } : prev)
+                          const updatedCoAssignees = (doc.coAssigneeIds || []).filter(cid => cid !== member.id)
+                          updateDocument(doc.id, { assigneeId: member.id, assignee: member.shortName, coAssigneeIds: updatedCoAssignees })
+                          setDoc(prev => prev ? { ...prev, assigneeId: member.id, assignee: member.shortName, coAssigneeIds: updatedCoAssignees } : prev)
                         } else {
                           updateDocument(doc.id, { assigneeId: '', assignee: '' })
                           setDoc(prev => prev ? { ...prev, assigneeId: '', assignee: '' } : prev)
@@ -348,6 +349,55 @@ export function DocumentModal({ docId, onClose }: DocumentModalProps) {
                     <span style={{ fontSize: '13px' }}>
                       {doc.assigneeId ? getStaffName(doc.assigneeId) : (doc.assignee || '—')}
                     </span>
+                  )}
+                </div>
+                <div className="meta-row" style={{ alignItems: 'flex-start' }}>
+                  <span className="meta-label" style={{ marginTop: 4 }}>Người phối hợp:</span>
+                  {perms.canAssignStaff ? (
+                    <div className="flex flex-wrap gap-1.5 flex-1 p-2 rounded-md bg-slate-50 border border-slate-200">
+                      {staff
+                        .filter(s => s.isActive && s.id !== doc.assigneeId)
+                        .map(s => {
+                          const isCoAssignee = (doc.coAssigneeIds || []).includes(s.id)
+                          return (
+                            <button
+                              key={s.id}
+                              type="button"
+                              onClick={() => {
+                                const current = doc.coAssigneeIds || []
+                                const updated = isCoAssignee
+                                  ? current.filter(id => id !== s.id)
+                                  : [...current, s.id]
+                                setDoc(prev => prev ? { ...prev, coAssigneeIds: updated } : prev)
+                                updateDocument(doc.id, { coAssigneeIds: updated })
+                              }}
+                              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium transition-colors border cursor-pointer ${
+                                isCoAssignee
+                                  ? 'bg-blue-100 border-blue-300 text-blue-800 font-semibold'
+                                  : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-100'
+                              }`}
+                            >
+                              <span>{isCoAssignee ? '✓' : '+'}</span>
+                              <span>{s.shortName}</span>
+                            </button>
+                          )
+                        })}
+                    </div>
+                  ) : (
+                    <div className="flex flex-wrap gap-1 items-center flex-1 py-1">
+                      {(doc.coAssigneeIds || []).length > 0 ? (
+                        (doc.coAssigneeIds || []).map(cid => (
+                          <span
+                            key={cid}
+                            className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-700 border border-slate-200"
+                          >
+                            {getStaffName(cid)}
+                          </span>
+                        ))
+                      ) : (
+                        <span style={{ fontSize: '13px', color: '#94a3b8' }}>—</span>
+                      )}
+                    </div>
                   )}
                 </div>
                 <div className="meta-row" style={{ alignItems: 'flex-start', flexDirection: 'column' }}>

@@ -12,6 +12,7 @@ import { Label } from '@/components/ui/label'
 import { AttachmentInput } from '@/components/documents/AttachmentInput'
 import { getDocument, updateDocument, submitDocumentWithDriveCopy } from '@/lib/firestore'
 import { usePermissions } from '@/hooks/usePermissions'
+import { useStaff } from '@/hooks/useStaff'
 import type { Document, DocumentStatus, AttachmentInput as AttachmentItem } from '@/types'
 
 type AttachmentRow = AttachmentItem & { id: string }
@@ -27,6 +28,8 @@ export default function EditDocumentPage() {
   const router = useRouter()
   const { id } = useParams<{ id: string }>()
   const perms = usePermissions()
+  const { staff } = useStaff()
+  const activeStaff = staff.filter(s => s.isActive)
 
   // Permission guard
   useEffect(() => {
@@ -50,11 +53,28 @@ export default function EditDocumentPage() {
   const [issueDate, setIssueDate] = useState('')
   const [priority, setPriority] = useState('normal')
   const [assignee, setAssignee] = useState('')
+  const [assigneeId, setAssigneeId] = useState('')
+  const [coAssigneeIds, setCoAssigneeIds] = useState<string[]>([])
   const [tags, setTags] = useState('')
   const [attachments, setAttachments] = useState<AttachmentRow[]>([
     { id: uuid(), title: '', originalLink: '' },
   ])
   const [originalLinkChanged, setOriginalLinkChanged] = useState(false)
+
+  const handleToggleCoAssignee = (id: string) => {
+    setCoAssigneeIds(prev =>
+      prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
+    )
+  }
+
+  const handleAssigneeChange = (id: string) => {
+    setAssigneeId(id)
+    const member = activeStaff.find(s => s.id === id)
+    setAssignee(member?.shortName || '')
+    if (id) {
+      setCoAssigneeIds(prev => prev.filter(item => item !== id))
+    }
+  }
 
   useEffect(() => {
     getDocument(id).then((d) => {
@@ -66,6 +86,8 @@ export default function EditDocumentPage() {
       setNotes(d.notes ?? '')
       setStatus((d.status === 'uploading' || d.status === 'upload_failed') ? 'pending' : d.status as DocumentStatus)
       setAssignee(d.assignee ?? '')
+      setAssigneeId(d.assigneeId ?? '')
+      setCoAssigneeIds(d.coAssigneeIds ?? [])
       setPriority(d.priority ?? 'normal')
       setTags((d.tags ?? []).join(', '))
       if (d.deadline) {
@@ -123,6 +145,8 @@ export default function EditDocumentPage() {
         notes: notes || undefined,
         status: effectiveStatus,
         assignee: assignee || undefined,
+        assigneeId: assigneeId || undefined,
+        coAssigneeIds,
         priority: priority || 'normal',
         tags: tags ? tags.split(',').map((t) => t.trim()).filter(Boolean) : [],
         deadline: deadline ? new Date(deadline + 'T00:00:00') : null,
@@ -212,7 +236,7 @@ export default function EditDocumentPage() {
                 setStatus(assignee ? 'in_progress' : 'pending')
               }
             }} 
-          />
+            />
           {completedDate && issueDate && completedDate < issueDate && (
             <span className="text-red-500 text-xs">Ngày hoàn thành phải &gt;= ngày ban hành</span>
           )}
@@ -235,8 +259,46 @@ export default function EditDocumentPage() {
         </div>
 
         <div className="flex flex-col gap-1">
-          <Label htmlFor="assignee">Người nhận</Label>
-          <Input id="assignee" value={assignee} onChange={(e) => setAssignee(e.target.value)} />
+          <Label htmlFor="assignee">Người thực hiện chính</Label>
+          <select
+            id="assignee"
+            value={assigneeId}
+            onChange={(e) => handleAssigneeChange(e.target.value)}
+            className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm font-medium"
+          >
+            <option value="">-- Chưa giao --</option>
+            {activeStaff.map(s => (
+              <option key={s.id} value={s.id}>{s.shortName} — {s.fullName}</option>
+            ))}
+          </select>
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <Label>Người phối hợp (Nhiều người, chỉ xem)</Label>
+          <div className="flex flex-wrap gap-2 p-2.5 border border-slate-200 rounded-md bg-slate-50/50">
+            {activeStaff
+              .filter(s => s.id !== assigneeId)
+              .map(s => {
+                const checked = coAssigneeIds.includes(s.id)
+                return (
+                  <label
+                    key={s.id}
+                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium cursor-pointer border transition-colors ${
+                      checked ? 'bg-blue-100 border-blue-300 text-blue-800' : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() => handleToggleCoAssignee(s.id)}
+                      className="sr-only"
+                    />
+                    <span>{checked ? '✓' : '+'}</span>
+                    <span>{s.shortName}</span>
+                  </label>
+                )
+              })}
+          </div>
         </div>
 
         <div className="flex flex-col gap-1">

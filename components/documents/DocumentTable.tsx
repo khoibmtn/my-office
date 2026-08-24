@@ -269,21 +269,28 @@ function DocumentCard({
             ⏳ {getDaysLabel(days)}
           </span>
         )}
-        <span className="flex items-center gap-1">
-          👤 
-          {perms.canAssignStaff ? (
-            <select
-              className="assign-select !w-auto !p-0 !bg-transparent font-medium focus:!bg-white"
-              value={doc.assigneeId || ''}
-              onChange={e => onAssign(doc.id, e.target.value)}
-            >
-              <option value="">Chưa giao</option>
-              {staffList.map(s => <option key={s.id} value={s.id}>{s.shortName}</option>)}
-            </select>
-          ) : (
-            <span className="font-medium">{doc.assigneeId ? getStaffName(doc.assigneeId) : (doc.assignee || 'Chưa giao')}</span>
+        <div className="flex flex-col gap-0.5">
+          <span className="flex items-center gap-1">
+            👤 
+            {perms.canAssignStaff ? (
+              <select
+                className="assign-select !w-auto !p-0 !bg-transparent font-medium focus:!bg-white"
+                value={doc.assigneeId || ''}
+                onChange={e => onAssign(doc.id, e.target.value)}
+              >
+                <option value="">Chưa giao</option>
+                {staffList.map(s => <option key={s.id} value={s.id}>{s.shortName}</option>)}
+              </select>
+            ) : (
+              <span className="font-medium">{doc.assigneeId ? getStaffName(doc.assigneeId) : (doc.assignee || 'Chưa giao')}</span>
+            )}
+          </span>
+          {doc.coAssigneeIds && doc.coAssigneeIds.length > 0 && (
+            <span className="text-[11px] text-slate-500 pl-4" title={`Người phối hợp: ${doc.coAssigneeIds.map(id => getStaffName(id)).join(', ')}`}>
+              <span className="text-slate-400">PH:</span> {doc.coAssigneeIds.map(id => getStaffName(id)).join(', ')}
+            </span>
           )}
-        </span>
+        </div>
       </div>
 
       {/* Actions row */}
@@ -743,9 +750,12 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
     if (staffBadgeFilter) {
       result = result.filter(d => {
         if (staffBadgeFilter === '(Chưa giao)') return !d.assignee && !d.assigneeId
-        // Match by staffId or by display name
+        // Match by staffId or by display name (both main assignee and co-assignees)
         const displayName = d.assigneeId ? getStaffName(d.assigneeId) : d.assignee
-        return d.assigneeId === staffBadgeFilter || displayName === staffBadgeFilter
+        const isMain = d.assigneeId === staffBadgeFilter || displayName === staffBadgeFilter
+        const isCo = (d.coAssigneeIds || []).includes(staffBadgeFilter) ||
+          (d.coAssigneeIds || []).some(cid => getStaffName(cid) === staffBadgeFilter)
+        return isMain || isCo
       })
     }
 
@@ -1520,20 +1530,31 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
                         )}
                       </TableCell>
                       <TableCell>
-                        {perms.canAssignStaff ? (
-                          <select
-                            className="assign-select"
-                            value={doc.assigneeId || ''}
-                            onChange={e => handleAssign(doc.id, e.target.value)}
-                          >
-                            <option value="">— Chưa giao —</option>
-                            {staffList.map(s => <option key={s.id} value={s.id}>{s.shortName}</option>)}
-                          </select>
-                        ) : (
-                          <span className="text-xs text-slate-600">
-                            {doc.assigneeId ? getStaffName(doc.assigneeId) : (doc.assignee || '—')}
-                          </span>
-                        )}
+                        <div className="flex flex-col gap-0.5">
+                          {perms.canAssignStaff ? (
+                            <select
+                              className="assign-select"
+                              value={doc.assigneeId || ''}
+                              onChange={e => handleAssign(doc.id, e.target.value)}
+                            >
+                              <option value="">— Chưa giao —</option>
+                              {staffList.map(s => <option key={s.id} value={s.id}>{s.shortName}</option>)}
+                            </select>
+                          ) : (
+                            <span className="text-xs text-slate-600">
+                              {doc.assigneeId ? getStaffName(doc.assigneeId) : (doc.assignee || '—')}
+                            </span>
+                          )}
+                          {doc.coAssigneeIds && doc.coAssigneeIds.length > 0 && (
+                            <div
+                              className="flex items-center gap-1 text-[10px] text-slate-500 max-w-[120px] truncate"
+                              title={`Người phối hợp: ${doc.coAssigneeIds.map(id => getStaffName(id)).join(', ')}`}
+                            >
+                              <span className="text-slate-400 font-medium shrink-0">PH:</span>
+                              <span className="truncate">{doc.coAssigneeIds.map(id => getStaffName(id)).join(', ')}</span>
+                            </div>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell className="sticky right-0 z-10 bg-white shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.06)]" style={{ width: '1%', whiteSpace: 'nowrap' }}>
                         <div className="flex flex-col">
