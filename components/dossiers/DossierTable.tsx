@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import {
   Folder, FolderPlus, Pencil, Trash2, Archive, ArchiveRestore,
   Search, FileText, AlertCircle, Loader2, X, PlusSquare, MinusSquare, ArrowRightLeft,
-  ChevronUp, ChevronDown
+  ChevronUp, ChevronDown, FolderSymlink, UserCheck
 } from 'lucide-react'
 import type { Dossier, Document } from '@/types'
 import { toggleArchiveDossier, reorderLevel1Dossiers } from '@/lib/dossiers'
@@ -19,10 +19,12 @@ interface DossierTableProps {
   onAddSubDossier: (parent: Dossier) => void
   onEditDossier: (dossier: Dossier) => void
   onDeleteDossier: (dossier: Dossier) => void
+  onTransferDossier?: (dossier: Dossier) => void
   perms: {
     canCreateDossier?: boolean
     canEditDossier?: boolean
     canDeleteDossier?: boolean
+    canTransferDossier?: boolean
   }
 }
 
@@ -77,6 +79,7 @@ export function DossierTable({
   onAddSubDossier,
   onEditDossier,
   onDeleteDossier,
+  onTransferDossier,
   perms,
 }: DossierTableProps) {
   const router = useRouter()
@@ -498,7 +501,7 @@ export function DossierTable({
                           </button>
                         )}
 
-                        {/* Move Dossier */}
+                        {/* Move Dossier Location */}
                         {perms.canEditDossier && !isArchived && (
                           <button
                             onClick={e => {
@@ -506,9 +509,23 @@ export function DossierTable({
                               setMovingDossier(dossier)
                             }}
                             className="p-1.5 text-amber-600 hover:bg-amber-100 rounded-md transition-colors"
-                            title="Di chuyển hồ sơ này sang vị trí khác"
+                            title="Di chuyển hồ sơ này sang vị trí thư mục khác"
                           >
-                            <ArrowRightLeft className="w-3.5 h-3.5" />
+                            <FolderSymlink className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+
+                        {/* Transfer Ownership */}
+                        {onTransferDossier && perms.canTransferDossier && !isArchived && (
+                          <button
+                            onClick={e => {
+                              e.stopPropagation()
+                              onTransferDossier(dossier)
+                            }}
+                            className="p-1.5 text-indigo-600 hover:bg-indigo-100 rounded-md transition-colors"
+                            title="Chuyển quyền sở hữu hồ sơ này cho cán bộ khác"
+                          >
+                            <UserCheck className="w-3.5 h-3.5" />
                           </button>
                         )}
 

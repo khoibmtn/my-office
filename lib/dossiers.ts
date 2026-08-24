@@ -32,7 +32,7 @@ export async function createDossier(input: {
     )
     const rootSnap = await getDocs(rootQ)
     const activeRoots = rootSnap.docs
-      .map(d => d.data() as Dossier)
+      .map(d => ({ id: d.id, ...d.data() } as Dossier))
       .filter(d => !d.deletedAt && !d.isArchived)
     
     const maxOrder = activeRoots.reduce((max, d) => Math.max(max, d.order || 0), 0)
@@ -150,7 +150,7 @@ export async function deleteDossier(
     )
     const allRootsSnap = await getDocs(allRootsQ)
     const remainingRoots = allRootsSnap.docs
-      .map(d => ({ id: d.id, ...(d.data() as Dossier) }))
+      .map(d => ({ ...d.data(), id: d.id } as Dossier))
       .filter(d => !d.deletedAt && !d.isArchived && d.id !== dossierId)
       .sort((a, b) => (a.order ?? 9999) - (b.order ?? 9999) || a.name.localeCompare(b.name, 'vi'))
 
@@ -208,7 +208,7 @@ export async function transferDossier(params: {
   )
   const allChildrenSnap = await getDocs(allChildrenQ)
   const allChildren = allChildrenSnap.docs
-    .map(d => ({ id: d.id, ...d.data() } as Dossier))
+    .map(d => ({ ...d.data(), id: d.id } as Dossier))
     .filter(d => !d.deletedAt)
 
   // Find all descendants
@@ -246,21 +246,16 @@ export async function transferDossier(params: {
     }
   })
 
-  // Reassign uncompleted documents if option checked
-  if (reassignUncompletedDocs) {
-    const allTransferredDossierIds = [dossierId, ...selectedChildIds]
-    const docsQ = query(
-      collection(db(), 'documents'),
-      where('dossierIds', 'array-contains-any', allTransferredDossierIds)
-    )
+  // Reassign uncompleted documents if requested
+  const allTransferredDossierIds = [dossierId, ...Array.from(descendantIds).filter(id => selectedChildIds.includes(id))]
+  for (const did of allTransferredDossierIds) {
+    const docsQ = query(collection(db(), 'documents'), where('dossierIds', 'array-contains', did))
     const docsSnap = await getDocs(docsQ)
-
     docsSnap.docs.forEach(dDoc => {
       const data = dDoc.data()
-      if (data.status !== 'completed') {
+      if (reassignUncompletedDocs && data.status !== 'completed') {
         batch.update(doc(db(), 'documents', dDoc.id), {
           assigneeId: targetOwnerId,
-          assignee: params.targetOwnerName,
           updatedAt: serverTimestamp(),
         })
       }
@@ -268,11 +263,40 @@ export async function transferDossier(params: {
   }
 
   appendAuditLogToBatch(batch, 'dossier', dossierId, 'TRANSFER', actorId, {
-    targetOwnerId,
+    fromOwnerId: dossier.ownerId,
+    toOwnerId: targetOwnerId,
     selectedChildIds,
     reassignUncompletedDocs,
   })
 
+  await batch.commit()
+}
+
+export async function toggleDocumentDossier(
+  documentId: string,
+  dossierId: string,
+  action: 'add' | 'remove',
+  actorId: string
+): Promise<void> {
+  const docSnap = await getDoc(doc(db(), 'documents', documentId))
+  if (!docSnap.exists()) return
+  const data = docSnap.data()
+  const current: string[] = data.dossierIds || []
+
+  let updated: string[] = []
+  if (action === 'add') {
+    if (!current.includes(dossierId)) updated = [...current, dossierId]
+    else updated = current
+  } else {
+    updated = current.filter(id => id !== dossierId)
+  }
+
+  const batch = writeBatch(db())
+  batch.update(doc(db(), 'documents', documentId), {
+    dossierIds: updated,
+    updatedAt: serverTimestamp(),
+  })
+  appendAuditLogToBatch(batch, 'document', documentId, 'ASSIGN', actorId, { dossierId, action })
   await batch.commit()
 }
 
@@ -324,18 +348,22 @@ export async function removeDocumentFromDossier(
 
 export async function moveDocumentDossier(
   documentId: string,
-  fromDossierId: string,
+  fromDossierId: string | null,
   toDossierId: string,
   actorId: string
 ): Promise<void> {
-  const docRef = doc(db(), 'documents', documentId)
-  const docSnap = await getDoc(docRef)
-  if (!docSnap.exists()) throw new Error('Văn bản không tồn tại')
+  const docSnap = await getDoc(doc(db(), 'documents', documentId))
+  if (!docSnap.exists()) return
+  const data = docSnap.data()
+  const current: string[] = data.dossierIds || []
 
-  const currentDossiers: string[] = docSnap.data().dossierIds || []
-  const updated = currentDossiers
-    .filter((id) => id !== fromDossierId)
-    .concat(toDossierId)
+  let updated = [...current]
+  if (fromDossierId) {
+    updated = updated.filter(id => id !== fromDossierId)
+  }
+  if (!updated.includes(toDossierId)) {
+    updated.push(toDossierId)
+  }
 
   const batch = writeBatch(db())
   batch.update(doc(db(), 'documents', documentId), {
@@ -379,7 +407,7 @@ export async function toggleArchiveDossier(
       })
 
       const remainingRoots = allRootsSnap.docs
-        .map(d => ({ id: d.id, ...(d.data() as Dossier) }))
+        .map(d => ({ ...d.data(), id: d.id } as Dossier))
         .filter(d => !d.deletedAt && !d.isArchived && d.id !== dossierId)
         .sort((a, b) => (a.order ?? 9999) - (b.order ?? 9999) || a.name.localeCompare(b.name, 'vi'))
 
@@ -395,7 +423,7 @@ export async function toggleArchiveDossier(
     } else {
       // Unarchiving Level 1 dossier: place at the bottom (maxOrder + 1)
       const activeRoots = allRootsSnap.docs
-        .map(d => ({ id: d.id, ...(d.data() as Dossier) }))
+        .map(d => ({ ...d.data(), id: d.id } as Dossier))
         .filter(d => !d.deletedAt && !d.isArchived && d.id !== dossierId)
       
       const maxOrder = activeRoots.reduce((max, d) => Math.max(max, d.order || 0), 0)

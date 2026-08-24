@@ -135,8 +135,8 @@ export default function DossiersPage() {
         </div>
 
         <div className="flex items-center gap-2 flex-wrap w-full md:w-auto shrink-0">
-          {/* Add Dossier Button */}
-          {perms.canCreateDossier && (
+          {/* Add Dossier Button: Only shown at Root level */}
+          {!activeFolder && perms.canCreateDossier && (
             <Button
               size="sm"
               onClick={() => {
@@ -150,49 +150,7 @@ export default function DossiersPage() {
             </Button>
           )}
 
-          {/* Current folder actions */}
-          {activeFolder && (
-            <>
-              {perms.canTransferDossier && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setTransferTarget(activeFolder)}
-                >
-                  <ArrowRightLeft className="w-4 h-4 mr-1.5 text-blue-600" />
-                  Chuyển hồ sơ này
-                </Button>
-              )}
-              {perms.canEditDossier && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="text-amber-700 hover:bg-amber-50 border-amber-300"
-                  onClick={async () => {
-                    await toggleArchiveDossier(activeFolder.id, true, staffId || 'unknown')
-                    handleNavigate(null)
-                  }}
-                  title="Lưu trữ hồ sơ này (rút khỏi danh sách điều hướng)"
-                >
-                  <Archive className="w-4 h-4 mr-1.5" />
-                  Lưu trữ
-                </Button>
-              )}
-              {perms.canDeleteDossier && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="text-red-600 hover:bg-red-50 border-red-200"
-                  onClick={() => setDeleteTarget(activeFolder)}
-                >
-                  <Trash2 className="w-4 h-4 mr-1.5" />
-                  Xóa
-                </Button>
-              )}
-            </>
-          )}
-
-          {/* Toggle Panel Button */}
+          {/* Toggle Panel Button: Shown when viewing a specific dossier */}
           {activeFolder && (
             <Button
               size="sm"
@@ -248,6 +206,7 @@ export default function DossiersPage() {
                   onAddSubDossier={handleAddSubDossier}
                   onEditDossier={handleEditDossier}
                   onDeleteDossier={setDeleteTarget}
+                  onTransferDossier={setTransferTarget}
                   perms={perms}
                 />
               ) : (
