@@ -115,6 +115,14 @@ export interface DossierChecklistItem {
   order: number
 }
 
+export interface DossierComment {
+  id: string
+  senderId: string
+  senderName: string
+  content: string
+  createdAt: Timestamp | { seconds: number; nanoseconds?: number }
+}
+
 export interface Dossier {
   id: string
   name: string
@@ -123,7 +131,10 @@ export interface Dossier {
   createdBy: string
   ownerId: string
   description: string
+  notes?: string
   checklist: DossierChecklistItem[]
+  comments?: DossierComment[]
+  sharedWith?: string[]
   tagIds: string[]
   isArchived?: boolean
   color?: string

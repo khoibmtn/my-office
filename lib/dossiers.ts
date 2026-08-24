@@ -4,7 +4,7 @@ import {
 } from 'firebase/firestore'
 import { db } from './firebase'
 import { appendAuditLogToBatch } from './audit'
-import type { Dossier, DossierChecklistItem } from '@/types'
+import type { Dossier, DossierChecklistItem, DossierComment } from '@/types'
 
 export async function createDossier(input: {
   name: string
@@ -65,8 +65,11 @@ export async function createDossier(input: {
     createdBy: input.actorId,
     ownerId: input.actorId,
     description: input.description || '',
+    notes: '',
     color: input.color || '#3b82f6',
     checklist: [],
+    comments: [],
+    sharedWith: [],
     tagIds: [],
     deletedAt: null,
     createdAt: serverTimestamp(),
@@ -90,8 +93,11 @@ export async function updateDossier(
   fields: Partial<{
     name: string
     description: string
+    notes: string
     color: string
     checklist: DossierChecklistItem[]
+    comments: DossierComment[]
+    sharedWith: string[]
     tagIds: string[]
   }>,
   actorId: string
@@ -104,6 +110,50 @@ export async function updateDossier(
   })
   appendAuditLogToBatch(batch, 'dossier', dossierId, 'UPDATE', actorId, { fields })
   await batch.commit()
+}
+
+export async function addDossierComment(
+  dossierId: string,
+  comment: {
+    senderId: string
+    senderName: string
+    content: string
+  },
+  actorId: string
+): Promise<DossierComment> {
+  const dossierRef = doc(db(), 'dossiers', dossierId)
+  const snap = await getDoc(dossierRef)
+  if (!snap.exists()) throw new Error('Hồ sơ không tồn tại')
+  
+  const data = snap.data() as Dossier
+  const existingComments = data.comments || []
+  
+  const newComment: DossierComment = {
+    id: Math.random().toString(36).substring(2, 10) + Date.now().toString(36),
+    senderId: comment.senderId,
+    senderName: comment.senderName,
+    content: comment.content.trim(),
+    createdAt: { seconds: Math.floor(Date.now() / 1000) },
+  }
+  
+  const nextComments = [...existingComments, newComment]
+  await updateDossier(dossierId, { comments: nextComments }, actorId)
+  return newComment
+}
+
+export async function deleteDossierComment(
+  dossierId: string,
+  commentId: string,
+  actorId: string
+): Promise<void> {
+  const dossierRef = doc(db(), 'dossiers', dossierId)
+  const snap = await getDoc(dossierRef)
+  if (!snap.exists()) return
+  
+  const data = snap.data() as Dossier
+  const existingComments = data.comments || []
+  const nextComments = existingComments.filter(c => c.id !== commentId)
+  await updateDossier(dossierId, { comments: nextComments }, actorId)
 }
 
 export async function deleteDossier(
