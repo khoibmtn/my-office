@@ -69,7 +69,7 @@ interface DocumentModalProps {
 export function DocumentModal({ docId, onClose }: DocumentModalProps) {
   const { user } = useAuth()
   const perms = usePermissions()
-  const { staffId: currentStaffId } = useRole()
+  const { staffId: currentStaffId, isGuest } = useRole()
   const { staff, getStaffName } = useStaff()
   const [doc, setDoc] = useState<Document | null>(null)
   const [loading, setLoading] = useState(true)
@@ -363,7 +363,7 @@ export function DocumentModal({ docId, onClose }: DocumentModalProps) {
                         setDoc(prev => prev ? { ...prev, coAssigneeIds: newIds } : prev)
                         updateDocument(doc.id, { coAssigneeIds: newIds })
                       }}
-                      readOnly={!perms.canAssignStaff}
+                      readOnly={!perms.canAssignStaff || isGuest}
                       placeholder="Tìm và gắp người phối hợp..."
                     />
                   </div>
@@ -426,6 +426,7 @@ export function DocumentModal({ docId, onClose }: DocumentModalProps) {
                 <QuickDossierTagPicker
                   document={doc}
                   onUpdate={(fields) => setDoc(prev => prev ? { ...prev, ...fields } : prev)}
+                  readOnly={isGuest || !perms.canEditDocument}
                 />
               </div>
 
