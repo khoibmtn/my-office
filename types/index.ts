@@ -127,6 +127,7 @@ export interface Dossier {
   tagIds: string[]
   isArchived?: boolean
   color?: string
+  order?: number
   deletedAt?: Timestamp
   deletedBy?: string
   createdAt: Timestamp

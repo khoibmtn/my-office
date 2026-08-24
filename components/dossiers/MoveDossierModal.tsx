@@ -154,7 +154,7 @@ export function MoveDossierModal({
 
   const rootDossiers = allDossiers
     .filter(d => !d.parentId && !d.isArchived)
-    .sort((a, b) => a.name.localeCompare(b.name, 'vi'))
+    .sort((a, b) => (a.order ?? 9999) - (b.order ?? 9999) || a.name.localeCompare(b.name, 'vi'))
 
   const isRootSelected = selectedTargetId === null
   const canMoveToRoot = movingDossier.parentId !== null

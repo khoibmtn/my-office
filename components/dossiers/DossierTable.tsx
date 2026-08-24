@@ -4,10 +4,11 @@ import React, { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   Folder, FolderPlus, Pencil, Trash2, Archive, ArchiveRestore,
-  Search, FileText, AlertCircle, Loader2, X, PlusSquare, MinusSquare, ArrowRightLeft
+  Search, FileText, AlertCircle, Loader2, X, PlusSquare, MinusSquare, ArrowRightLeft,
+  ChevronUp, ChevronDown
 } from 'lucide-react'
 import type { Dossier, Document } from '@/types'
-import { toggleArchiveDossier } from '@/lib/dossiers'
+import { toggleArchiveDossier, reorderLevel1Dossiers } from '@/lib/dossiers'
 import { useRole } from '@/hooks/useRole'
 import { MoveDossierModal } from './MoveDossierModal'
 
@@ -86,6 +87,25 @@ export function DossierTable({
   const [archivingId, setArchivingId] = useState<string | null>(null)
   const [archivedAlert, setArchivedAlert] = useState<string | null>(null)
   const [movingDossier, setMovingDossier] = useState<Dossier | null>(null)
+  const [reorderingId, setReorderingId] = useState<string | null>(null)
+
+  // Active Level 1 dossiers sorted by order for checking first/last position
+  const activeRootDossiers = useMemo(() => {
+    return dossiers
+      .filter(d => !d.parentId && !d.isArchived)
+      .sort((a, b) => (a.order ?? 9999) - (b.order ?? 9999) || a.name.localeCompare(b.name, 'vi'))
+  }, [dossiers])
+
+  const handleReorder = async (dossierId: string, direction: 'up' | 'down') => {
+    setReorderingId(dossierId)
+    try {
+      await reorderLevel1Dossiers(dossierId, direction, staffId || 'unknown', dossiers)
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setReorderingId(null)
+    }
+  }
 
   // Expand/collapse state for tree nodes in table (all parent dossiers expanded by default)
   const [expandedIds, setExpandedIds] = useState<Set<string>>(() => {
@@ -135,7 +155,7 @@ export function DossierTable({
 
     const result: Dossier[] = []
     const rootNodes = pool.filter(d => (!d.parentId || !pool.some(p => p.id === d.parentId)) && matchesOrHasMatchingDescendant(d))
-    rootNodes.sort((a, b) => a.name.localeCompare(b.name, 'vi', { sensitivity: 'base' }))
+    rootNodes.sort((a, b) => (a.order ?? 9999) - (b.order ?? 9999) || a.name.localeCompare(b.name, 'vi', { sensitivity: 'base' }))
 
     function traverse(node: Dossier) {
       result.push(node)
@@ -304,6 +324,10 @@ export function DossierTable({
                 const isExpanded = expandedIds.has(dossier.id)
                 const isArchived = !!dossier.isArchived
 
+                const rootIndex = activeRootDossiers.findIndex(r => r.id === dossier.id)
+                const isFirstRoot = rootIndex === 0
+                const isLastRoot = rootIndex === activeRootDossiers.length - 1
+
                 return (
                   <tr
                     key={dossier.id}
@@ -410,6 +434,42 @@ export function DossierTable({
                     {/* Action Buttons */}
                     <td className="py-3 px-3.5 text-right whitespace-nowrap">
                       <div className="flex items-center justify-end gap-1">
+                        {/* Up / Down Reorder for Level 1 Dossiers */}
+                        {perms.canEditDossier && dossier.level === 1 && !isArchived && (
+                          <div className="inline-flex items-center gap-0.5 border-r pr-1.5 mr-1 border-slate-200">
+                            <button
+                              onClick={e => {
+                                e.stopPropagation()
+                                handleReorder(dossier.id, 'up')
+                              }}
+                              disabled={isFirstRoot || reorderingId === dossier.id}
+                              className={`p-1 rounded transition-colors ${
+                                isFirstRoot || reorderingId === dossier.id
+                                  ? 'text-slate-300 cursor-not-allowed'
+                                  : 'text-slate-600 hover:bg-slate-200 hover:text-slate-900 cursor-pointer'
+                              }`}
+                              title={isFirstRoot ? 'Hồ sơ đã ở vị trí đầu tiên' : 'Chuyển vị trí lên trên'}
+                            >
+                              <ChevronUp className="w-3.5 h-3.5" />
+                            </button>
+
+                            <button
+                              onClick={e => {
+                                e.stopPropagation()
+                                handleReorder(dossier.id, 'down')
+                              }}
+                              disabled={isLastRoot || reorderingId === dossier.id}
+                              className={`p-1 rounded transition-colors ${
+                                isLastRoot || reorderingId === dossier.id
+                                  ? 'text-slate-300 cursor-not-allowed'
+                                  : 'text-slate-600 hover:bg-slate-200 hover:text-slate-900 cursor-pointer'
+                              }`}
+                              title={isLastRoot ? 'Hồ sơ đã ở vị trí cuối cùng' : 'Chuyển vị trí xuống dưới'}
+                            >
+                              <ChevronDown className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        )}
                         {/* Add Sub-dossier */}
                         {perms.canCreateDossier && dossier.level < 3 && !isArchived && (
                           <button

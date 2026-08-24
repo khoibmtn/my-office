@@ -53,11 +53,15 @@ export function BatchMoveDossierModal({
   const isSearching = searchNormalized.length > 0
 
   const rootDossiers = useMemo(() => {
-    return dossiers.filter(d => !d.parentId)
+    return dossiers
+      .filter(d => !d.parentId)
+      .sort((a, b) => (a.order ?? 9999) - (b.order ?? 9999) || a.name.localeCompare(b.name, 'vi'))
   }, [dossiers])
 
   const renderTreeNode = (d: Dossier, level: number = 0) => {
-    const children = dossiers.filter(c => c.parentId === d.id)
+    const children = dossiers
+      .filter(c => c.parentId === d.id)
+      .sort((a, b) => a.name.localeCompare(b.name, 'vi'))
     const hasChildren = children.length > 0
     const isExpanded = expandedIds.has(d.id)
     const isSelected = selectedId === d.id

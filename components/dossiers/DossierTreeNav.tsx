@@ -79,7 +79,9 @@ export function DossierTreeNav() {
 
   // Recursive Tree Node renderer
   const renderDossierNode = (dossier: Dossier, level: number = 0) => {
-    const children = activeDossiers.filter(child => child.parentId === dossier.id)
+    const children = activeDossiers
+      .filter(child => child.parentId === dossier.id)
+      .sort((a, b) => a.name.localeCompare(b.name, 'vi'))
     const hasChildren = children.length > 0
     const isExpanded = expandedIds.has(dossier.id)
     const isActive = activeId === dossier.id
@@ -141,7 +143,9 @@ export function DossierTreeNav() {
   }
 
   const rootDossiers = useMemo(() => {
-    return activeDossiers.filter(d => !d.parentId)
+    return activeDossiers
+      .filter(d => !d.parentId)
+      .sort((a, b) => (a.order ?? 9999) - (b.order ?? 9999) || a.name.localeCompare(b.name, 'vi'))
   }, [activeDossiers])
 
   if (loading) {
