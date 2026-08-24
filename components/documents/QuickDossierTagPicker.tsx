@@ -1,13 +1,15 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { Folder, Tag as TagIcon, Plus, X, Loader2 } from 'lucide-react'
+import { Folder, Tag as TagIcon, Plus, X, Loader2, FolderPlus, ArrowRightLeft } from 'lucide-react'
 import { useDossiers } from '@/hooks/useDossiers'
 import { useTags } from '@/hooks/useTags'
 import { useRole } from '@/hooks/useRole'
 import { toggleDocumentDossier, moveDocumentDossier } from '@/lib/dossiers'
 import { createTag } from '@/lib/tags'
 import { updateDocument } from '@/lib/firestore'
+import { BatchAddDossierModal } from './BatchAddDossierModal'
+import { BatchMoveDossierModal } from './BatchMoveDossierModal'
 import type { Document, Tag } from '@/types'
 
 interface QuickDossierTagPickerProps {
@@ -25,6 +27,9 @@ export function QuickDossierTagPicker({ document: docItem, onUpdate }: QuickDoss
   const [newTagName, setNewTagName] = useState('')
   const [savingTag, setSavingTag] = useState(false)
 
+  const [addModalOpen, setAddModalOpen] = useState(false)
+  const [moveModalOpen, setMoveModalOpen] = useState(false)
+
   useEffect(() => {
     setDossierIds(docItem.dossierIds || [])
     setTagIds(docItem.tagIds || [])
@@ -32,21 +37,23 @@ export function QuickDossierTagPicker({ document: docItem, onUpdate }: QuickDoss
 
   // Current attached dossiers
   const currentDossiers = dossiers.filter(d => dossierIds.includes(d.id))
-  // Available dossiers to add
-  const availableDossiers = dossiers.filter(d => !dossierIds.includes(d.id))
 
   // Current attached tags
   const currentTags = allTags.filter(t => tagIds.includes(t.id))
   // Available tags to add
   const availableTags = allTags.filter(t => !tagIds.includes(t.id))
 
-  const handleAddDossier = async (dossierId: string) => {
-    if (!dossierId) return
-    const next = [...dossierIds, dossierId]
-    setDossierIds(next)
+  const handleAddDossiers = async (targetDossierIds: string[]) => {
+    if (targetDossierIds.length === 0) return
+    const newDossierIds = Array.from(new Set([...dossierIds, ...targetDossierIds]))
+    setDossierIds(newDossierIds)
     try {
-      await toggleDocumentDossier(docItem.id, dossierId, 'add', staffId || 'unknown')
-      if (onUpdate) onUpdate({ dossierIds: next })
+      await Promise.all(
+        targetDossierIds.map(did =>
+          toggleDocumentDossier(docItem.id, did, 'add', staffId || 'unknown')
+        )
+      )
+      if (onUpdate) onUpdate({ dossierIds: newDossierIds })
     } catch (err) {
       console.error(err)
     }
@@ -146,38 +153,26 @@ export function QuickDossierTagPicker({ document: docItem, onUpdate }: QuickDoss
           )}
         </div>
 
-        {/* Add or Move Dossier Dropdowns */}
-        {availableDossiers.length > 0 && (
-          <div className="flex flex-col gap-1.5">
-            <select
-              value=""
-              onChange={e => handleAddDossier(e.target.value)}
-              className="w-full px-2.5 py-1.5 border border-slate-200 rounded-md text-xs bg-slate-50 hover:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer font-medium"
-              title="Thêm văn bản này vào thêm 1 hồ sơ nữa"
-            >
-              <option value="">+ Thêm vào hồ sơ khác...</option>
-              {availableDossiers.map(d => (
-                <option key={d.id} value={d.id}>
-                  {d.level === 1 ? '📂 ' : '  └ 📂 '}{d.name} (Cấp {d.level})
-                </option>
-              ))}
-            </select>
+        {/* Add or Move Dossier Action Buttons (Desktop Tree View) */}
+        <div className="grid grid-cols-2 gap-1.5">
+          <button
+            onClick={() => setAddModalOpen(true)}
+            className="flex items-center justify-center gap-1 px-2.5 py-1.5 border border-slate-200 rounded-md text-xs bg-slate-50 hover:bg-white hover:border-blue-300 text-slate-700 hover:text-blue-600 transition-colors font-medium shadow-2xs"
+            title="Mở cây thư mục để chọn thêm hồ sơ"
+          >
+            <FolderPlus className="w-3.5 h-3.5 text-blue-600" />
+            <span>Thêm hồ sơ</span>
+          </button>
 
-            <select
-              value=""
-              onChange={e => handleMoveDossier(e.target.value)}
-              className="w-full px-2.5 py-1.5 border border-amber-200 rounded-md text-xs bg-amber-50/60 hover:bg-amber-50 focus:outline-none focus:ring-2 focus:ring-amber-500 cursor-pointer font-medium text-amber-900"
-              title="Di chuyển hẳn sang hồ sơ khác (gỡ khỏi hồ sơ hiện tại)"
-            >
-              <option value="">⇄ Di chuyển sang hồ sơ...</option>
-              {availableDossiers.map(d => (
-                <option key={d.id} value={d.id}>
-                  {d.level === 1 ? '📂 ' : '  └ 📂 '}{d.name} (Cấp {d.level})
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
+          <button
+            onClick={() => setMoveModalOpen(true)}
+            className="flex items-center justify-center gap-1 px-2.5 py-1.5 border border-amber-200 rounded-md text-xs bg-amber-50/70 hover:bg-amber-100/80 text-amber-900 transition-colors font-medium shadow-2xs"
+            title="Mở cây thư mục để chọn di chuyển sang hồ sơ mới"
+          >
+            <ArrowRightLeft className="w-3.5 h-3.5 text-amber-600" />
+            <span>Di chuyển</span>
+          </button>
+        </div>
       </div>
 
       {/* Tag Quick Picker Section */}
@@ -239,6 +234,25 @@ export function QuickDossierTagPicker({ document: docItem, onUpdate }: QuickDoss
           )}
         </form>
       </div>
+
+      {/* Desktop Tree Modals for Single Document View */}
+      {addModalOpen && (
+        <BatchAddDossierModal
+          selectedDocCount={1}
+          dossiers={dossiers}
+          onConfirm={handleAddDossiers}
+          onClose={() => setAddModalOpen(false)}
+        />
+      )}
+
+      {moveModalOpen && (
+        <BatchMoveDossierModal
+          selectedDocCount={1}
+          dossiers={dossiers}
+          onConfirm={handleMoveDossier}
+          onClose={() => setMoveModalOpen(false)}
+        />
+      )}
     </div>
   )
 }

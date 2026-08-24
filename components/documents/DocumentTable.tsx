@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react'
-import { Loader2, Trash2, Eye, RefreshCw, CheckCircle2, Clock, CircleDot, Search, Pencil, ArrowUpDown, ClipboardCopy, Calendar, ChevronLeft, ChevronRight, X, Folder, ArrowRightLeft } from 'lucide-react'
+import { Loader2, Trash2, Eye, RefreshCw, CheckCircle2, Clock, CircleDot, Search, Pencil, ArrowUpDown, ClipboardCopy, Calendar, ChevronLeft, ChevronRight, X, Folder, ArrowRightLeft, FolderPlus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
@@ -883,11 +883,54 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
       {/* === FILTERS === */}
       <div className="flex flex-col gap-2 mb-3">
         {(timePeriod === 'today' || periodRange) && (
-          <div className="text-blue-600 font-bold text-sm lg:text-[15px] px-1">
-            {timePeriod === 'today' ? (
-              <>Thống kê văn bản đến hôm nay, ngày {new Date().toLocaleDateString('vi-VN')}</>
-            ) : (
-              <>Thống kê văn bản từ {periodRange!.from.toLocaleDateString('vi-VN')} đến {periodRange!.to.toLocaleDateString('vi-VN')}</>
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 px-1">
+            <div className="text-blue-600 font-bold text-sm lg:text-[15px]">
+              {timePeriod === 'today' ? (
+                <>Thống kê văn bản đến hôm nay, ngày {new Date().toLocaleDateString('vi-VN')}</>
+              ) : (
+                <>Thống kê văn bản từ {periodRange!.from.toLocaleDateString('vi-VN')} đến {periodRange!.to.toLocaleDateString('vi-VN')}</>
+              )}
+            </div>
+
+            {/* Batch Action Frame placed on top right header line */}
+            {selectedDocIds.length > 0 && (
+              <div className="flex items-center gap-1.5 px-2.5 py-1 bg-blue-50 border border-blue-300 rounded-lg text-xs font-semibold text-blue-900 shadow-2xs animate-in fade-in duration-150 shrink-0">
+                <span className="flex items-center gap-1 text-blue-700 font-bold whitespace-nowrap mr-1">
+                  <Folder className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                  Đã chọn {selectedDocIds.length} văn bản
+                </span>
+
+                {/* Icon Button 1: Add to Dossier (Multi-select) */}
+                <button
+                  onClick={() => setBatchAddModalOpen(true)}
+                  disabled={assigningBatch}
+                  className="p-1.5 px-2 bg-white border border-blue-300 rounded-md text-blue-700 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer shadow-2xs flex items-center gap-1 font-semibold text-xs transition-colors"
+                  title="Thêm văn bản đã chọn vào thêm Hồ sơ (Chọn nhiều)"
+                >
+                  <FolderPlus className="w-3.5 h-3.5 text-blue-600" />
+                  <span className="hidden sm:inline">Thêm vào Hồ sơ</span>
+                </button>
+
+                {/* Icon Button 2: Move to Dossier (Single-select) */}
+                <button
+                  onClick={() => setBatchMoveModalOpen(true)}
+                  disabled={assigningBatch}
+                  className="p-1.5 px-2 bg-amber-500 text-white rounded-md hover:bg-amber-600 focus:outline-none focus:ring-2 focus:ring-amber-500 cursor-pointer shadow-2xs flex items-center gap-1 font-semibold text-xs transition-colors"
+                  title="Di chuyển hẳn sang Hồ sơ khác (Chỉ chọn 1)"
+                >
+                  <ArrowRightLeft className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Di chuyển</span>
+                </button>
+
+                {assigningBatch && <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-600 ml-1" />}
+                <button
+                  onClick={() => setSelectedDocIds([])}
+                  className="text-xs text-slate-400 hover:text-red-600 font-bold px-1 ml-1"
+                  title="Bỏ chọn tất cả"
+                >
+                  ✕
+                </button>
+              </div>
             )}
           </div>
         )}
@@ -1090,59 +1133,8 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
           })}
         </div>
 
-        {/* Row 2: Batch Action Buttons (Left) + Staff Badges & Copy (Right) */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 w-full xl:w-auto min-w-0 flex-1">
-          {/* Batch Dossier Selection Box (LEFT SIDE) */}
-          {selectedDocIds.length > 0 ? (
-            <div className="flex flex-wrap items-center gap-2 px-3 py-1.5 bg-blue-50 border border-blue-300 rounded-lg text-xs font-semibold text-blue-900 shrink-0 shadow-sm animate-in fade-in duration-150 max-w-full">
-              <span className="flex items-center gap-1 text-blue-700 font-bold whitespace-nowrap">
-                <Folder className="w-4 h-4 text-blue-600 shrink-0" />
-                Đã chọn {selectedDocIds.length} văn bản
-              </span>
-
-              {/* Action 1: Multi-select Add to dossier */}
-              <button
-                onClick={() => setBatchAddModalOpen(true)}
-                disabled={assigningBatch}
-                className="px-2.5 py-1.5 bg-white border border-blue-300 rounded-md text-xs font-medium text-slate-800 hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer shadow-xs flex items-center gap-1"
-                title="Thêm văn bản đã chọn vào 1 hoặc nhiều hồ sơ"
-              >
-                <span>+ Thêm vào Hồ sơ...</span>
-              </button>
-
-              {/* Action 2: Single-select Move to dossier */}
-              <button
-                onClick={() => setBatchMoveModalOpen(true)}
-                disabled={assigningBatch}
-                className="px-2.5 py-1.5 bg-amber-500 text-white rounded-md text-xs font-semibold hover:bg-amber-600 focus:outline-none focus:ring-2 focus:ring-amber-500 cursor-pointer shadow-xs flex items-center gap-1"
-                title="Di chuyển hẳn văn bản từ hồ sơ hiện tại sang hồ sơ mới (gỡ khỏi hồ sơ cũ)"
-              >
-                <ArrowRightLeft className="w-3.5 h-3.5" />
-                <span>Di chuyển Hồ sơ...</span>
-              </button>
-
-              {/* Action 3: Remove from current dossier (if inside a specific dossier) */}
-              {currentDossierIdFromUrl && (
-                <button
-                  onClick={handleBatchRemoveFromCurrentDossier}
-                  disabled={assigningBatch}
-                  className="px-2.5 py-1.5 bg-red-50 border border-red-300 rounded-md text-xs font-semibold text-red-700 hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-red-500 cursor-pointer shadow-xs flex items-center gap-1"
-                  title="Gỡ các văn bản đã chọn khỏi hồ sơ này"
-                >
-                  <span>🚫 Loại khỏi Hồ sơ này</span>
-                </button>
-              )}
-
-              {assigningBatch && <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-600" />}
-              <button
-                onClick={() => setSelectedDocIds([])}
-                className="text-xs text-slate-400 hover:text-red-600 font-bold px-1"
-                title="Bỏ chọn tất cả"
-              >
-                ✕
-              </button>
-            </div>
-          ) : <div />}
+        {/* Row 2: Staff Badges & Copy (Right) */}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-end gap-2 w-full min-w-0 flex-1">
 
           {/* Staff Badges + Copy Button (RIGHT SIDE) */}
           <div className="flex items-center gap-2 shrink-0 ml-auto">
