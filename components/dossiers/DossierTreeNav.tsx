@@ -93,13 +93,13 @@ export function DossierTreeNav() {
           `}
           style={{ paddingLeft: level > 0 ? `${level * 14 + (isActive ? 6 : 8)}px` : undefined }}
         >
-          <div className="flex items-center gap-1.5 min-w-0 flex-1">
+          <div className="flex items-center gap-1.5 min-w-0 flex-1" title={`${dossier.name} (${count} văn bản)`}>
             {/* Expand/Collapse Toggle Button */}
             {hasChildren ? (
               <button
                 onClick={(e) => toggleExpand(dossier.id, e)}
                 className="w-4 h-4 flex items-center justify-center rounded text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 shrink-0"
-                title={isExpanded ? 'Thu gọn' : 'Mở rộng'}
+                title={isExpanded ? 'Thu gọn hồ sơ con' : 'Mở rộng hồ sơ con'}
               >
                 {isExpanded ? (
                   <MinusSquare className="w-3 h-3 text-blue-600" />
@@ -113,11 +113,11 @@ export function DossierTreeNav() {
 
             <Folder className={`w-3.5 h-3.5 shrink-0 ${isActive ? 'text-blue-600 fill-blue-100' : 'text-slate-400 group-hover:text-slate-600'}`} />
             
-            <span className="truncate font-medium">{dossier.name}</span>
+            <span className="truncate font-medium" title={`${dossier.name} (${count} văn bản)`}>{dossier.name}</span>
           </div>
 
           {/* Doc count badge */}
-          <span className={`text-[10px] ml-1 font-mono px-1 rounded ${isActive ? 'text-blue-600 bg-blue-100' : 'text-slate-400 group-hover:text-slate-600'}`}>
+          <span title={`${count} văn bản`} className={`text-[10px] ml-1 font-mono px-1 rounded ${isActive ? 'text-blue-600 bg-blue-100' : 'text-slate-400 group-hover:text-slate-600'}`}>
             ({count})
           </span>
         </div>

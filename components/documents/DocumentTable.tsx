@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react'
-import { Loader2, Trash2, Eye, RefreshCw, CheckCircle2, Clock, CircleDot, Search, Pencil, ArrowUpDown, ClipboardCopy, Calendar, ChevronLeft, ChevronRight, X, Folder } from 'lucide-react'
+import { Loader2, Trash2, Eye, RefreshCw, CheckCircle2, Clock, CircleDot, Search, Pencil, ArrowUpDown, ClipboardCopy, Calendar, ChevronLeft, ChevronRight, X, Folder, ArrowRightLeft } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
@@ -12,6 +12,8 @@ import { toggleDocumentDossier, moveDocumentDossier } from '@/lib/dossiers'
 import { useDossiers } from '@/hooks/useDossiers'
 import { useTags } from '@/hooks/useTags'
 import { DocumentModal } from './DocumentModal'
+import { BatchAddDossierModal } from './BatchAddDossierModal'
+import { BatchMoveDossierModal } from './BatchMoveDossierModal'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useStaff } from '@/hooks/useStaff'
@@ -431,10 +433,14 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
   const [deleting, setDeleting] = useState<string | null>(null)
   const [viewingId, setViewingId] = useState<string | null>(null)
   const [copyModalContent, setCopyModalContent] = useState<string | null>(null)
-  const [filterStatus, setFilterStatus] = useState<string>('pending')
+  const [filterStatus, setFilterStatus] = useState<string>('all')
   const [badgeFilters, setBadgeFilters] = useState<string[]>([])
   const [priorityBadgeFilters, setPriorityBadgeFilters] = useState<string[]>([])
   const [staffBadgeFilter, setStaffBadgeFilter] = useState<string | null>(null)
+
+  // Batch Modals State
+  const [batchAddModalOpen, setBatchAddModalOpen] = useState(false)
+  const [batchMoveModalOpen, setBatchMoveModalOpen] = useState(false)
 
   // Find active tag object if urlTagId is present
   const activeTag = useMemo(() => {
@@ -459,18 +465,20 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
 
   const currentDossierIdFromUrl = searchParams.get('id')
 
-  const handleBatchAssignDossier = async (targetDossierId: string) => {
-    if (!targetDossierId || selectedDocIds.length === 0) return
+  const handleBatchMultiAssignDossiers = async (targetDossierIds: string[]) => {
+    if (targetDossierIds.length === 0 || selectedDocIds.length === 0) return
     setAssigningBatch(true)
     try {
       await Promise.all(
-        selectedDocIds.map(docId =>
-          toggleDocumentDossier(docId, targetDossierId, 'add', currentStaffId || 'unknown')
+        selectedDocIds.flatMap(docId =>
+          targetDossierIds.map(dossierId =>
+            toggleDocumentDossier(docId, dossierId, 'add', currentStaffId || 'unknown')
+          )
         )
       )
       setSelectedDocIds([])
     } catch (err) {
-      console.error('[Batch assign failed]', err)
+      console.error('[Batch multi assign failed]', err)
     }
     setAssigningBatch(false)
   }
@@ -487,6 +495,22 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
       setSelectedDocIds([])
     } catch (err) {
       console.error('[Batch move failed]', err)
+    }
+    setAssigningBatch(false)
+  }
+
+  const handleBatchRemoveFromCurrentDossier = async () => {
+    if (!currentDossierIdFromUrl || selectedDocIds.length === 0) return
+    setAssigningBatch(true)
+    try {
+      await Promise.all(
+        selectedDocIds.map(docId =>
+          toggleDocumentDossier(docId, currentDossierIdFromUrl, 'remove', currentStaffId || 'unknown')
+        )
+      )
+      setSelectedDocIds([])
+    } catch (err) {
+      console.error('[Batch remove failed]', err)
     }
     setAssigningBatch(false)
   }
@@ -678,7 +702,8 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
       result = result.filter(d => {
         const days = getDaysRemaining(d.deadline)
         return badgeFilters.some(bf => {
-          if (bf === 'completed') return d.status === 'completed'
+          if (bf === 'completed' || bf === 'completed_docs') return d.status === 'completed'
+          if (bf === 'pending_docs') return d.status !== 'completed'
           if (d.status === 'completed') return false
           if (bf === 'overdue') return days !== null && days < 0
           if (bf === 'expired') return days !== null && days === 0
@@ -1031,12 +1056,13 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
         {/* Row 1: Urgency Badges */}
         <div className="scroll-x-badges sm:flex sm:flex-wrap sm:gap-2 sm:overflow-visible items-start w-full xl:w-auto xl:flex-1 min-w-0">
           {[
+            ...(filterStatus === 'all' ? [{ key: 'pending_docs', count: baseDocs.length - stats.completed, color: '#f59e0b', label: 'Chưa hoàn thành' }] : []),
+            ...(filterStatus === 'all' || filterStatus === 'completed' ? [{ key: 'completed_docs', count: stats.completed, color: settings.completedColor, label: 'Hoàn thành' }] : []),
             { key: 'overdue', count: stats.overdue, color: settings.overdueColor, label: 'Quá hạn' },
             { key: 'expired', count: stats.expired, color: settings.expiredColor, label: 'Hết hạn (0 ngày)' },
             { key: 'urgent1', count: stats.urgent1, color: settings.urgent1Color, label: 'Cận hạn 1-3 ngày' },
             { key: 'urgent2', count: stats.urgent2, color: settings.urgent2Color, label: 'Cận hạn 4-7 ngày' },
             { key: 'normal', count: stats.normal, color: settings.normalColor, label: 'Còn hạn > 7 ngày' },
-            ...(filterStatus === 'all' ? [{ key: 'completed', count: stats.completed, color: settings.completedColor, label: 'Hoàn thành' }] : [])
           ].map(b => {
             if (b.count === 0) return null
             const isSelected = badgeFilters.includes(b.key)
@@ -1048,7 +1074,7 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
                     prev.includes(b.key) ? prev.filter(x => x !== b.key) : [...prev, b.key]
                   )
                 }}
-                className="badge-filter px-2 py-1 rounded shadow-sm flex items-center gap-1 transition-all border whitespace-nowrap shrink-0"
+                className="badge-filter px-2 py-1 rounded shadow-sm flex items-center gap-1 transition-all border whitespace-nowrap shrink-0 text-xs"
                 style={{ 
                   '--badge-color': b.color,
                   background: isSelected ? b.color : `color-mix(in srgb, ${b.color} 25%, #ffffff)`,
@@ -1064,47 +1090,48 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
           })}
         </div>
 
-        {/* Row 2: Batch Dossier Box (Left) + Staff Badges & Copy (Right) */}
+        {/* Row 2: Batch Action Buttons (Left) + Staff Badges & Copy (Right) */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 w-full xl:w-auto min-w-0 flex-1">
           {/* Batch Dossier Selection Box (LEFT SIDE) */}
           {selectedDocIds.length > 0 ? (
-            <div className="flex flex-wrap items-center gap-2 px-3 py-1 bg-blue-50 border border-blue-300 rounded-lg text-xs font-semibold text-blue-900 shrink-0 shadow-sm animate-in fade-in duration-150">
+            <div className="flex flex-wrap items-center gap-2 px-3 py-1.5 bg-blue-50 border border-blue-300 rounded-lg text-xs font-semibold text-blue-900 shrink-0 shadow-sm animate-in fade-in duration-150 max-w-full">
               <span className="flex items-center gap-1 text-blue-700 font-bold whitespace-nowrap">
                 <Folder className="w-4 h-4 text-blue-600 shrink-0" />
                 Đã chọn {selectedDocIds.length} văn bản
               </span>
 
-              {/* Action 1: Add to dossier */}
-              <select
-                value=""
-                onChange={e => handleBatchAssignDossier(e.target.value)}
+              {/* Action 1: Multi-select Add to dossier */}
+              <button
+                onClick={() => setBatchAddModalOpen(true)}
                 disabled={assigningBatch}
-                className="px-2.5 py-1 bg-white border border-blue-300 rounded-md text-xs font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer shadow-xs"
-                title="Thêm văn bản đã chọn vào thêm 1 hồ sơ nữa"
+                className="px-2.5 py-1.5 bg-white border border-blue-300 rounded-md text-xs font-medium text-slate-800 hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer shadow-xs flex items-center gap-1"
+                title="Thêm văn bản đã chọn vào 1 hoặc nhiều hồ sơ"
               >
-                <option value="">+ Thêm vào Hồ sơ...</option>
-                {dossiers.map(d => (
-                  <option key={d.id} value={d.id}>
-                    {d.level === 1 ? '📂 ' : '  └ 📂 '}{d.name} (Cấp {d.level})
-                  </option>
-                ))}
-              </select>
+                <span>+ Thêm vào Hồ sơ...</span>
+              </button>
 
-              {/* Action 2: Move to dossier */}
-              <select
-                value=""
-                onChange={e => handleBatchMoveDossier(e.target.value)}
+              {/* Action 2: Single-select Move to dossier */}
+              <button
+                onClick={() => setBatchMoveModalOpen(true)}
                 disabled={assigningBatch}
-                className="px-2.5 py-1 bg-amber-50 border border-amber-300 rounded-md text-xs font-medium text-amber-900 focus:outline-none focus:ring-2 focus:ring-amber-500 cursor-pointer shadow-xs"
-                title="Di chuyển hẳn văn bản từ hồ sơ hiện tại sang hồ sơ mới (gỡ khỏi hồ sơ hiện tại)"
+                className="px-2.5 py-1.5 bg-amber-500 text-white rounded-md text-xs font-semibold hover:bg-amber-600 focus:outline-none focus:ring-2 focus:ring-amber-500 cursor-pointer shadow-xs flex items-center gap-1"
+                title="Di chuyển hẳn văn bản từ hồ sơ hiện tại sang hồ sơ mới (gỡ khỏi hồ sơ cũ)"
               >
-                <option value="">⇄ Di chuyển sang Hồ sơ...</option>
-                {dossiers.map(d => (
-                  <option key={d.id} value={d.id}>
-                    {d.level === 1 ? '📂 ' : '  └ 📂 '}{d.name} (Cấp {d.level})
-                  </option>
-                ))}
-              </select>
+                <ArrowRightLeft className="w-3.5 h-3.5" />
+                <span>Di chuyển Hồ sơ...</span>
+              </button>
+
+              {/* Action 3: Remove from current dossier (if inside a specific dossier) */}
+              {currentDossierIdFromUrl && (
+                <button
+                  onClick={handleBatchRemoveFromCurrentDossier}
+                  disabled={assigningBatch}
+                  className="px-2.5 py-1.5 bg-red-50 border border-red-300 rounded-md text-xs font-semibold text-red-700 hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-red-500 cursor-pointer shadow-xs flex items-center gap-1"
+                  title="Gỡ các văn bản đã chọn khỏi hồ sơ này"
+                >
+                  <span>🚫 Loại khỏi Hồ sơ này</span>
+                </button>
+              )}
 
               {assigningBatch && <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-600" />}
               <button
@@ -1311,18 +1338,34 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
                               const pathName = getDossierPathName(did)
                               if (!pathName) return null
                               return (
-                                <button
+                                <span
                                   key={did}
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    router.push(`/dossiers?id=${did}`)
-                                  }}
-                                  className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-600 hover:text-white transition-colors"
-                                  title="Bấm để mở hồ sơ này trong Quản lý Hồ sơ"
+                                  className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-blue-50 text-blue-700 border border-blue-200"
                                 >
-                                  <Folder className="w-3 h-3 text-blue-600 shrink-0" />
-                                  <span>{pathName}</span>
-                                </button>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      router.push(`/dossiers?id=${did}`)
+                                    }}
+                                    className="flex items-center gap-1 hover:text-blue-900 transition-colors"
+                                    title="Bấm để mở hồ sơ này trong Quản lý Hồ sơ"
+                                  >
+                                    <Folder className="w-3 h-3 text-blue-600 shrink-0" />
+                                    <span>{pathName}</span>
+                                  </button>
+                                  {perms.canEditDocument && (
+                                    <button
+                                      onClick={async (e) => {
+                                        e.stopPropagation()
+                                        await toggleDocumentDossier(doc.id, did, 'remove', currentStaffId || 'unknown')
+                                      }}
+                                      className="hover:text-red-600 text-blue-400 font-bold ml-0.5 px-0.5 rounded hover:bg-blue-100 transition-colors"
+                                      title="Loại văn bản khỏi hồ sơ này"
+                                    >
+                                      ✕
+                                    </button>
+                                  )}
+                                </span>
                               )
                             })}
 
@@ -1555,6 +1598,24 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
             </div>
           </div>
         </div>
+      )}
+
+      {batchAddModalOpen && (
+        <BatchAddDossierModal
+          selectedDocCount={selectedDocIds.length}
+          dossiers={dossiers}
+          onConfirm={handleBatchMultiAssignDossiers}
+          onClose={() => setBatchAddModalOpen(false)}
+        />
+      )}
+
+      {batchMoveModalOpen && (
+        <BatchMoveDossierModal
+          selectedDocCount={selectedDocIds.length}
+          dossiers={dossiers}
+          onConfirm={handleBatchMoveDossier}
+          onClose={() => setBatchMoveModalOpen(false)}
+        />
       )}
 
       <style jsx global>{`

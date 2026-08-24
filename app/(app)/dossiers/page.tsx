@@ -167,8 +167,8 @@ export default function DossiersPage() {
       <div className="flex-1 flex min-h-0 overflow-hidden">
         {/* Main Content Pane */}
         <main className="flex-1 overflow-y-auto p-4 sm:p-6 flex flex-col min-w-0">
-          {/* Documents Table */}
-          <div className="flex-1 bg-white rounded-xl border border-slate-200 shadow-sm p-3 sm:p-4 min-h-[300px]">
+          {/* Documents Table Container */}
+          <div className="flex-1 bg-white rounded-xl border border-slate-200 shadow-sm p-3 sm:p-4 min-h-[300px] min-w-0 max-w-full overflow-x-auto">
             <DocumentTable documents={currentDocs} />
           </div>
         </main>

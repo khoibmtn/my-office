@@ -12,37 +12,38 @@ export function useDossiers() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    if (role === 'guest') {
+      setDossiers([])
+      setLoading(false)
+      return
+    }
+
     let unsub: (() => void) | null = null
 
-    ensureAuth().then(() => {
-      if (role === 'guest') {
-        setDossiers([])
+    const col = collection(db(), 'dossiers')
+    unsub = onSnapshot(
+      col,
+      (snap) => {
+        const all = snap.docs.map(d => ({ id: d.id, ...d.data() } as Dossier))
+        // Client-side filter out soft-deleted items
+        const active = all.filter(d => !d.deletedAt)
+        // Filter by owner if not admin
+        const userDossiers = isAdmin
+          ? active
+          : active.filter(d => !d.ownerId || d.ownerId === staffId || d.ownerId === 'admin' || d.ownerId === 'unknown')
+
+        userDossiers.sort((a, b) => a.name.localeCompare(b.name, 'vi'))
+        setDossiers(userDossiers)
         setLoading(false)
-        return
+      },
+      (err) => {
+        console.error('[useDossiers] error:', err)
+        setLoading(false)
       }
+    )
 
-      const col = collection(db(), 'dossiers')
-      unsub = onSnapshot(
-        col,
-        (snap) => {
-          const all = snap.docs.map(d => ({ id: d.id, ...d.data() } as Dossier))
-          // Client-side filter out soft-deleted items
-          const active = all.filter(d => !d.deletedAt)
-          // Filter by owner if not admin
-          const userDossiers = isAdmin
-            ? active
-            : active.filter(d => !d.ownerId || d.ownerId === staffId || d.ownerId === 'admin' || d.ownerId === 'unknown')
-
-          userDossiers.sort((a, b) => a.name.localeCompare(b.name, 'vi'))
-          setDossiers(userDossiers)
-          setLoading(false)
-        },
-        (err) => {
-          console.error('[useDossiers] error:', err)
-          setLoading(false)
-        }
-      )
-    })
+    // Trigger auth in background if needed
+    ensureAuth().catch(() => {})
 
     return () => { if (unsub) unsub() }
   }, [role, staffId, isAdmin])

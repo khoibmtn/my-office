@@ -12,14 +12,10 @@ interface DossierBreadcrumbProps {
 export function DossierBreadcrumb({ currentPath, onNavigate }: DossierBreadcrumbProps) {
   return (
     <nav className="flex items-center gap-1.5 text-sm text-slate-700 overflow-x-auto select-none">
-      <button
-        onClick={() => onNavigate(null)}
-        className="flex items-center gap-1.5 font-bold hover:text-blue-600 transition-colors shrink-0 text-slate-800"
-        title="Về danh mục Hồ sơ của tôi"
-      >
+      <div className="flex items-center gap-1.5 font-bold shrink-0 text-slate-800">
         <Folder className="w-5 h-5 text-blue-600 shrink-0" />
         <span>Hồ sơ của tôi</span>
-      </button>
+      </div>
 
       {currentPath.map((item, idx) => {
         const isLast = idx === currentPath.length - 1
