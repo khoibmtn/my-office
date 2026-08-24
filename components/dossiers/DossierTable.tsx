@@ -201,7 +201,6 @@ export function DossierTable({
               <th className="py-3 px-3.5">Cấu trúc cây Hồ sơ (A-Z)</th>
               <th className="py-3 px-3.5 whitespace-nowrap">Ngày tạo</th>
               <th className="py-3 px-3.5 text-center whitespace-nowrap">Số văn bản</th>
-              <th className="py-3 px-3.5">Hồ sơ con</th>
               <th className="py-3 px-3.5 text-center whitespace-nowrap">Trạng thái</th>
               <th className="py-3 px-3.5 text-right whitespace-nowrap">Thao tác</th>
             </tr>
@@ -209,17 +208,13 @@ export function DossierTable({
           <tbody className="divide-y divide-slate-150">
             {treeOrderedDossiers.length === 0 ? (
               <tr>
-                <td colSpan={6} className="py-12 text-center text-slate-400 text-xs">
+                <td colSpan={5} className="py-12 text-center text-slate-400 text-xs">
                   Không tìm thấy hồ sơ nào phù hợp.
                 </td>
               </tr>
             ) : (
               treeOrderedDossiers.map(dossier => {
                 const count = docCounts[dossier.id] || 0
-                // Child dossiers sorted A-Z
-                const childDossiers = dossiers
-                  .filter(c => c.parentId === dossier.id)
-                  .sort((a, b) => a.name.localeCompare(b.name, 'vi', { sensitivity: 'base' }))
                 const isArchived = !!dossier.isArchived
 
                 return (
@@ -290,31 +285,6 @@ export function DossierTable({
                         <FileText className="w-3 h-3" />
                         <span>{count} văn bản</span>
                       </span>
-                    </td>
-
-                    {/* Sub-dossiers list (Sorted A-Z) */}
-                    <td className="py-3 px-3.5">
-                      {childDossiers.length > 0 ? (
-                        <div className="flex flex-wrap gap-1">
-                          {childDossiers.map(child => {
-                            const childCount = docCounts[child.id] || 0
-                            return (
-                              <button
-                                key={child.id}
-                                onClick={() => handleDossierClick(child)}
-                                className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-100 hover:bg-blue-100 text-slate-700 hover:text-blue-800 border border-slate-200 transition-colors"
-                                title={`Mở hồ sơ con: ${child.name}`}
-                              >
-                                <Folder className="w-3 h-3 text-slate-500" />
-                                <span className="truncate max-w-[120px]">{child.name}</span>
-                                <span className="text-slate-400 font-mono">({childCount})</span>
-                              </button>
-                            )
-                          })}
-                        </div>
-                      ) : (
-                        <span className="text-[11px] text-slate-400 italic">Không có</span>
-                      )}
                     </td>
 
                     {/* Status */}
