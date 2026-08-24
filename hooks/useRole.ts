@@ -61,7 +61,7 @@ export function useRole(): RoleInfo {
   // Determine role
   let role: UserRole = 'guest'
   if (!authLoading && user) {
-    if (!user.isAnonymous && user.email === ADMIN_EMAIL) {
+    if (!user.isAnonymous && user.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase()) {
       role = 'admin'
     } else if (session) {
       role = 'staff'

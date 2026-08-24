@@ -81,35 +81,12 @@ export function ensureAuth(): Promise<User | null> {
 async function _doEnsureAuth(): Promise<User | null> {
   const firebaseAuth = auth()
 
+  await firebaseAuth.authStateReady()
+
   // 1. Check if already signed in
   if (firebaseAuth.currentUser) {
     _saveTokens(firebaseAuth.currentUser)
     return firebaseAuth.currentUser
-  }
-
-  // 2. Fast check via onAuthStateChanged (Firebase loads IndexedDB user in < 15ms)
-  const restoredUser = await new Promise<User | null>((resolve) => {
-    let resolved = false
-    const unsubscribe = firebaseAuth.onAuthStateChanged((user) => {
-      if (!resolved) {
-        resolved = true
-        unsubscribe()
-        resolve(user)
-      }
-    })
-    // Quick timeout fallback (300ms max)
-    setTimeout(() => {
-      if (!resolved) {
-        resolved = true
-        unsubscribe()
-        resolve(firebaseAuth.currentUser)
-      }
-    }, 300)
-  })
-
-  if (restoredUser) {
-    _saveTokens(restoredUser)
-    return restoredUser
   }
 
   // 3. Process redirect result ONLY if redirect flow was initiated
