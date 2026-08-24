@@ -4,7 +4,7 @@ import React, { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   Folder, FolderPlus, Pencil, Trash2, Archive, ArchiveRestore,
-  Search, FileText, AlertCircle, Loader2
+  Search, FileText, AlertCircle, Loader2, X, PlusSquare, MinusSquare
 } from 'lucide-react'
 import type { Dossier, Document } from '@/types'
 import { toggleArchiveDossier } from '@/lib/dossiers'
@@ -23,6 +23,50 @@ interface DossierTableProps {
   }
 }
 
+// Ordered fuzzy match helper
+function fuzzyMatchOrdered(text: string, query: string): boolean {
+  if (!query.trim() || !text) return false
+  const t = text.toLowerCase()
+  const q = query.trim().toLowerCase()
+
+  // 1. Substring match
+  if (t.includes(q)) return true
+
+  // 2. All words match
+  const words = q.split(/\s+/).filter(Boolean)
+  if (words.every(w => t.includes(w))) return true
+
+  // 3. Ordered sequential character match (e.g., "ksk" -> "Khám sức khỏe")
+  let qIdx = 0
+  for (let i = 0; i < t.length && qIdx < q.length; i++) {
+    if (t[i] === q[qIdx]) {
+      qIdx++
+    }
+  }
+  return qIdx === q.length
+}
+
+// Highlight matching search words/query
+function Highlight({ text, query }: { text: string; query: string }) {
+  if (!query.trim() || !text) return <>{text}</>
+  const words = query.trim().toLowerCase().split(/\s+/).filter(Boolean)
+  if (words.length === 0) return <>{text}</>
+  const escapedWords = words.map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+  const regex = new RegExp(`(${escapedWords.join('|')})`, 'gi')
+  const parts = String(text).split(regex)
+  return (
+    <>
+      {parts.map((part, i) =>
+        words.some(w => w.toLowerCase() === part.toLowerCase()) ? (
+          <mark key={i} className="bg-yellow-200 text-slate-900 rounded px-0.5 font-bold">{part}</mark>
+        ) : (
+          <span key={i}>{part}</span>
+        )
+      )}
+    </>
+  )
+}
+
 export function DossierTable({
   dossiers,
   documents,
@@ -39,6 +83,21 @@ export function DossierTable({
   const [archivingId, setArchivingId] = useState<string | null>(null)
   const [archivedAlert, setArchivedAlert] = useState<string | null>(null)
 
+  // Expand/collapse state for tree nodes in table (all parent dossiers expanded by default)
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(() => {
+    return new Set(dossiers.map(d => d.id))
+  })
+
+  const toggleExpand = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation()
+    setExpandedIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
   // Document counts map
   const docCounts = useMemo(() => {
     const counts: Record<string, number> = {}
@@ -51,9 +110,9 @@ export function DossierTable({
     return counts
   }, [documents])
 
-  // Build depth-first tree structure with Vietnamese alphabetical (A-Z) sorting at each level
+  // Build depth-first tree structure with Vietnamese A-Z sorting & fuzzy search matching
   const treeOrderedDossiers = useMemo(() => {
-    const searchNormalized = search.trim().toLowerCase()
+    const query = search.trim().toLowerCase()
 
     // Base pool filtered by tab
     const pool = dossiers.filter(d => {
@@ -62,30 +121,32 @@ export function DossierTable({
       return true
     })
 
-    // If searching: filter pool and sort all matches alphabetically A-Z
-    if (searchNormalized) {
-      return pool
-        .filter(d => d.name.toLowerCase().includes(searchNormalized) || (d.description || '').toLowerCase().includes(searchNormalized))
-        .sort((a, b) => a.name.localeCompare(b.name, 'vi', { sensitivity: 'base' }))
+    // Check if node or any of its descendants match search query
+    function matchesOrHasMatchingDescendant(d: Dossier): boolean {
+      if (!query) return true
+      if (fuzzyMatchOrdered(d.name, query) || fuzzyMatchOrdered(d.description || '', query)) return true
+      const children = pool.filter(c => c.parentId === d.id)
+      return children.some(c => matchesOrHasMatchingDescendant(c))
     }
 
-    // Standard Tree View: Depth-First traversal with ABC sorting at every level
     const result: Dossier[] = []
-
-    // Root level dossiers (no parentId or parent not in current pool)
-    const rootNodes = pool.filter(d => !d.parentId || !pool.some(p => p.id === d.parentId))
+    const rootNodes = pool.filter(d => (!d.parentId || !pool.some(p => p.id === d.parentId)) && matchesOrHasMatchingDescendant(d))
     rootNodes.sort((a, b) => a.name.localeCompare(b.name, 'vi', { sensitivity: 'base' }))
 
     function traverse(node: Dossier) {
       result.push(node)
-      const children = pool.filter(c => c.parentId === node.id)
+      
+      // If NOT searching, respect user expand/collapse toggle
+      if (!query && !expandedIds.has(node.id)) return
+
+      const children = pool.filter(c => c.parentId === node.id && matchesOrHasMatchingDescendant(c))
       children.sort((a, b) => a.name.localeCompare(b.name, 'vi', { sensitivity: 'base' }))
       children.forEach(child => traverse(child))
     }
 
     rootNodes.forEach(root => traverse(root))
     return result
-  }, [dossiers, tab, search])
+  }, [dossiers, tab, search, expandedIds])
 
   // Stats
   const activeCount = useMemo(() => dossiers.filter(d => !d.isArchived).length, [dossiers])
@@ -109,7 +170,6 @@ export function DossierTable({
       setTimeout(() => setArchivedAlert(null), 5000)
       return
     }
-    // Navigate and auto-expand on left panel
     router.push(`/dossiers?id=${dossier.id}`)
   }
 
@@ -180,16 +240,28 @@ export function DossierTable({
           </button>
         </div>
 
-        {/* Search Bar */}
+        {/* Search Bar with Fuzzy matching, ESC key listener, and X clear button */}
         <div className="relative w-full sm:w-64">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
           <input
             type="text"
             value={search}
             onChange={e => setSearch(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === 'Escape') setSearch('')
+            }}
             placeholder="Tìm tên hoặc nội dung hồ sơ..."
-            className="w-full pl-9 pr-3 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-50 focus:bg-white"
+            className="w-full pl-9 pr-8 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-50 focus:bg-white"
           />
+          {search && (
+            <button
+              onClick={() => setSearch('')}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 p-0.5 rounded-full hover:bg-slate-200 transition-colors"
+              title="Xóa nhanh tìm kiếm (ESC)"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
       </div>
 
@@ -215,6 +287,8 @@ export function DossierTable({
             ) : (
               treeOrderedDossiers.map(dossier => {
                 const count = docCounts[dossier.id] || 0
+                const hasChildren = dossiers.some(c => c.parentId === dossier.id)
+                const isExpanded = expandedIds.has(dossier.id)
                 const isArchived = !!dossier.isArchived
 
                 return (
@@ -224,17 +298,33 @@ export function DossierTable({
                       isArchived ? 'bg-purple-50/30' : dossier.level === 1 ? 'bg-slate-50/40 font-medium' : ''
                     }`}
                   >
-                    {/* Tree Hierarchy Dossier Name & Level */}
+                    {/* Tree Hierarchy Dossier Name with [+] [-] expand toggle & Highlight */}
                     <td className="py-3 px-3.5 max-w-xs">
                       <div
-                        className="flex items-start gap-2"
+                        className="flex items-start gap-1.5"
                         style={{ paddingLeft: `${(dossier.level - 1) * 20}px` }}
                       >
-                        {dossier.level > 1 && (
-                          <span className="text-slate-400 font-mono text-xs select-none shrink-0 mt-0.5 font-bold">
+                        {/* [+] [-] Expand / Collapse Toggle Button */}
+                        {hasChildren ? (
+                          <button
+                            onClick={e => toggleExpand(dossier.id, e)}
+                            className="p-0.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded shrink-0 mt-0.5 transition-colors"
+                            title={isExpanded ? 'Thu gọn hồ sơ con' : 'Mở rộng hồ sơ con'}
+                          >
+                            {isExpanded ? (
+                              <MinusSquare className="w-3.5 h-3.5 text-blue-600" />
+                            ) : (
+                              <PlusSquare className="w-3.5 h-3.5 text-slate-500" />
+                            )}
+                          </button>
+                        ) : dossier.level > 1 ? (
+                          <span className="text-slate-300 font-mono text-xs select-none shrink-0 mt-0.5 font-bold pl-1">
                             └─
                           </span>
+                        ) : (
+                          <span className="w-4 h-4 shrink-0" />
                         )}
+
                         <Folder className={`w-4 h-4 shrink-0 mt-0.5 ${
                           isArchived
                             ? 'text-purple-500'
@@ -242,6 +332,7 @@ export function DossierTable({
                             ? 'text-blue-600 fill-blue-100'
                             : 'text-blue-500'
                         }`} />
+
                         <div className="flex flex-col min-w-0">
                           <div className="flex items-center gap-1.5 flex-wrap">
                             <button
@@ -251,7 +342,7 @@ export function DossierTable({
                               }`}
                               title={isArchived ? 'Hồ sơ đã lưu trữ (không thể mở trên thanh trái)' : `Bấm để mở hồ sơ "${dossier.name}"`}
                             >
-                              {dossier.name}
+                              <Highlight text={dossier.name} query={search} />
                             </button>
                             <span className={`px-1.5 py-0.5 rounded text-[10px] font-mono shrink-0 ${
                               dossier.level === 1
@@ -265,7 +356,7 @@ export function DossierTable({
                           </div>
                           {dossier.description && (
                             <p className="text-[11px] text-slate-400 italic line-clamp-1 mt-0.5">
-                              {dossier.description}
+                              <Highlight text={dossier.description} query={search} />
                             </p>
                           )}
                         </div>
