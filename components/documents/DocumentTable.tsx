@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react'
-import { Loader2, Trash2, Eye, RefreshCw, CheckCircle2, Clock, CircleDot, Search, Pencil, ArrowUpDown, ClipboardCopy, Calendar, ChevronLeft, ChevronRight, X, Folder, ArrowRightLeft, FolderPlus } from 'lucide-react'
+import { Loader2, Trash2, Eye, RefreshCw, CheckCircle2, Clock, CircleDot, Search, Pencil, ArrowUpDown, ClipboardCopy, Calendar, ChevronLeft, ChevronRight, X, Folder, ArrowRightLeft, FolderPlus, User, ChevronDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
@@ -437,10 +437,19 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
   const [badgeFilters, setBadgeFilters] = useState<string[]>([])
   const [priorityBadgeFilters, setPriorityBadgeFilters] = useState<string[]>([])
   const [staffBadgeFilter, setStaffBadgeFilter] = useState<string | null>(null)
-  // Staff Badges pagination & view limit state
-  const [staffPage, setStaffPage] = useState(0)
-  const [showAllStaff, setShowAllStaff] = useState(false)
-  const STAFF_PER_PAGE = 5
+  const [staffDropdownOpen, setStaffDropdownOpen] = useState(false)
+  const [staffSearchQuery, setStaffSearchQuery] = useState('')
+  const staffDropdownRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (staffDropdownRef.current && !staffDropdownRef.current.contains(event.target as Node)) {
+        setStaffDropdownOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
 
   // Batch Modals State
   const [batchAddModalOpen, setBatchAddModalOpen] = useState(false)
@@ -667,12 +676,11 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
     return Object.entries(counts).sort((a, b) => a[0].localeCompare(b[0]))
   }, [baseDocs, getStaffName])
 
-  const totalStaffPages = useMemo(() => Math.ceil(staffStats.length / STAFF_PER_PAGE), [staffStats, STAFF_PER_PAGE])
-  const visibleStaffStats = useMemo(() => {
-    if (showAllStaff) return staffStats
-    const start = staffPage * STAFF_PER_PAGE
-    return staffStats.slice(start, start + STAFF_PER_PAGE)
-  }, [staffStats, showAllStaff, staffPage, STAFF_PER_PAGE])
+  const filteredStaffStats = useMemo(() => {
+    if (!staffSearchQuery.trim()) return staffStats
+    const q = staffSearchQuery.trim().toLowerCase()
+    return staffStats.filter(([name]) => name.toLowerCase().includes(q))
+  }, [staffStats, staffSearchQuery])
 
   // Priority stats from baseDocs
   const priorityStats = useMemo(() => {
@@ -1160,77 +1168,108 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
           })}
         </div>
 
-        {/* Row 2: Staff Badges & Copy (Right) */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-end gap-2 w-full min-w-0 flex-1">
-
-          {/* Staff Badges + Navigation Controls + Copy Button (RIGHT SIDE) */}
-          <div className="flex items-center gap-1.5 shrink-0 ml-auto max-w-full flex-wrap justify-end">
-            <div className="flex items-center gap-1 flex-wrap">
-              {/* Previous Page Arrow */}
-              {!showAllStaff && totalStaffPages > 1 && (
-                <button
-                  onClick={() => setStaffPage(prev => Math.max(0, prev - 1))}
-                  disabled={staffPage === 0}
-                  className={`p-1 rounded-md border text-xs transition-colors shrink-0 ${
-                    staffPage === 0
-                      ? 'border-slate-200 text-slate-300 cursor-not-allowed bg-slate-50'
-                      : 'border-slate-300 text-slate-700 hover:bg-slate-100 bg-white shadow-2xs'
-                  }`}
-                  title="Trang cán bộ trước"
+        {/* Row 2: Staff Dropdown Filter & Copy (Right) */}
+        <div className="flex items-center justify-end gap-2 w-full xl:w-auto shrink-0 ml-auto">
+          {/* Smart Staff Filter Dropdown */}
+          <div className="relative shrink-0" ref={staffDropdownRef}>
+            <button
+              onClick={() => setStaffDropdownOpen(!staffDropdownOpen)}
+              className={`px-2.5 py-1 rounded-md text-xs font-semibold border transition-all flex items-center gap-1.5 shadow-2xs ${
+                staffBadgeFilter
+                  ? 'bg-slate-800 text-white border-slate-700 ring-2 ring-slate-400'
+                  : 'bg-white border-slate-300 text-slate-700 hover:bg-slate-50 hover:border-slate-400'
+              }`}
+            >
+              <User className="w-3.5 h-3.5" style={{ color: staffBadgeFilter ? '#fff' : '#64748b' }} />
+              <span className="whitespace-nowrap">
+                {staffBadgeFilter ? `Cán bộ: ${staffBadgeFilter}` : `Cán bộ (${staffStats.length})`}
+              </span>
+              {staffBadgeFilter ? (
+                <span
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setStaffBadgeFilter(null)
+                  }}
+                  className="hover:bg-slate-700 rounded px-1 ml-0.5 text-xs text-slate-300 hover:text-white"
+                  title="Bỏ chọn cán bộ"
                 >
-                  <ChevronLeft className="w-3.5 h-3.5" />
-                </button>
+                  ✕
+                </span>
+              ) : (
+                <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
               )}
+            </button>
 
-              {/* Visible Staff Badges */}
-              {visibleStaffStats.map(([name, count]) => {
-                const isSelected = staffBadgeFilter === name
-                return (
+            {staffDropdownOpen && (
+              <div className="absolute right-0 top-full mt-1.5 w-64 bg-white border border-slate-200 rounded-xl shadow-xl z-[100] p-2 text-xs animate-in fade-in zoom-in-95 duration-100">
+                <div className="flex items-center justify-between pb-1.5 mb-1.5 border-b border-slate-150">
+                  <span className="font-bold text-slate-500 uppercase text-[10px] tracking-wider">Cán bộ được giao ({staffStats.length})</span>
+                  {staffBadgeFilter && (
+                    <button
+                      onClick={() => {
+                        setStaffBadgeFilter(null)
+                        setStaffDropdownOpen(false)
+                      }}
+                      className="text-blue-600 hover:underline font-bold text-[11px]"
+                    >
+                      Bỏ chọn
+                    </button>
+                  )}
+                </div>
+
+                {staffStats.length > 5 && (
+                  <div className="mb-1.5 relative">
+                    <Search className="w-3 h-3 text-slate-400 absolute left-2 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      value={staffSearchQuery}
+                      onChange={e => setStaffSearchQuery(e.target.value)}
+                      placeholder="Tìm cán bộ..."
+                      className="w-full pl-7 pr-2 py-1 border border-slate-200 rounded-md text-[11px] bg-slate-50 focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    />
+                  </div>
+                )}
+
+                <div className="max-h-56 overflow-y-auto space-y-0.5 pr-0.5">
                   <button
-                    key={name}
-                    onClick={() => setStaffBadgeFilter(staffBadgeFilter === name ? null : name)}
-                    className="badge-filter px-2 py-1 rounded shadow-2xs flex items-center gap-1 transition-all border text-xs font-semibold whitespace-nowrap shrink-0"
-                    style={{
-                      '--badge-color': isSelected ? '#334155' : '#475569',
-                      background: isSelected ? '#334155' : '#f1f5f9',
-                      borderColor: isSelected ? '#1e293b' : '#cbd5e1',
-                      color: isSelected ? '#fff' : '#475569',
-                      boxShadow: isSelected ? '0 0 0 2px #fff, 0 0 0 4px #334155' : 'none'
-                    } as React.CSSProperties}
+                    onClick={() => {
+                      setStaffBadgeFilter(null)
+                      setStaffDropdownOpen(false)
+                    }}
+                    className={`w-full text-left px-2.5 py-1.5 rounded-md flex items-center justify-between font-semibold transition-colors ${
+                      !staffBadgeFilter ? 'bg-blue-50 text-blue-700 font-bold' : 'hover:bg-slate-100 text-slate-700'
+                    }`}
                   >
-                    {name}: {count}
-                    {isSelected && <span className="opacity-70 hover:opacity-100 font-normal ml-1 text-sm leading-none">×</span>}
+                    <span>Tất cả cán bộ</span>
+                    <span className="text-slate-400 font-mono text-[11px]">({baseDocs.length})</span>
                   </button>
-                )
-              })}
 
-              {/* Next Page Arrow */}
-              {!showAllStaff && totalStaffPages > 1 && (
-                <button
-                  onClick={() => setStaffPage(prev => Math.min(totalStaffPages - 1, prev + 1))}
-                  disabled={staffPage >= totalStaffPages - 1}
-                  className={`p-1 rounded-md border text-xs transition-colors shrink-0 ${
-                    staffPage >= totalStaffPages - 1
-                      ? 'border-slate-200 text-slate-300 cursor-not-allowed bg-slate-50'
-                      : 'border-slate-300 text-slate-700 hover:bg-slate-100 bg-white shadow-2xs'
-                  }`}
-                  title="Trang cán bộ tiếp theo"
-                >
-                  <ChevronRight className="w-3.5 h-3.5" />
-                </button>
-              )}
-
-              {/* View All / Collapse Toggle */}
-              {staffStats.length > STAFF_PER_PAGE && (
-                <button
-                  onClick={() => setShowAllStaff(!showAllStaff)}
-                  className="px-2 py-1 text-[11px] font-bold text-blue-700 bg-blue-50 border border-blue-200 hover:bg-blue-100 rounded-md transition-colors whitespace-nowrap shrink-0"
-                  title={showAllStaff ? "Thu gọn danh sách" : `Xem tất cả ${staffStats.length} cán bộ`}
-                >
-                  {showAllStaff ? 'Thu gọn' : `+${staffStats.length - STAFF_PER_PAGE}`}
-                </button>
-              )}
-            </div>
+                  {filteredStaffStats.map(([name, count]) => {
+                    const isSelected = staffBadgeFilter === name
+                    return (
+                      <button
+                        key={name}
+                        onClick={() => {
+                          setStaffBadgeFilter(isSelected ? null : name)
+                          setStaffDropdownOpen(false)
+                        }}
+                        className={`w-full text-left px-2.5 py-1.5 rounded-md flex items-center justify-between transition-colors ${
+                          isSelected ? 'bg-blue-50 text-blue-700 font-bold' : 'hover:bg-slate-100 text-slate-700'
+                        }`}
+                      >
+                        <span className="truncate pr-2">{name}</span>
+                        <span className={`px-1.5 py-0.2 rounded font-mono text-[10px] ${
+                          isSelected ? 'bg-blue-200 text-blue-900 font-bold' : 'bg-slate-100 text-slate-600'
+                        }`}>
+                          {count}
+                        </span>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
 
           <button
             className="badge-filter px-2 py-1 rounded shadow-sm flex items-center gap-1 transition-all border text-xs font-semibold shrink-0"
@@ -1305,7 +1344,6 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
             {filteredDocs.length}/{baseDocs.length}
           </span>
         </div>
-      </div>
       </div>
 
       {/* === DESKTOP TABLE (hidden on mobile) === */}
