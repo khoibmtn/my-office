@@ -1,7 +1,7 @@
 'use client'
 
 import React from 'react'
-import { ChevronRight, Folder, FolderTree, Check } from 'lucide-react'
+import { ChevronRight, Folder, Check, MinusCircle } from 'lucide-react'
 import type { Dossier } from '@/types'
 
 interface DossierBreadcrumbProps {
@@ -56,23 +56,23 @@ export function DossierBreadcrumb({
                 <button
                   type="button"
                   onClick={() => onToggleIncludeSubDossiers(!includeSubDossiers)}
-                  className={`ml-1.5 px-2.5 py-0.5 text-xs font-semibold rounded-full border transition-all flex items-center gap-1.5 cursor-pointer select-none ${
+                  className={`ml-1.5 px-2.5 py-0.5 text-xs font-semibold rounded-full border transition-all flex items-center gap-1 cursor-pointer select-none ${
                     includeSubDossiers
                       ? 'bg-blue-50 text-blue-700 border-blue-300 shadow-2xs hover:bg-blue-100'
-                      : 'bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200 hover:text-slate-900'
+                      : 'bg-amber-50 text-slate-600 border-amber-200/80 hover:bg-amber-100'
                   }`}
                   title={
                     includeSubDossiers
-                      ? 'Đang hiển thị văn bản từ hồ sơ này và tất cả hồ sơ con. Nhấn để chỉ xem riêng hồ sơ này.'
-                      : 'Nhấn để hiển thị & tìm kiếm tất cả văn bản trong các hồ sơ con'
+                      ? 'Đang hiển thị văn bản từ hồ sơ này và tất cả hồ sơ con. Nhấn để tắt.'
+                      : 'Nhấn để bật hiển thị & tìm kiếm tất cả văn bản trong các hồ sơ con'
                   }
                 >
                   {includeSubDossiers ? (
                     <Check className="w-3.5 h-3.5 text-blue-600 shrink-0" />
                   ) : (
-                    <FolderTree className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                    <MinusCircle className="w-3.5 h-3.5 text-red-500 shrink-0" />
                   )}
-                  <span>{includeSubDossiers ? 'Bao gồm hồ sơ con' : 'Gồm hồ sơ con'}</span>
+                  <span>HS con</span>
                 </button>
               )}
             </div>
