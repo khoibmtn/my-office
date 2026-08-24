@@ -33,19 +33,44 @@ export function DossierNavItem({ active }: DossierNavItemProps) {
 
   // Split into "My Dossiers" and "Shared with Me"
   const { myDossiers, sharedDossiers } = useMemo(() => {
+    if (isAdmin) {
+      // Admin sees all dossiers in My Dossiers
+      return { myDossiers: activeDossiers, sharedDossiers: [] }
+    }
+
     const my: Dossier[] = []
     const shared: Dossier[] = []
 
+    // 1. My Dossiers: ONLY dossiers owned by this staff member
     activeDossiers.forEach(d => {
-      const isOwner = d.ownerId === staffId || (isAdmin && (d.ownerId === 'admin' || !d.ownerId))
-      const isSharedWithMe = staffId && (d.sharedWith || []).includes(staffId) && d.ownerId !== staffId
+      if (staffId && d.ownerId === staffId) {
+        my.push(d)
+      }
+    })
 
-      if (isOwner || (isAdmin && !d.sharedWith?.includes('admin'))) {
-        my.push(d)
-      } else if (isSharedWithMe) {
+    // 2. Shared with me: directly shared or descendant of shared dossiers
+    const sharedIdSet = new Set<string>()
+    activeDossiers.forEach(d => {
+      if (staffId && d.ownerId !== staffId && (d.sharedWith || []).includes(staffId)) {
+        sharedIdSet.add(d.id)
+      }
+    })
+
+    // Auto-inherit children of shared dossiers
+    let added = true
+    while (added) {
+      added = false
+      activeDossiers.forEach(d => {
+        if (d.parentId && sharedIdSet.has(d.parentId) && !sharedIdSet.has(d.id)) {
+          sharedIdSet.add(d.id)
+          added = true
+        }
+      })
+    }
+
+    activeDossiers.forEach(d => {
+      if (sharedIdSet.has(d.id)) {
         shared.push(d)
-      } else if (isAdmin) {
-        my.push(d)
       }
     })
 
@@ -65,11 +90,11 @@ export function DossierNavItem({ active }: DossierNavItemProps) {
   }, [documents])
 
   // Get owner display name
-  const getOwnerDisplayName = useCallback((ownerId: string) => {
-    if (ownerId === 'admin') return 'Admin'
+  const getOwnerDisplayName = useCallback((ownerId?: string | null) => {
+    if (!ownerId || ownerId === 'admin' || ownerId === 'unknown') return 'Admin'
     const found = allStaff.find(s => s.id === ownerId)
     if (found) return found.shortName
-    return ownerId || 'Khác'
+    return 'Admin'
   }, [allStaff])
 
   // Get parent dossiers that have children

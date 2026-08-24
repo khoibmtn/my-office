@@ -1174,7 +1174,9 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
             >
               <User className="w-3.5 h-3.5" style={{ color: staffBadgeFilter ? '#fff' : '#64748b' }} />
               <span className="whitespace-nowrap">
-                {staffBadgeFilter ? `Cán bộ: ${staffBadgeFilter}` : `Cán bộ (${staffStats.length})`}
+                {staffBadgeFilter
+                  ? `Cán bộ: ${staffBadgeFilter === '(Chưa giao)' ? '(Chưa giao)' : (getStaffName(staffBadgeFilter) || staffBadgeFilter)}`
+                  : `Cán bộ (${staffStats.length})`}
               </span>
               {staffBadgeFilter ? (
                 <span

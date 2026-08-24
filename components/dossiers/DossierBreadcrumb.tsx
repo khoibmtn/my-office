@@ -1,7 +1,7 @@
 'use client'
 
 import React from 'react'
-import { ChevronRight, Folder, Check, MinusCircle } from 'lucide-react'
+import { ChevronRight, Folder, FolderSymlink, Check, MinusCircle } from 'lucide-react'
 import type { Dossier } from '@/types'
 
 interface DossierBreadcrumbProps {
@@ -10,6 +10,7 @@ interface DossierBreadcrumbProps {
   hasSubDossiers?: boolean
   includeSubDossiers?: boolean
   onToggleIncludeSubDossiers?: (val: boolean) => void
+  isSharedRoot?: boolean
 }
 
 export function DossierBreadcrumb({
@@ -18,6 +19,7 @@ export function DossierBreadcrumb({
   hasSubDossiers = false,
   includeSubDossiers = false,
   onToggleIncludeSubDossiers,
+  isSharedRoot = false,
 }: DossierBreadcrumbProps) {
   return (
     <nav className="flex items-center gap-1.5 text-sm text-slate-700 overflow-x-auto select-none py-0.5">
@@ -25,8 +27,12 @@ export function DossierBreadcrumb({
         onClick={() => onNavigate(null)}
         className="flex items-center gap-1.5 font-bold shrink-0 text-slate-800 hover:text-blue-600 transition-colors"
       >
-        <Folder className="w-5 h-5 text-blue-600 shrink-0" />
-        <span>Hồ sơ của tôi</span>
+        {isSharedRoot ? (
+          <FolderSymlink className="w-5 h-5 text-blue-600 shrink-0" />
+        ) : (
+          <Folder className="w-5 h-5 text-blue-600 shrink-0" />
+        )}
+        <span>{isSharedRoot ? 'Chia sẻ với tôi' : 'Hồ sơ của tôi'}</span>
       </button>
 
       {currentPath.map((item, idx) => {

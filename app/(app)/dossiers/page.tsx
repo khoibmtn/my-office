@@ -34,16 +34,26 @@ function DossiersContent() {
   const [activePath, setActivePath] = useState<Dossier[]>([])
   const activeFolder = activePath[activePath.length - 1] || null
 
-  // Root view tab ('dossiers' | 'unassigned')
-  const [rootTab, setRootTab] = useState<'dossiers' | 'unassigned'>(() => {
+  // Root view tab
+  const [rootTab, setRootTab] = useState<string>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('myoffice_dossier_rootTab')
-      if (saved === 'dossiers' || saved === 'unassigned') return saved
+      if (saved) return saved
     }
-    return 'dossiers'
+    return 'default'
   })
 
-  const handleSetRootTab = useCallback((tab: 'dossiers' | 'unassigned') => {
+  const effectiveRootTab = useMemo(() => {
+    if (isAdmin) {
+      if (rootTab === 'unassigned') return 'unassigned'
+      return 'dossiers'
+    }
+    if (rootTab === 'shared') return 'shared'
+    if (rootTab === 'unassigned') return 'unassigned'
+    return 'my_dossiers'
+  }, [isAdmin, rootTab])
+
+  const handleSetRootTab = useCallback((tab: string) => {
     setRootTab(tab)
     if (typeof window !== 'undefined') {
       localStorage.setItem('myoffice_dossier_rootTab', tab)
@@ -114,11 +124,58 @@ function DossiersContent() {
     if (savedInclude !== null) {
       setIncludeSubDossiers(savedInclude === 'true')
     }
-    const savedTab = localStorage.getItem('myoffice_dossier_rootTab')
-    if (savedTab === 'dossiers' || savedTab === 'unassigned') {
-      setRootTab(savedTab)
-    }
   }, [])
+
+  // Split into "My Dossiers" and "Shared with Me"
+  const { myDossiers, sharedDossiers } = useMemo(() => {
+    if (isAdmin) {
+      return { myDossiers: dossiers, sharedDossiers: [] }
+    }
+
+    const my: Dossier[] = []
+    const shared: Dossier[] = []
+
+    // 1. My Dossiers: ONLY dossiers owned by this staff member
+    dossiers.forEach(d => {
+      if (staffId && d.ownerId === staffId) {
+        my.push(d)
+      }
+    })
+
+    // 2. Shared with me: directly shared or descendant of shared dossiers
+    const sharedIdSet = new Set<string>()
+    dossiers.forEach(d => {
+      if (staffId && d.ownerId !== staffId && (d.sharedWith || []).includes(staffId)) {
+        sharedIdSet.add(d.id)
+      }
+    })
+
+    let added = true
+    while (added) {
+      added = false
+      dossiers.forEach(d => {
+        if (d.parentId && sharedIdSet.has(d.parentId) && !sharedIdSet.has(d.id)) {
+          sharedIdSet.add(d.id)
+          added = true
+        }
+      })
+    }
+
+    dossiers.forEach(d => {
+      if (sharedIdSet.has(d.id)) {
+        shared.push(d)
+      }
+    })
+
+    return { myDossiers: my, sharedDossiers: shared }
+  }, [dossiers, staffId, isAdmin])
+
+  // Check if current active path is a shared root
+  const isSharedRoot = useMemo(() => {
+    if (isAdmin || activePath.length === 0) return false
+    const rootDossier = activePath[0]
+    return rootDossier.ownerId !== staffId
+  }, [isAdmin, activePath, staffId])
 
   // Collect all descendant dossier IDs for the active folder
   const descendantDossierIds = useMemo(() => {
@@ -140,41 +197,49 @@ function DossiersContent() {
   // Filter documents in current folder (and optional sub-dossiers)
   const currentDocs = useMemo(() => {
     if (!documents) return []
+
+    // 1. Root Tab: Unassigned documents
     if (!activeFolder) {
-      // Root level: show documents that have no dossierIds
-      return documents.filter(d => !d.dossierIds || d.dossierIds.length === 0)
+      if (effectiveRootTab === 'unassigned') {
+        return documents.filter(d => !d.dossierIds || d.dossierIds.length === 0)
+      }
+      return []
     }
 
+    // 2. Active Folder documents
     if (includeSubDossiers && hasSubDossiers) {
-      const targetIds = new Set([activeFolder.id, ...descendantDossierIds])
-      return documents.filter(d => (d.dossierIds || []).some(id => targetIds.has(id)))
+      const allowedIds = new Set([activeFolder.id, ...descendantDossierIds])
+      return documents.filter(d =>
+        (d.dossierIds || []).some(did => allowedIds.has(did))
+      )
     }
 
-    // Specific dossier level only: show documents containing activeFolder.id
-    return documents.filter(d => (d.dossierIds || []).includes(activeFolder.id))
-  }, [documents, activeFolder, includeSubDossiers, hasSubDossiers, descendantDossierIds])
+    return documents.filter(d =>
+      (d.dossierIds || []).includes(activeFolder.id)
+    )
+  }, [documents, activeFolder, effectiveRootTab, includeSubDossiers, hasSubDossiers, descendantDossierIds])
 
   // Navigate breadcrumb
-  const handleNavigate = (targetFolder: Dossier | null) => {
-    if (!targetFolder) {
-      setActivePath([])
+  const handleNavigate = useCallback((target: Dossier | null) => {
+    if (!target) {
       router.push('/dossiers')
+      setActivePath([])
       return
     }
-    router.push(`/dossiers?id=${targetFolder.id}`)
-  }
+    router.push(`/dossiers?id=${target.id}`)
+  }, [router])
 
-  const handleAddSubDossier = (parent: Dossier) => {
+  const handleAddSubDossier = useCallback((parent: Dossier) => {
     setEditingDossier(null)
     setParentDossierForCreate(parent)
     setModalOpen(true)
-  }
+  }, [])
 
-  const handleEditDossier = (dossier: Dossier) => {
+  const handleEditDossier = useCallback((dossier: Dossier) => {
     setEditingDossier(dossier)
     setParentDossierForCreate(null)
     setModalOpen(true)
-  }
+  }, [])
 
   // Count children of delete target
   const deleteChildCount = useMemo(() => {
@@ -201,6 +266,7 @@ function DossiersContent() {
             hasSubDossiers={hasSubDossiers}
             includeSubDossiers={includeSubDossiers}
             onToggleIncludeSubDossiers={handleToggleIncludeSubDossiers}
+            isSharedRoot={isSharedRoot}
           />
         </div>
 
@@ -255,23 +321,51 @@ function DossiersContent() {
           {!activeFolder ? (
             /* Root View: Show Tab Switcher between Dossiers Management & Unassigned Docs */
             <div className="flex flex-col gap-4 flex-1">
-              <div className="flex items-center gap-2 border-b border-slate-200 pb-2">
-                <button
-                  onClick={() => handleSetRootTab('dossiers')}
-                  className={`flex items-center gap-1.5 px-4 py-2 text-xs font-bold rounded-lg transition-all ${
-                    rootTab === 'dossiers'
-                      ? 'bg-blue-600 text-white shadow-xs'
-                      : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100'
-                  }`}
-                >
-                  <Layers className="w-4 h-4" />
-                  <span>Danh sách tất cả Hồ sơ ({dossiers.length})</span>
-                </button>
+              <div className="flex items-center gap-2 border-b border-slate-200 pb-2 flex-wrap">
+                {isAdmin ? (
+                  <button
+                    onClick={() => handleSetRootTab('dossiers')}
+                    className={`flex items-center gap-1.5 px-4 py-2 text-xs font-bold rounded-lg transition-all ${
+                      effectiveRootTab === 'dossiers'
+                        ? 'bg-blue-600 text-white shadow-xs'
+                        : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100'
+                    }`}
+                  >
+                    <Layers className="w-4 h-4" />
+                    <span>Danh sách tất cả Hồ sơ ({dossiers.length})</span>
+                  </button>
+                ) : (
+                  <>
+                    <button
+                      onClick={() => handleSetRootTab('my_dossiers')}
+                      className={`flex items-center gap-1.5 px-4 py-2 text-xs font-bold rounded-lg transition-all ${
+                        effectiveRootTab === 'my_dossiers'
+                          ? 'bg-blue-600 text-white shadow-xs'
+                          : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100'
+                      }`}
+                    >
+                      <Layers className="w-4 h-4" />
+                      <span>Hồ sơ của tôi ({myDossiers.length})</span>
+                    </button>
+
+                    <button
+                      onClick={() => handleSetRootTab('shared')}
+                      className={`flex items-center gap-1.5 px-4 py-2 text-xs font-bold rounded-lg transition-all ${
+                        effectiveRootTab === 'shared'
+                          ? 'bg-blue-600 text-white shadow-xs'
+                          : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100'
+                      }`}
+                    >
+                      <Share2 className="w-4 h-4 text-teal-500" />
+                      <span>Chia sẻ với tôi ({sharedDossiers.length})</span>
+                    </button>
+                  </>
+                )}
 
                 <button
                   onClick={() => handleSetRootTab('unassigned')}
                   className={`flex items-center gap-1.5 px-4 py-2 text-xs font-bold rounded-lg transition-all ${
-                    rootTab === 'unassigned'
+                    effectiveRootTab === 'unassigned'
                       ? 'bg-blue-600 text-white shadow-xs'
                       : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100'
                   }`}
@@ -281,9 +375,9 @@ function DossiersContent() {
                 </button>
               </div>
 
-              {rootTab === 'dossiers' ? (
+              {effectiveRootTab === 'dossiers' || effectiveRootTab === 'my_dossiers' ? (
                 <DossierTable
-                  dossiers={dossiers}
+                  dossiers={isAdmin ? dossiers : myDossiers}
                   documents={documents}
                   loading={dossiersLoading}
                   onAddSubDossier={handleAddSubDossier}
@@ -292,6 +386,24 @@ function DossiersContent() {
                   onTransferDossier={setTransferTarget}
                   onShareDossier={setShareTarget}
                   perms={perms}
+                />
+              ) : effectiveRootTab === 'shared' ? (
+                <DossierTable
+                  dossiers={sharedDossiers}
+                  documents={documents}
+                  loading={dossiersLoading}
+                  onAddSubDossier={handleAddSubDossier}
+                  onEditDossier={handleEditDossier}
+                  onDeleteDossier={setDeleteTarget}
+                  onTransferDossier={setTransferTarget}
+                  onShareDossier={setShareTarget}
+                  perms={{
+                    ...perms,
+                    canCreateDossier: false,
+                    canEditDossier: false,
+                    canDeleteDossier: false,
+                    canTransferDossier: false,
+                  }}
                 />
               ) : (
                 <div className="flex-1 bg-white rounded-xl border border-slate-200 shadow-sm p-3 sm:p-4 min-h-[300px] min-w-0 max-w-full overflow-x-auto">

@@ -56,27 +56,44 @@ export async function createDossier(input: {
     throw new Error(`Thư mục "${input.name.trim()}" đã tồn tại ở cấp này`)
   }
 
+  let sharedWith: string[] = []
+  let effectiveOwner = input.actorId && input.actorId !== 'unknown' ? input.actorId : 'admin'
+
+  if (input.parentId) {
+    const parentRef = doc(db(), 'dossiers', input.parentId)
+    const parentSnap = await getDoc(parentRef)
+    if (parentSnap.exists()) {
+      const parentData = parentSnap.data() as Dossier
+      if (parentData.sharedWith && parentData.sharedWith.length > 0) {
+        sharedWith = [...parentData.sharedWith]
+      }
+      if (parentData.ownerId && parentData.ownerId !== 'unknown') {
+        effectiveOwner = parentData.ownerId
+      }
+    }
+  }
+
   const batch = writeBatch(db())
   batch.set(dossierRef, {
     name: input.name.trim(),
     parentId: input.parentId || null,
     level,
     order,
-    createdBy: input.actorId,
-    ownerId: input.actorId,
+    createdBy: input.actorId || 'admin',
+    ownerId: effectiveOwner,
     description: input.description || '',
     notes: '',
     color: input.color || '#3b82f6',
     checklist: [],
     comments: [],
-    sharedWith: [],
+    sharedWith,
     tagIds: [],
     deletedAt: null,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   })
 
-  appendAuditLogToBatch(batch, 'dossier', dossierRef.id, 'CREATE', input.actorId, {
+  appendAuditLogToBatch(batch, 'dossier', dossierRef.id, 'CREATE', input.actorId || 'admin', {
     name: input.name.trim(),
     level,
     parentId: input.parentId,
@@ -162,15 +179,34 @@ export async function shareDossier(
   actorId: string
 ): Promise<void> {
   const batch = writeBatch(db())
-  const ref = doc(db(), 'dossiers', dossierId)
-  batch.update(ref, {
-    sharedWith,
-    updatedAt: serverTimestamp(),
+
+  // Fetch all dossiers to recursively find all descendants
+  const allSnap = await getDocs(query(collection(db(), 'dossiers'), where('deletedAt', '==', null)))
+  const allDossiers = allSnap.docs.map(d => ({ id: d.id, ...d.data() } as Dossier))
+
+  const targetIds = new Set<string>([dossierId])
+  const findDescendants = (pid: string) => {
+    allDossiers
+      .filter(d => d.parentId === pid)
+      .forEach(child => {
+        targetIds.add(child.id)
+        findDescendants(child.id)
+      })
+  }
+  findDescendants(dossierId)
+
+  targetIds.forEach(id => {
+    const ref = doc(db(), 'dossiers', id)
+    batch.update(ref, {
+      sharedWith,
+      updatedAt: serverTimestamp(),
+    })
+    appendAuditLogToBatch(batch, 'dossier', id, 'UPDATE', actorId, {
+      operation: 'SHARE',
+      sharedWith,
+    })
   })
-  appendAuditLogToBatch(batch, 'dossier', dossierId, 'UPDATE', actorId, {
-    operation: 'SHARE',
-    sharedWith,
-  })
+
   await batch.commit()
 }
 

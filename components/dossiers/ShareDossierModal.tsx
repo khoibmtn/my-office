@@ -79,7 +79,7 @@ export function ShareDossierModal({ dossier, isOpen, onClose }: ShareDossierModa
 
   // Owner staff member
   const ownerStaff = useMemo(() => {
-    if (!dossier) return null
+    if (!dossier || !dossier.ownerId || dossier.ownerId === 'admin' || dossier.ownerId === 'unknown') return null
     return allStaff.find(s => s.id === dossier.ownerId)
   }, [allStaff, dossier])
 
@@ -147,7 +147,7 @@ export function ShareDossierModal({ dossier, isOpen, onClose }: ShareDossierModa
             <span className="text-slate-500 font-medium">Chủ sở hữu hồ sơ:</span>
             <span className="font-bold text-slate-800 flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-emerald-500" />
-              <span>{ownerStaff ? `${ownerStaff.shortName} (${ownerStaff.fullName})` : (dossier.ownerId === 'admin' ? 'Admin' : dossier.ownerId)}</span>
+              <span>{ownerStaff ? `${ownerStaff.shortName} (${ownerStaff.fullName})` : 'Admin'}</span>
             </span>
           </div>
 
