@@ -1,15 +1,19 @@
 'use client'
 
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react'
-import { Loader2, Trash2, Eye, RefreshCw, CheckCircle2, Clock, CircleDot, Search, Pencil, ArrowUpDown, ClipboardCopy, Calendar, ChevronLeft, ChevronRight, X } from 'lucide-react'
+import { Loader2, Trash2, Eye, RefreshCw, CheckCircle2, Clock, CircleDot, Search, Pencil, ArrowUpDown, ClipboardCopy, Calendar, ChevronLeft, ChevronRight, X, Folder } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
 import type { Document, DocumentStatus } from '@/types'
 import { submitDocumentWithDriveCopy, deleteDocument, updateDocument } from '@/lib/firestore'
+import { toggleDocumentDossier } from '@/lib/dossiers'
+import { useDossiers } from '@/hooks/useDossiers'
+import { useTags } from '@/hooks/useTags'
 import { DocumentModal } from './DocumentModal'
 import Link from 'next/link'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useStaff } from '@/hooks/useStaff'
 import { useSettings } from '@/hooks/useSettings'
 import { usePermissions } from '@/hooks/usePermissions'
@@ -408,11 +412,21 @@ function Pagination({
 // === Main Component ===
 
 export function DocumentTable({ documents }: { documents: Document[] }) {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const urlTagId = searchParams.get('tagId')
+
   const { staff, getStaffName } = useStaff()
   const staffList = useMemo(() => staff.filter(s => s.isActive), [staff])
   const settings = useSettings()
   const perms = usePermissions()
   const { role, staffId: currentStaffId } = useRole()
+  const { dossiers } = useDossiers()
+  const { tags: allTags } = useTags()
+
+  const [selectedDocIds, setSelectedDocIds] = useState<string[]>([])
+  const [assigningBatch, setAssigningBatch] = useState(false)
+
   const [retrying, setRetrying] = useState<string | null>(null)
   const [deleting, setDeleting] = useState<string | null>(null)
   const [viewingId, setViewingId] = useState<string | null>(null)
@@ -421,6 +435,54 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
   const [badgeFilters, setBadgeFilters] = useState<string[]>([])
   const [priorityBadgeFilters, setPriorityBadgeFilters] = useState<string[]>([])
   const [staffBadgeFilter, setStaffBadgeFilter] = useState<string | null>(null)
+
+  // Find active tag object if urlTagId is present
+  const activeTag = useMemo(() => {
+    if (!urlTagId) return null
+    return allTags.find(t => t.id === urlTagId) || { id: urlTagId, name: urlTagId, color: '#3b82f6' }
+  }, [urlTagId, allTags])
+
+  // Batch toggle checkbox helpers
+  const handleToggleSelectAll = (checked: boolean, currentList: Document[]) => {
+    if (checked) {
+      setSelectedDocIds(currentList.map(d => d.id))
+    } else {
+      setSelectedDocIds([])
+    }
+  }
+
+  const handleToggleSelectDoc = (id: string) => {
+    setSelectedDocIds(prev =>
+      prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
+    )
+  }
+
+  const handleBatchAssignDossier = async (targetDossierId: string) => {
+    if (!targetDossierId || selectedDocIds.length === 0) return
+    setAssigningBatch(true)
+    try {
+      await Promise.all(
+        selectedDocIds.map(docId =>
+          toggleDocumentDossier(docId, targetDossierId, 'add', currentStaffId || 'unknown')
+        )
+      )
+      setSelectedDocIds([])
+    } catch (err) {
+      console.error('[Batch assign failed]', err)
+    }
+    setAssigningBatch(false)
+  }
+
+  // Resolve dossier hierarchy path helper: e.g. "Kế hoạch / Chỉ đạo tuyến"
+  const getDossierPathName = useCallback((dossierId: string): string => {
+    const d = dossiers.find(item => item.id === dossierId)
+    if (!d) return ''
+    if (!d.parentId) return d.name
+    const parent = dossiers.find(item => item.id === d.parentId)
+    if (parent) return `${parent.name} / ${d.name}`
+    return d.name
+  }, [dossiers])
+
   // Auto-filter to staff's own documents when they log in
   const staffFilterApplied = useRef(false)
   useEffect(() => {
@@ -438,7 +500,7 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
   const [pageSize, setPageSize] = useState(20)
   
   const [colWidths, setColWidths] = useState<Record<string, number>>({
-    stt: 36, issueDate: 90, docNumber: 120, title: 300, status: 110, deadline: 90, remaining: 70, assignee: 100, actions: 110
+    stt: 50, issueDate: 90, docNumber: 120, title: 300, status: 110, deadline: 90, remaining: 70, assignee: 100, actions: 110
   })
 
   useEffect(() => {
@@ -572,6 +634,15 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
   const filteredDocs = useMemo(() => {
     let result = baseDocs
 
+    // URL Tag filter
+    if (urlTagId) {
+      result = result.filter(d => {
+        if ((d.tagIds || []).includes(urlTagId)) return true
+        if (activeTag && (d.tags || []).some(t => t.toLowerCase() === activeTag.name.toLowerCase())) return true
+        return false
+      })
+    }
+
     // Fuzzy search across all fields
     if (searchQuery.trim()) {
       result = result.filter(d => {
@@ -663,7 +734,7 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
     }
 
     return result
-  }, [baseDocs, badgeFilters, priorityBadgeFilters, staffBadgeFilter, searchQuery, wordMatch, sortConfig])
+  }, [baseDocs, badgeFilters, priorityBadgeFilters, staffBadgeFilter, searchQuery, wordMatch, sortConfig, urlTagId, activeTag])
 
   // Reset page on filter change
   useEffect(() => { setCurrentPage(1) }, [searchQuery, badgeFilters, priorityBadgeFilters, staffBadgeFilter, filterStatus, timePeriod])
@@ -859,6 +930,21 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
             </div>
           </div>
 
+          {/* Active Tag Filter Pill */}
+          {activeTag && (
+            <div className="flex items-center gap-1 px-2 py-0.5 bg-purple-50 border border-purple-200 rounded text-xs font-semibold text-purple-700">
+              <span className="w-2 h-2 rounded-full" style={{ background: activeTag.color }} />
+              <span>Nhãn: {activeTag.name}</span>
+              <button
+                onClick={() => router.push('/documents')}
+                className="ml-1 hover:text-red-600 font-bold"
+                title="Bỏ lọc nhãn"
+              >
+                ✕
+              </button>
+            </div>
+          )}
+
           {/* Search box */}
           <div className="search-box w-full sm:w-auto sm:min-w-[200px]">
             <Search size={16} />
@@ -922,7 +1008,7 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
         )}
       </div>
 
-      {/* Urgency + Staff badges */}
+      {/* Urgency + Staff badges & Batch Action Box */}
       <div className="flex flex-col xl:flex-row gap-2 mb-4 text-xs font-semibold items-start justify-between">
         {/* Row 1: Urgency Badges */}
         <div className="scroll-x-badges sm:flex sm:flex-wrap sm:gap-2 sm:overflow-visible items-start w-full xl:w-auto xl:flex-1 min-w-0">
@@ -960,30 +1046,63 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
           })}
         </div>
 
-        {/* Row 2: Staff Badges & Actions */}
-        <div className="flex items-start gap-2 w-full xl:w-auto min-w-0">
-          <div className="scroll-x-badges flex-1 min-w-0 sm:flex sm:flex-wrap sm:gap-2 sm:overflow-visible items-start xl:justify-end">
-            {staffStats.map(([name, count]) => {
-              const isSelected = staffBadgeFilter === name
-              return (
-                <button
-                  key={name}
-                  onClick={() => setStaffBadgeFilter(staffBadgeFilter === name ? null : name)}
-                  className="badge-filter px-2 py-1 rounded shadow-sm flex items-center gap-1 transition-all border text-xs font-semibold whitespace-nowrap shrink-0"
-                  style={{
-                    '--badge-color': isSelected ? '#475569' : '#475569',
-                    background: isSelected ? '#475569' : '#f1f5f9',
-                    borderColor: isSelected ? '#334155' : '#cbd5e1',
-                    color: isSelected ? '#fff' : '#475569',
-                    boxShadow: isSelected ? '0 0 0 2px #fff, 0 0 0 4px #475569' : 'none'
-                  } as React.CSSProperties}
-                >
-                  {name}: {count}
-                  {isSelected && <span className="opacity-70 hover:opacity-100 font-normal ml-1 text-sm leading-none">×</span>}
-                </button>
-              )
-            })}
-          </div>
+        {/* Row 2: Batch Dossier Box (Left) + Staff Badges & Copy (Right) */}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 w-full xl:w-auto min-w-0 flex-1">
+          {/* Batch Dossier Selection Box (LEFT SIDE) */}
+          {selectedDocIds.length > 0 ? (
+            <div className="flex items-center gap-2 px-3 py-1 bg-blue-50 border border-blue-300 rounded-lg text-xs font-semibold text-blue-900 shrink-0 shadow-sm animate-in fade-in duration-150">
+              <span className="flex items-center gap-1 text-blue-700 font-bold whitespace-nowrap">
+                <Folder className="w-4 h-4 text-blue-600 shrink-0" />
+                Đã chọn {selectedDocIds.length} văn bản
+              </span>
+              <select
+                value=""
+                onChange={e => handleBatchAssignDossier(e.target.value)}
+                disabled={assigningBatch}
+                className="px-2.5 py-1 bg-white border border-blue-300 rounded-md text-xs font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer shadow-xs"
+              >
+                <option value="">+ Thêm vào Hồ sơ...</option>
+                {dossiers.map(d => (
+                  <option key={d.id} value={d.id}>
+                    {d.level === 1 ? '📂 ' : '  └ 📂 '}{d.name} (Cấp {d.level})
+                  </option>
+                ))}
+              </select>
+              {assigningBatch && <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-600" />}
+              <button
+                onClick={() => setSelectedDocIds([])}
+                className="text-xs text-slate-400 hover:text-red-600 font-bold px-1"
+                title="Bỏ chọn tất cả"
+              >
+                ✕
+              </button>
+            </div>
+          ) : <div />}
+
+          {/* Staff Badges + Copy Button (RIGHT SIDE) */}
+          <div className="flex items-center gap-2 shrink-0 ml-auto">
+            <div className="scroll-x-badges flex-1 min-w-0 sm:flex sm:flex-wrap sm:gap-2 sm:overflow-visible items-start xl:justify-end">
+              {staffStats.map(([name, count]) => {
+                const isSelected = staffBadgeFilter === name
+                return (
+                  <button
+                    key={name}
+                    onClick={() => setStaffBadgeFilter(staffBadgeFilter === name ? null : name)}
+                    className="badge-filter px-2 py-1 rounded shadow-sm flex items-center gap-1 transition-all border text-xs font-semibold whitespace-nowrap shrink-0"
+                    style={{
+                      '--badge-color': isSelected ? '#475569' : '#475569',
+                      background: isSelected ? '#475569' : '#f1f5f9',
+                      borderColor: isSelected ? '#334155' : '#cbd5e1',
+                      color: isSelected ? '#fff' : '#475569',
+                      boxShadow: isSelected ? '0 0 0 2px #fff, 0 0 0 4px #475569' : 'none'
+                    } as React.CSSProperties}
+                  >
+                    {name}: {count}
+                    {isSelected && <span className="opacity-70 hover:opacity-100 font-normal ml-1 text-sm leading-none">×</span>}
+                  </button>
+                )
+              })}
+            </div>
 
           <button
             className="badge-filter px-2 py-1 rounded shadow-sm flex items-center gap-1 transition-all border text-xs font-semibold shrink-0"
@@ -1059,6 +1178,7 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
           </span>
         </div>
       </div>
+      </div>
 
       {/* === DESKTOP TABLE (hidden on mobile) === */}
       <div className="hidden sm:block">
@@ -1067,7 +1187,19 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
             <Table className="doc-table w-full">
               <TableHeader>
                 <TableRow className="doc-table-header">
-                  <ThResizable width={colWidths.stt} minWidth={30} onWidthChange={(w: number) => handleWidthChange('stt', w)} className="cursor-pointer hover:bg-slate-700/50" onClick={() => setSortConfig(null)}>#</ThResizable>
+                  <ThResizable width={colWidths.stt} minWidth={45} onWidthChange={(w: number) => handleWidthChange('stt', w)} className="cursor-pointer hover:bg-slate-700/50" onClick={() => setSortConfig(null)}>
+                    <div className="flex items-center justify-center gap-1.5">
+                      <input
+                        type="checkbox"
+                        checked={pagedDocs.length > 0 && selectedDocIds.length === pagedDocs.length}
+                        onChange={e => handleToggleSelectAll(e.target.checked, pagedDocs)}
+                        onClick={e => e.stopPropagation()}
+                        className="rounded border-slate-400 text-blue-600 focus:ring-blue-500 cursor-pointer w-3.5 h-3.5"
+                        title="Chọn tất cả"
+                      />
+                      <span>#</span>
+                    </div>
+                  </ThResizable>
                   <ThResizable width={colWidths.issueDate} minWidth={60} onWidthChange={(w: number) => handleWidthChange('issueDate', w)} className="cursor-pointer hover:bg-slate-700/50 hidden md:table-cell" onClick={() => handleSort('issueDate')}>Ngày ban hành <ArrowUpDown className="h-3 w-3 inline ml-1"/></ThResizable>
                   <ThResizable width={colWidths.docNumber} minWidth={80} onWidthChange={(w: number) => handleWidthChange('docNumber', w)} className="cursor-pointer hover:bg-slate-700/50" onClick={() => handleSort('docNumber')}>Mã hiệu <ArrowUpDown className="h-3 w-3 inline ml-1"/></ThResizable>
                   <ThResizable width={colWidths.title} minWidth={150} flexible onWidthChange={(w: number) => handleWidthChange('title', w)} className="cursor-pointer hover:bg-slate-700/50" onClick={() => handleSort('title')}>Tiêu đề <ArrowUpDown className="h-3 w-3 inline ml-1"/></ThResizable>
@@ -1084,14 +1216,23 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
                   const eff = getEffectiveStatus(doc, docEffStatus)
                   const rowClass = getRowClass(doc)
                   const prio = priorityLabels[doc.priority || 'normal']
+                  const isChecked = selectedDocIds.includes(doc.id)
 
                   return (
                     <TableRow
                       key={doc.id}
-                      className={`doc-row ${idx % 2 === 0 ? 'row-even' : 'row-odd'} ${rowClass}`}
+                      className={`doc-row ${idx % 2 === 0 ? 'row-even' : 'row-odd'} ${rowClass} ${isChecked ? '!bg-blue-50/80' : ''}`}
                     >
-                      <TableCell className="text-center text-slate-400 font-mono text-xs">
-                        {showPagination ? (safePage - 1) * pageSize + idx + 1 : idx + 1}
+                      <TableCell className="text-center text-slate-500 font-mono text-xs">
+                        <div className="flex items-center justify-center gap-1.5">
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={() => handleToggleSelectDoc(doc.id)}
+                            className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer w-3.5 h-3.5"
+                          />
+                          <span>{showPagination ? (safePage - 1) * pageSize + idx + 1 : idx + 1}</span>
+                        </div>
                       </TableCell>
                       <TableCell className="text-xs hidden md:table-cell">
                         <div className="font-medium">{formatDate(doc.issueDate)}</div>
@@ -1124,6 +1265,69 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
                               </span>
                             )}
                           </span>
+
+                          {/* Dossier & Tag Badges under Title */}
+                          <div className="flex flex-wrap items-center gap-1 mt-0.5">
+                            {/* Dossier Badges */}
+                            {(doc.dossierIds || []).map(did => {
+                              const pathName = getDossierPathName(did)
+                              if (!pathName) return null
+                              return (
+                                <button
+                                  key={did}
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    router.push(`/dossiers?id=${did}`)
+                                  }}
+                                  className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-600 hover:text-white transition-colors"
+                                  title="Bấm để mở hồ sơ này trong Quản lý Hồ sơ"
+                                >
+                                  <Folder className="w-3 h-3 text-blue-600 shrink-0" />
+                                  <span>{pathName}</span>
+                                </button>
+                              )
+                            })}
+
+                            {/* Tag Badges */}
+                            {(() => {
+                              const docTags = allTags.filter(t => (doc.tagIds || []).includes(t.id))
+                              const legacyTagNames = (doc.tags || []).filter(tn => !docTags.some(dt => dt.name.toLowerCase() === tn.toLowerCase()))
+                              
+                              return (
+                                <>
+                                  {docTags.map(t => {
+                                    const isCurrentFilter = urlTagId === t.id
+                                    return (
+                                      <button
+                                        key={t.id}
+                                        onClick={(e) => {
+                                          e.stopPropagation()
+                                          if (isCurrentFilter) router.push('/documents')
+                                          else router.push(`/documents?tagId=${t.id}`)
+                                        }}
+                                        className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold transition-colors border shadow-xs ${
+                                          isCurrentFilter ? 'ring-2 ring-purple-500' : ''
+                                        }`}
+                                        style={{ background: `color-mix(in srgb, ${t.color} 15%, #ffffff)`, color: t.color, borderColor: `color-mix(in srgb, ${t.color} 30%, #ffffff)` }}
+                                        title="Bấm để lọc văn bản cùng nhãn"
+                                      >
+                                        <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: t.color }} />
+                                        <span>{t.name}</span>
+                                        {isCurrentFilter && <span className="font-bold ml-0.5">✕</span>}
+                                      </button>
+                                    )
+                                  })}
+
+                                  {legacyTagNames.map(tn => (
+                                    <span key={tn} className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-600">
+                                      {tn}
+                                    </span>
+                                  ))}
+                                </>
+                              )
+                            })()}
+                          </div>
+
                           {doc.notes && (
                             <span className="text-[11px] text-slate-500 italic mt-0.5 line-clamp-2" title={doc.notes}>
                               📝 <Highlight text={doc.notes} query={searchQuery} />

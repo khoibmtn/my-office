@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useEffect } from 'react'
 import { Plus, FolderPlus, ArrowRightLeft, Trash2, FileText, Search, PanelRightOpen, PanelRightClose, Folder } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useDossiers } from '@/hooks/useDossiers'
@@ -15,9 +15,12 @@ import { DossierModal } from '@/components/dossiers/DossierModal'
 import { DeleteDossierModal } from '@/components/dossiers/DeleteDossierModal'
 import { TransferDossierModal } from '@/components/dossiers/TransferDossierModal'
 import { DocumentTable } from '@/components/documents/DocumentTable'
+import { useSearchParams } from 'next/navigation'
 import type { Dossier, Document } from '@/types'
 
 export default function DossiersPage() {
+  const searchParams = useSearchParams()
+  const targetId = searchParams.get('id')
   const { dossiers, loading: dossiersLoading } = useDossiers()
   const { documents, loading: docsLoading } = useDocuments()
   const { staff } = useStaff()
@@ -27,6 +30,26 @@ export default function DossiersPage() {
   // Navigation path state
   const [activePath, setActivePath] = useState<Dossier[]>([])
   const activeFolder = activePath[activePath.length - 1] || null
+
+  // Auto-expand breadcrumb path when URL has ?id=...
+  useEffect(() => {
+    if (!targetId || dossiers.length === 0) return
+    const target = dossiers.find(d => d.id === targetId)
+    if (!target) return
+
+    const path: Dossier[] = [target]
+    let curr = target.parentId
+    while (curr) {
+      const parent = dossiers.find(p => p.id === curr)
+      if (parent) {
+        path.unshift(parent)
+        curr = parent.parentId
+      } else {
+        break
+      }
+    }
+    setActivePath(path)
+  }, [targetId, dossiers])
 
   // Search & Filters
   const [searchQuery, setSearchQuery] = useState('')

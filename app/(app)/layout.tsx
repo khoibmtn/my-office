@@ -20,6 +20,15 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [selectedTagId, setSelectedTagId] = useState<string | null>(null)
 
+  const handleSelectTag = (tagId: string | null) => {
+    setSelectedTagId(tagId)
+    if (tagId) {
+      router.push(`/documents?tagId=${encodeURIComponent(tagId)}`)
+    } else {
+      router.push('/documents')
+    }
+  }
+
   const NAV = useMemo(() => {
     const items = [
       { href: '/documents', icon: FileText, label: 'Văn bản' },
@@ -103,7 +112,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         {!isGuest && (
           <TagSidebarPanel
             selectedTagId={selectedTagId}
-            onSelectTag={setSelectedTagId}
+            onSelectTag={handleSelectTag}
           />
         )}
 
