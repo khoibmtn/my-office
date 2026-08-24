@@ -13,6 +13,7 @@ import { useRole } from '@/hooks/useRole'
 interface DossierTableProps {
   dossiers: Dossier[]
   documents: Document[]
+  loading?: boolean
   onAddSubDossier: (parent: Dossier) => void
   onEditDossier: (dossier: Dossier) => void
   onDeleteDossier: (dossier: Dossier) => void
@@ -70,6 +71,7 @@ function Highlight({ text, query }: { text: string; query: string }) {
 export function DossierTable({
   dossiers,
   documents,
+  loading = false,
   onAddSubDossier,
   onEditDossier,
   onDeleteDossier,
@@ -278,7 +280,16 @@ export function DossierTable({
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-150">
-            {treeOrderedDossiers.length === 0 ? (
+            {loading ? (
+              <tr>
+                <td colSpan={5} className="py-12 text-center text-slate-500 text-xs">
+                  <div className="flex items-center justify-center gap-2">
+                    <Loader2 className="w-5 h-5 animate-spin text-blue-600" />
+                    <span>Đang tải danh sách hồ sơ...</span>
+                  </div>
+                </td>
+              </tr>
+            ) : treeOrderedDossiers.length === 0 ? (
               <tr>
                 <td colSpan={5} className="py-12 text-center text-slate-400 text-xs">
                   Không tìm thấy hồ sơ nào phù hợp.

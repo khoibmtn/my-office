@@ -878,6 +878,14 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
     return ''
   }
 
+  // Check if any of the selected documents currently belong to at least one dossier
+  const selectedDocsHaveDossiers = useMemo(() => {
+    if (selectedDocIds.length === 0) return false
+    return documents.some(doc => 
+      selectedDocIds.includes(doc.id) && (doc.dossierIds || []).length > 0
+    )
+  }, [selectedDocIds, documents])
+
   return (
     <>
       {/* === FILTERS === */}
@@ -914,9 +922,17 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
                 {/* Icon Button 2: Move to Dossier (Single-select) */}
                 <button
                   onClick={() => setBatchMoveModalOpen(true)}
-                  disabled={assigningBatch}
-                  className="p-1.5 px-2 bg-amber-500 text-white rounded-md hover:bg-amber-600 focus:outline-none focus:ring-2 focus:ring-amber-500 cursor-pointer shadow-2xs flex items-center gap-1 font-semibold text-xs transition-colors"
-                  title="Di chuyển hẳn sang Hồ sơ khác (Chỉ chọn 1)"
+                  disabled={assigningBatch || !selectedDocsHaveDossiers}
+                  className={`p-1.5 px-2 rounded-md focus:outline-none flex items-center gap-1 font-semibold text-xs transition-colors ${
+                    !selectedDocsHaveDossiers
+                      ? 'bg-slate-200 text-slate-400 border border-slate-200 cursor-not-allowed shadow-none opacity-70'
+                      : 'bg-amber-500 text-white hover:bg-amber-600 focus:ring-2 focus:ring-amber-500 cursor-pointer shadow-2xs'
+                  }`}
+                  title={
+                    !selectedDocsHaveDossiers
+                      ? "Văn bản đã chọn chưa thuộc hồ sơ nào — vui lòng chọn 'Thêm vào Hồ sơ'"
+                      : "Di chuyển hẳn sang Hồ sơ khác (Chỉ chọn 1)"
+                  }
                 >
                   <ArrowRightLeft className="w-3.5 h-3.5" />
                   <span className="hidden sm:inline">Di chuyển</span>

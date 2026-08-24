@@ -169,10 +169,19 @@ export function QuickDossierTagPicker({ document: docItem, onUpdate }: QuickDoss
 
           <button
             onClick={() => setMoveModalOpen(true)}
-            className="flex items-center justify-center gap-1 px-2.5 py-1.5 border border-amber-200 rounded-md text-xs bg-amber-50/70 hover:bg-amber-100/80 text-amber-900 transition-colors font-medium shadow-2xs"
-            title="Mở cây thư mục để chọn di chuyển sang hồ sơ mới"
+            disabled={currentDossiers.length === 0}
+            className={`flex items-center justify-center gap-1 px-2.5 py-1.5 border rounded-md text-xs transition-colors font-medium shadow-2xs ${
+              currentDossiers.length === 0
+                ? 'border-slate-200 bg-slate-100 text-slate-400 cursor-not-allowed shadow-none opacity-70'
+                : 'border-amber-200 bg-amber-50/70 hover:bg-amber-100/80 text-amber-900'
+            }`}
+            title={
+              currentDossiers.length === 0
+                ? "Văn bản chưa thuộc hồ sơ nào — vui lòng chọn 'Thêm hồ sơ'"
+                : "Mở cây thư mục để chọn di chuyển sang hồ sơ mới"
+            }
           >
-            <ArrowRightLeft className="w-3.5 h-3.5 text-amber-600" />
+            <ArrowRightLeft className={`w-3.5 h-3.5 ${currentDossiers.length === 0 ? 'text-slate-400' : 'text-amber-600'}`} />
             <span>Di chuyển</span>
           </button>
         </div>

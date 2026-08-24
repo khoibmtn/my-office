@@ -244,6 +244,7 @@ export default function DossiersPage() {
                 <DossierTable
                   dossiers={dossiers}
                   documents={documents}
+                  loading={dossiersLoading}
                   onAddSubDossier={handleAddSubDossier}
                   onEditDossier={handleEditDossier}
                   onDeleteDossier={setDeleteTarget}

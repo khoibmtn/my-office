@@ -12,7 +12,7 @@ export function DossierTreeNav() {
   const searchParams = useSearchParams()
   const activeId = searchParams.get('id')
   
-  const { dossiers } = useDossiers()
+  const { dossiers, loading } = useDossiers()
   const { documents } = useDocuments()
 
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
@@ -143,6 +143,16 @@ export function DossierTreeNav() {
   const rootDossiers = useMemo(() => {
     return activeDossiers.filter(d => !d.parentId)
   }, [activeDossiers])
+
+  if (loading) {
+    return (
+      <div className="flex flex-col gap-2 my-2 px-2">
+        <div className="h-3.5 bg-slate-200 animate-pulse rounded w-3/4" />
+        <div className="h-3.5 bg-slate-200 animate-pulse rounded w-1/2 ml-3" />
+        <div className="h-3.5 bg-slate-200 animate-pulse rounded w-2/3 ml-3" />
+      </div>
+    )
+  }
 
   if (activeDossiers.length === 0) return null
 
