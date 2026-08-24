@@ -1,17 +1,17 @@
 'use client'
 
-import React, { useState, useEffect, useMemo } from 'react'
+import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Folder, PlusSquare, MinusSquare } from 'lucide-react'
+import { Folder, PlusSquare, MinusSquare, ChevronDown, ChevronRight } from 'lucide-react'
 import { useDossiers } from '@/hooks/useDossiers'
 import { useDocuments } from '@/hooks/useDocuments'
 import type { Dossier } from '@/types'
 
-interface DossierTreeNavProps {
-  isOpen?: boolean
+interface DossierNavItemProps {
+  active: boolean
 }
 
-export function DossierTreeNav({ isOpen = true }: DossierTreeNavProps) {
+export function DossierNavItem({ active }: DossierNavItemProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const activeId = searchParams.get('id')
@@ -19,6 +19,7 @@ export function DossierTreeNav({ isOpen = true }: DossierTreeNavProps) {
   const { dossiers, loading } = useDossiers()
   const { documents } = useDocuments()
 
+  const [isOpen, setIsOpen] = useState(true)
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
 
   // Filter out archived dossiers: only active dossiers are shown in left panel
@@ -38,13 +39,24 @@ export function DossierTreeNav({ isOpen = true }: DossierTreeNavProps) {
     return counts
   }, [documents])
 
+  // Get parent dossiers that have children
+  const parentIdsWithChildren = useMemo(() => {
+    return activeDossiers
+      .filter(parent => activeDossiers.some(child => child.parentId === parent.id))
+      .map(d => d.id)
+  }, [activeDossiers])
+
+  // Check if at least 1 folder is expanded
+  const hasAnyExpanded = useMemo(() => {
+    return parentIdsWithChildren.some(id => expandedIds.has(id))
+  }, [parentIdsWithChildren, expandedIds])
+
   // Auto-expand parents of active dossier
   useEffect(() => {
     if (!activeId || activeDossiers.length === 0) return
     const newExpanded = new Set(expandedIds)
     let curr: string | null = activeId
     
-    // Always expand active dossier itself if it has children
     newExpanded.add(activeId)
 
     while (curr) {
@@ -59,7 +71,7 @@ export function DossierTreeNav({ isOpen = true }: DossierTreeNavProps) {
     setExpandedIds(newExpanded)
   }, [activeId, activeDossiers])
 
-  const toggleExpand = (id: string, e: React.MouseEvent) => {
+  const toggleExpand = useCallback((id: string, e: React.MouseEvent) => {
     e.stopPropagation()
     e.preventDefault()
     setExpandedIds(prev => {
@@ -71,21 +83,30 @@ export function DossierTreeNav({ isOpen = true }: DossierTreeNavProps) {
       }
       return next
     })
-  }
+  }, [])
 
-  const handleExpandAll = (e: React.MouseEvent) => {
+  const handleToggleExpandAll = useCallback((e: React.MouseEvent) => {
     e.stopPropagation()
     e.preventDefault()
-    const allParentIds = activeDossiers
-      .filter(parent => activeDossiers.some(child => child.parentId === parent.id))
-      .map(d => d.id)
-    setExpandedIds(new Set(allParentIds))
+    if (!isOpen) setIsOpen(true)
+    if (hasAnyExpanded) {
+      setExpandedIds(new Set())
+    } else {
+      setExpandedIds(new Set(parentIdsWithChildren))
+    }
+  }, [isOpen, hasAnyExpanded, parentIdsWithChildren])
+
+  const handleRowClick = () => {
+    router.push('/dossiers')
+    if (!isOpen) {
+      setIsOpen(true)
+    }
   }
 
-  const handleCollapseAll = (e: React.MouseEvent) => {
+  const handleToggleTreeOpen = (e: React.MouseEvent) => {
     e.stopPropagation()
     e.preventDefault()
-    setExpandedIds(new Set())
+    setIsOpen(prev => !prev)
   }
 
   const handleSelect = (id: string | null) => {
@@ -100,7 +121,7 @@ export function DossierTreeNav({ isOpen = true }: DossierTreeNavProps) {
   const renderDossierNode = (dossier: Dossier, level: number = 0) => {
     const children = activeDossiers
       .filter(child => child.parentId === dossier.id)
-      .sort((a, b) => a.name.localeCompare(b.name, 'vi'))
+      .sort((a, b) => (a.order ?? 9999) - (b.order ?? 9999) || a.name.localeCompare(b.name, 'vi'))
     const hasChildren = children.length > 0
     const isExpanded = expandedIds.has(dossier.id)
     const isActive = activeId === dossier.id
@@ -122,8 +143,10 @@ export function DossierTreeNav({ isOpen = true }: DossierTreeNavProps) {
           <div className="flex items-center gap-1.5 min-w-0 flex-1">
             {hasChildren ? (
               <button
+                type="button"
                 onClick={e => toggleExpand(dossier.id, e)}
                 className="p-0.5 hover:bg-slate-200 rounded transition-colors text-slate-500 shrink-0"
+                title={isExpanded ? "Thu gọn" : "Bung mở"}
               >
                 {isExpanded ? (
                   <MinusSquare className="w-3 h-3 text-slate-500" />
@@ -163,49 +186,74 @@ export function DossierTreeNav({ isOpen = true }: DossierTreeNavProps) {
       .sort((a, b) => (a.order ?? 9999) - (b.order ?? 9999) || a.name.localeCompare(b.name, 'vi'))
   }, [activeDossiers])
 
-  if (!isOpen) return null
-
-  if (loading) {
-    return (
-      <div className="flex flex-col gap-1.5 mt-0.5 mb-1 px-2">
-        <div className="h-3.5 bg-slate-200 animate-pulse rounded w-3/4" />
-        <div className="h-3.5 bg-slate-200 animate-pulse rounded w-1/2 ml-3" />
-        <div className="h-3.5 bg-slate-200 animate-pulse rounded w-2/3 ml-3" />
-      </div>
-    )
-  }
-
-  if (activeDossiers.length === 0) return null
-
   return (
-    <div className="flex flex-col gap-0.5 mt-1 mb-1.5 pl-1 bg-slate-50/60 p-1.5 rounded-lg border border-slate-200/60">
-      {/* Action controls: Bung hết / Thu hết */}
-      <div className="flex items-center justify-between px-1.5 py-1 mb-1 text-[11px] font-medium border-b border-slate-200/60">
-        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Danh mục cây</span>
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={handleExpandAll}
-            className="flex items-center gap-1 text-[11px] text-blue-600 hover:text-blue-800 hover:underline font-semibold transition-colors cursor-pointer"
-            title="Mở rộng tất cả hồ sơ Cấp 1, Cấp 2 để lộ tất cả hồ sơ con"
-          >
-            <PlusSquare className="w-3 h-3" />
-            <span>Bung hết</span>
-          </button>
-          <span className="text-slate-300">|</span>
-          <button
-            type="button"
-            onClick={handleCollapseAll}
-            className="flex items-center gap-1 text-[11px] text-slate-500 hover:text-slate-800 hover:underline font-semibold transition-colors cursor-pointer"
-            title="Thu gọn tất cả hồ sơ con về Cấp 1 gốc"
-          >
-            <MinusSquare className="w-3 h-3" />
-            <span>Thu hết</span>
-          </button>
+    <div className="flex flex-col">
+      {/* Menu item row */}
+      <div
+        onClick={handleRowClick}
+        className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors shrink-0 select-none cursor-pointer group ${
+          active
+            ? 'bg-slate-100 text-slate-900 font-semibold'
+            : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+        }`}
+      >
+        <Folder className="h-4.5 w-4.5 shrink-0 text-blue-600" />
+        
+        {/* Label + [+] / [-] button */}
+        <div className="flex items-center gap-1.5 flex-1 min-w-0">
+          <span className="truncate">Quản lý Hồ sơ</span>
+          {parentIdsWithChildren.length > 0 && (
+            <button
+              type="button"
+              onClick={handleToggleExpandAll}
+              title={hasAnyExpanded ? "Thu gọn tất cả thư mục" : "Bung tất cả thư mục"}
+              className="p-0.5 hover:bg-slate-200/80 rounded transition-colors text-slate-400 hover:text-slate-700 flex items-center justify-center shrink-0"
+            >
+              {hasAnyExpanded ? (
+                <MinusSquare className="w-3.5 h-3.5 text-slate-500 hover:text-slate-800" />
+              ) : (
+                <PlusSquare className="w-3.5 h-3.5 text-blue-500 hover:text-blue-700" />
+              )}
+            </button>
+          )}
         </div>
+
+        {/* Tree toggle chevron */}
+        <button
+          type="button"
+          onClick={handleToggleTreeOpen}
+          className="p-0.5 hover:bg-slate-200/60 rounded transition-colors shrink-0 text-slate-400 hover:text-slate-700"
+          title={isOpen ? "Ẩn cây thư mục" : "Hiện cây thư mục"}
+        >
+          {isOpen ? (
+            <ChevronDown className="w-4 h-4 text-slate-400 shrink-0" />
+          ) : (
+            <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />
+          )}
+        </button>
       </div>
 
-      {rootDossiers.map(d => renderDossierNode(d, 0))}
+      {/* Simplified tree list below */}
+      {isOpen && (
+        <div className="pl-2 pr-0.5 mt-0.5 mb-1 flex flex-col gap-0.5">
+          {loading ? (
+            <div className="flex flex-col gap-1.5 mt-1 px-2">
+              <div className="h-3.5 bg-slate-200 animate-pulse rounded w-3/4" />
+              <div className="h-3.5 bg-slate-200 animate-pulse rounded w-1/2 ml-3" />
+              <div className="h-3.5 bg-slate-200 animate-pulse rounded w-2/3 ml-3" />
+            </div>
+          ) : (
+            rootDossiers.map(d => renderDossierNode(d, 0))
+          )}
+        </div>
+      )}
     </div>
   )
 }
+
+// Keep DossierTreeNav export for compatibility if needed
+export function DossierTreeNav({ isOpen = true }: { isOpen?: boolean }) {
+  if (!isOpen) return null
+  return <DossierNavItem active={false} />
+}
+

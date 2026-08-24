@@ -10,7 +10,7 @@ import { usePermissions } from '@/hooks/usePermissions'
 import { Button } from '@/components/ui/button'
 import { resetSession } from '@/lib/firebase'
 import { TagSidebarPanel } from '@/components/tags/TagSidebarPanel'
-import { DossierTreeNav } from '@/components/dossiers/DossierTreeNav'
+import { DossierNavItem } from '@/components/dossiers/DossierTreeNav'
 
 function InnerAppLayout({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth()
@@ -21,7 +21,6 @@ function InnerAppLayout({ children }: { children: React.ReactNode }) {
 
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [selectedTagId, setSelectedTagId] = useState<string | null>(null)
-  const [dossiersTreeOpen, setDossiersTreeOpen] = useState(pathname.startsWith('/dossiers'))
 
   // Resizable sidebar width (min 200px, default 260px, max 480px)
   const [sidebarWidth, setSidebarWidth] = useState(260)
@@ -152,26 +151,23 @@ function InnerAppLayout({ children }: { children: React.ReactNode }) {
             return (
               <React.Fragment key={href}>
                 {isDossiersItem ? (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      router.push('/dossiers')
-                      setDossiersTreeOpen(prev => !prev)
-                    }}
-                    className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors shrink-0 text-left w-full select-none cursor-pointer ${
-                      active
-                        ? 'bg-slate-100 text-slate-900 font-semibold'
-                        : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
-                    }`}
+                  <Suspense
+                    fallback={
+                      <div
+                        className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium shrink-0 ${
+                          active
+                            ? 'bg-slate-100 text-slate-900 font-semibold'
+                            : 'text-slate-600'
+                        }`}
+                      >
+                        <Icon className="h-4.5 w-4.5 shrink-0 text-blue-600" />
+                        <span className="flex-1">{label}</span>
+                        <ChevronDown className="w-4 h-4 text-slate-400 shrink-0" />
+                      </div>
+                    }
                   >
-                    <Icon className="h-4.5 w-4.5 shrink-0 text-blue-600" />
-                    <span className="flex-1">{label}</span>
-                    {dossiersTreeOpen ? (
-                      <ChevronDown className="w-4 h-4 text-slate-400 shrink-0" />
-                    ) : (
-                      <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />
-                    )}
-                  </button>
+                    <DossierNavItem active={active} />
+                  </Suspense>
                 ) : (
                   <Link
                     href={href}
@@ -184,14 +180,6 @@ function InnerAppLayout({ children }: { children: React.ReactNode }) {
                     <Icon className="h-4.5 w-4.5 shrink-0 text-blue-600" />
                     <span className="flex-1">{label}</span>
                   </Link>
-                )}
-
-                {!isGuest && isDossiersItem && (
-                  <div className="pl-1 pr-0.5 -mt-0.5">
-                    <Suspense fallback={null}>
-                      <DossierTreeNav isOpen={dossiersTreeOpen} />
-                    </Suspense>
-                  </div>
                 )}
               </React.Fragment>
             )
