@@ -5,7 +5,7 @@ import { Folder, Tag as TagIcon, Plus, X, Loader2 } from 'lucide-react'
 import { useDossiers } from '@/hooks/useDossiers'
 import { useTags } from '@/hooks/useTags'
 import { useRole } from '@/hooks/useRole'
-import { toggleDocumentDossier } from '@/lib/dossiers'
+import { toggleDocumentDossier, moveDocumentDossier } from '@/lib/dossiers'
 import { createTag } from '@/lib/tags'
 import { updateDocument } from '@/lib/firestore'
 import type { Document, Tag } from '@/types'
@@ -46,6 +46,21 @@ export function QuickDossierTagPicker({ document: docItem, onUpdate }: QuickDoss
     setDossierIds(next)
     try {
       await toggleDocumentDossier(docItem.id, dossierId, 'add', staffId || 'unknown')
+      if (onUpdate) onUpdate({ dossierIds: next })
+    } catch (err) {
+      console.error(err)
+    }
+  }
+
+  const handleMoveDossier = async (toDossierId: string) => {
+    if (!toDossierId) return
+    const fromId = currentDossiers[0]?.id || null
+    try {
+      await moveDocumentDossier(docItem.id, fromId, toDossierId, staffId || 'unknown')
+      const next = fromId
+        ? dossierIds.filter(id => id !== fromId).concat(toDossierId)
+        : [...dossierIds, toDossierId]
+      setDossierIds(next)
       if (onUpdate) onUpdate({ dossierIds: next })
     } catch (err) {
       console.error(err)
@@ -131,20 +146,37 @@ export function QuickDossierTagPicker({ document: docItem, onUpdate }: QuickDoss
           )}
         </div>
 
-        {/* Add Dossier Dropdown */}
+        {/* Add or Move Dossier Dropdowns */}
         {availableDossiers.length > 0 && (
-          <select
-            value=""
-            onChange={e => handleAddDossier(e.target.value)}
-            className="w-full px-2.5 py-1.5 border border-slate-200 rounded-md text-xs bg-slate-50 hover:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer font-medium"
-          >
-            <option value="">+ Thêm vào hồ sơ...</option>
-            {availableDossiers.map(d => (
-              <option key={d.id} value={d.id}>
-                {d.level === 1 ? '📂 ' : '  └ 📂 '}{d.name} (Cấp {d.level})
-              </option>
-            ))}
-          </select>
+          <div className="flex flex-col gap-1.5">
+            <select
+              value=""
+              onChange={e => handleAddDossier(e.target.value)}
+              className="w-full px-2.5 py-1.5 border border-slate-200 rounded-md text-xs bg-slate-50 hover:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer font-medium"
+              title="Thêm văn bản này vào thêm 1 hồ sơ nữa"
+            >
+              <option value="">+ Thêm vào hồ sơ khác...</option>
+              {availableDossiers.map(d => (
+                <option key={d.id} value={d.id}>
+                  {d.level === 1 ? '📂 ' : '  └ 📂 '}{d.name} (Cấp {d.level})
+                </option>
+              ))}
+            </select>
+
+            <select
+              value=""
+              onChange={e => handleMoveDossier(e.target.value)}
+              className="w-full px-2.5 py-1.5 border border-amber-200 rounded-md text-xs bg-amber-50/60 hover:bg-amber-50 focus:outline-none focus:ring-2 focus:ring-amber-500 cursor-pointer font-medium text-amber-900"
+              title="Di chuyển hẳn sang hồ sơ khác (gỡ khỏi hồ sơ hiện tại)"
+            >
+              <option value="">⇄ Di chuyển sang hồ sơ...</option>
+              {availableDossiers.map(d => (
+                <option key={d.id} value={d.id}>
+                  {d.level === 1 ? '📂 ' : '  └ 📂 '}{d.name} (Cấp {d.level})
+                </option>
+              ))}
+            </select>
+          </div>
         )}
       </div>
 

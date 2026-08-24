@@ -254,3 +254,35 @@ export async function toggleDocumentDossier(
   appendAuditLogToBatch(batch, 'document', documentId, 'ASSIGN', actorId, { dossierId, action })
   await batch.commit()
 }
+
+export async function moveDocumentDossier(
+  documentId: string,
+  fromDossierId: string | null,
+  toDossierId: string,
+  actorId: string
+): Promise<void> {
+  const docSnap = await getDoc(doc(db(), 'documents', documentId))
+  if (!docSnap.exists()) return
+  const data = docSnap.data()
+  const current: string[] = data.dossierIds || []
+
+  let updated = [...current]
+  if (fromDossierId) {
+    updated = updated.filter(id => id !== fromDossierId)
+  }
+  if (!updated.includes(toDossierId)) {
+    updated.push(toDossierId)
+  }
+
+  const batch = writeBatch(db())
+  batch.update(doc(db(), 'documents', documentId), {
+    dossierIds: updated,
+    updatedAt: serverTimestamp(),
+  })
+  appendAuditLogToBatch(batch, 'document', documentId, 'ASSIGN', actorId, {
+    action: 'MOVE',
+    fromDossierId,
+    toDossierId,
+  })
+  await batch.commit()
+}

@@ -8,7 +8,7 @@ import {
 } from '@/components/ui/table'
 import type { Document, DocumentStatus } from '@/types'
 import { submitDocumentWithDriveCopy, deleteDocument, updateDocument } from '@/lib/firestore'
-import { toggleDocumentDossier } from '@/lib/dossiers'
+import { toggleDocumentDossier, moveDocumentDossier } from '@/lib/dossiers'
 import { useDossiers } from '@/hooks/useDossiers'
 import { useTags } from '@/hooks/useTags'
 import { DocumentModal } from './DocumentModal'
@@ -457,6 +457,8 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
     )
   }
 
+  const currentDossierIdFromUrl = searchParams.get('id')
+
   const handleBatchAssignDossier = async (targetDossierId: string) => {
     if (!targetDossierId || selectedDocIds.length === 0) return
     setAssigningBatch(true)
@@ -469,6 +471,22 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
       setSelectedDocIds([])
     } catch (err) {
       console.error('[Batch assign failed]', err)
+    }
+    setAssigningBatch(false)
+  }
+
+  const handleBatchMoveDossier = async (targetDossierId: string) => {
+    if (!targetDossierId || selectedDocIds.length === 0) return
+    setAssigningBatch(true)
+    try {
+      await Promise.all(
+        selectedDocIds.map(docId =>
+          moveDocumentDossier(docId, currentDossierIdFromUrl, targetDossierId, currentStaffId || 'unknown')
+        )
+      )
+      setSelectedDocIds([])
+    } catch (err) {
+      console.error('[Batch move failed]', err)
     }
     setAssigningBatch(false)
   }
@@ -1050,16 +1068,19 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 w-full xl:w-auto min-w-0 flex-1">
           {/* Batch Dossier Selection Box (LEFT SIDE) */}
           {selectedDocIds.length > 0 ? (
-            <div className="flex items-center gap-2 px-3 py-1 bg-blue-50 border border-blue-300 rounded-lg text-xs font-semibold text-blue-900 shrink-0 shadow-sm animate-in fade-in duration-150">
+            <div className="flex flex-wrap items-center gap-2 px-3 py-1 bg-blue-50 border border-blue-300 rounded-lg text-xs font-semibold text-blue-900 shrink-0 shadow-sm animate-in fade-in duration-150">
               <span className="flex items-center gap-1 text-blue-700 font-bold whitespace-nowrap">
                 <Folder className="w-4 h-4 text-blue-600 shrink-0" />
                 Đã chọn {selectedDocIds.length} văn bản
               </span>
+
+              {/* Action 1: Add to dossier */}
               <select
                 value=""
                 onChange={e => handleBatchAssignDossier(e.target.value)}
                 disabled={assigningBatch}
                 className="px-2.5 py-1 bg-white border border-blue-300 rounded-md text-xs font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer shadow-xs"
+                title="Thêm văn bản đã chọn vào thêm 1 hồ sơ nữa"
               >
                 <option value="">+ Thêm vào Hồ sơ...</option>
                 {dossiers.map(d => (
@@ -1068,6 +1089,23 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
                   </option>
                 ))}
               </select>
+
+              {/* Action 2: Move to dossier */}
+              <select
+                value=""
+                onChange={e => handleBatchMoveDossier(e.target.value)}
+                disabled={assigningBatch}
+                className="px-2.5 py-1 bg-amber-50 border border-amber-300 rounded-md text-xs font-medium text-amber-900 focus:outline-none focus:ring-2 focus:ring-amber-500 cursor-pointer shadow-xs"
+                title="Di chuyển hẳn văn bản từ hồ sơ hiện tại sang hồ sơ mới (gỡ khỏi hồ sơ hiện tại)"
+              >
+                <option value="">⇄ Di chuyển sang Hồ sơ...</option>
+                {dossiers.map(d => (
+                  <option key={d.id} value={d.id}>
+                    {d.level === 1 ? '📂 ' : '  └ 📂 '}{d.name} (Cấp {d.level})
+                  </option>
+                ))}
+              </select>
+
               {assigningBatch && <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-600" />}
               <button
                 onClick={() => setSelectedDocIds([])}
