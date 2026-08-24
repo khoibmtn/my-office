@@ -4,7 +4,7 @@ import React, { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   Folder, FolderPlus, Pencil, Trash2, Archive, ArchiveRestore,
-  Search, Calendar, FileText, Layers, AlertCircle, Loader2
+  Search, FileText, AlertCircle, Loader2
 } from 'lucide-react'
 import type { Dossier, Document } from '@/types'
 import { toggleArchiveDossier } from '@/lib/dossiers'
@@ -51,20 +51,40 @@ export function DossierTable({
     return counts
   }, [documents])
 
-  // Filter dossiers by tab & search query
-  const filteredDossiers = useMemo(() => {
-    return dossiers.filter(d => {
-      // Tab filter
+  // Build depth-first tree structure with Vietnamese alphabetical (A-Z) sorting at each level
+  const treeOrderedDossiers = useMemo(() => {
+    const searchNormalized = search.trim().toLowerCase()
+
+    // Base pool filtered by tab
+    const pool = dossiers.filter(d => {
       if (tab === 'active' && d.isArchived) return false
       if (tab === 'archived' && !d.isArchived) return false
-
-      // Search query
-      if (search.trim()) {
-        const q = search.trim().toLowerCase()
-        return d.name.toLowerCase().includes(q) || (d.description || '').toLowerCase().includes(q)
-      }
       return true
     })
+
+    // If searching: filter pool and sort all matches alphabetically A-Z
+    if (searchNormalized) {
+      return pool
+        .filter(d => d.name.toLowerCase().includes(searchNormalized) || (d.description || '').toLowerCase().includes(searchNormalized))
+        .sort((a, b) => a.name.localeCompare(b.name, 'vi', { sensitivity: 'base' }))
+    }
+
+    // Standard Tree View: Depth-First traversal with ABC sorting at every level
+    const result: Dossier[] = []
+
+    // Root level dossiers (no parentId or parent not in current pool)
+    const rootNodes = pool.filter(d => !d.parentId || !pool.some(p => p.id === d.parentId))
+    rootNodes.sort((a, b) => a.name.localeCompare(b.name, 'vi', { sensitivity: 'base' }))
+
+    function traverse(node: Dossier) {
+      result.push(node)
+      const children = pool.filter(c => c.parentId === node.id)
+      children.sort((a, b) => a.name.localeCompare(b.name, 'vi', { sensitivity: 'base' }))
+      children.forEach(child => traverse(child))
+    }
+
+    rootNodes.forEach(root => traverse(root))
+    return result
   }, [dossiers, tab, search])
 
   // Stats
@@ -173,12 +193,12 @@ export function DossierTable({
         </div>
       </div>
 
-      {/* Main Table */}
+      {/* Main Tree Table */}
       <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-2xs">
         <table className="w-full text-left text-xs border-collapse">
           <thead>
             <tr className="bg-gradient-to-r from-slate-800 to-slate-700 text-slate-100 font-semibold uppercase text-[11px] tracking-wider border-b border-slate-700">
-              <th className="py-3 px-3.5">Hồ sơ</th>
+              <th className="py-3 px-3.5">Cấu trúc cây Hồ sơ (A-Z)</th>
               <th className="py-3 px-3.5 whitespace-nowrap">Ngày tạo</th>
               <th className="py-3 px-3.5 text-center whitespace-nowrap">Số văn bản</th>
               <th className="py-3 px-3.5">Hồ sơ con</th>
@@ -187,30 +207,45 @@ export function DossierTable({
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-150">
-            {filteredDossiers.length === 0 ? (
+            {treeOrderedDossiers.length === 0 ? (
               <tr>
                 <td colSpan={6} className="py-12 text-center text-slate-400 text-xs">
                   Không tìm thấy hồ sơ nào phù hợp.
                 </td>
               </tr>
             ) : (
-              filteredDossiers.map(dossier => {
+              treeOrderedDossiers.map(dossier => {
                 const count = docCounts[dossier.id] || 0
-                const childDossiers = dossiers.filter(c => c.parentId === dossier.id)
+                // Child dossiers sorted A-Z
+                const childDossiers = dossiers
+                  .filter(c => c.parentId === dossier.id)
+                  .sort((a, b) => a.name.localeCompare(b.name, 'vi', { sensitivity: 'base' }))
                 const isArchived = !!dossier.isArchived
 
                 return (
                   <tr
                     key={dossier.id}
                     className={`hover:bg-blue-50/50 transition-colors group ${
-                      isArchived ? 'bg-purple-50/30' : ''
+                      isArchived ? 'bg-purple-50/30' : dossier.level === 1 ? 'bg-slate-50/40 font-medium' : ''
                     }`}
                   >
-                    {/* Dossier Name & Level */}
+                    {/* Tree Hierarchy Dossier Name & Level */}
                     <td className="py-3 px-3.5 max-w-xs">
-                      <div className="flex items-start gap-2">
+                      <div
+                        className="flex items-start gap-2"
+                        style={{ paddingLeft: `${(dossier.level - 1) * 20}px` }}
+                      >
+                        {dossier.level > 1 && (
+                          <span className="text-slate-400 font-mono text-xs select-none shrink-0 mt-0.5 font-bold">
+                            └─
+                          </span>
+                        )}
                         <Folder className={`w-4 h-4 shrink-0 mt-0.5 ${
-                          isArchived ? 'text-purple-500' : 'text-blue-600 fill-blue-50'
+                          isArchived
+                            ? 'text-purple-500'
+                            : dossier.level === 1
+                            ? 'text-blue-600 fill-blue-100'
+                            : 'text-blue-500'
                         }`} />
                         <div className="flex flex-col min-w-0">
                           <div className="flex items-center gap-1.5 flex-wrap">
@@ -223,7 +258,13 @@ export function DossierTable({
                             >
                               {dossier.name}
                             </button>
-                            <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-slate-100 text-slate-600 border border-slate-200 shrink-0">
+                            <span className={`px-1.5 py-0.5 rounded text-[10px] font-mono shrink-0 ${
+                              dossier.level === 1
+                                ? 'bg-blue-100 text-blue-800 border border-blue-200 font-bold'
+                                : dossier.level === 2
+                                ? 'bg-amber-100 text-amber-800 border border-amber-200'
+                                : 'bg-purple-100 text-purple-800 border border-purple-200'
+                            }`}>
                               Cấp {dossier.level}
                             </span>
                           </div>
@@ -251,7 +292,7 @@ export function DossierTable({
                       </span>
                     </td>
 
-                    {/* Sub-dossiers */}
+                    {/* Sub-dossiers list (Sorted A-Z) */}
                     <td className="py-3 px-3.5">
                       {childDossiers.length > 0 ? (
                         <div className="flex flex-wrap gap-1">
