@@ -171,6 +171,10 @@ const DEFAULT_STAFF_PERMISSIONS: RolePermissions = {
   canCompleteAssigned: true,
   canCopyTaskString: true,
   canAccessSettings: false,
+  canCreateDossier: true,
+  canEditDossier: true,
+  canDeleteDossier: true,
+  canTransferDossier: true,
 }
 
 const DEFAULT_GUEST_PERMISSIONS: RolePermissions = {
@@ -186,6 +190,10 @@ const DEFAULT_GUEST_PERMISSIONS: RolePermissions = {
   canCompleteAssigned: false,
   canCopyTaskString: true,
   canAccessSettings: false,
+  canCreateDossier: false,
+  canEditDossier: false,
+  canDeleteDossier: false,
+  canTransferDossier: false,
 }
 
 export async function getPermissions(): Promise<{ staff: RolePermissions; guest: RolePermissions }> {

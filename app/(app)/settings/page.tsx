@@ -39,6 +39,10 @@ const PERMISSION_LABELS: Record<keyof RolePermissions, string> = {
   canCompleteAssigned: 'Hoàn thành (chỉ việc được giao)',
   canCopyTaskString: 'Copy chuỗi giao việc',
   canAccessSettings: 'Truy cập Cài đặt',
+  canCreateDossier: 'Tạo hồ sơ mới',
+  canEditDossier: 'Sửa thông tin/Checklist hồ sơ',
+  canDeleteDossier: 'Xóa hồ sơ',
+  canTransferDossier: 'Chuyển giao hồ sơ cho nhân viên khác',
 }
 
 function ColorPickerDropdown({ value, onChange }: { value: string, onChange: (val: string) => void }) {
