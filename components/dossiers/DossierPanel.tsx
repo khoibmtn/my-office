@@ -34,7 +34,7 @@ function formatCommentTime(ts: any): string {
 }
 
 export function DossierPanel({ dossier, onClose, canEdit }: DossierPanelProps) {
-  const { staffId, staffName, role } = useRole()
+  const { staffId, staffName, role, isAdmin } = useRole()
   
   // Section 1: Description
   const [description, setDescription] = useState(dossier.description || '')
@@ -115,6 +115,7 @@ export function DossierPanel({ dossier, onClose, canEdit }: DossierPanelProps) {
   }
 
   const handleToggleTask = (taskId: string) => {
+    const currentName = staffName || (isAdmin ? 'Admin' : 'Thành viên')
     const newList = checklist.map(item => {
       if (item.id === taskId) {
         const nextState = !item.completed
@@ -122,7 +123,7 @@ export function DossierPanel({ dossier, onClose, canEdit }: DossierPanelProps) {
           ...item,
           completed: nextState,
           completedAt: nextState ? ({ seconds: Math.floor(Date.now() / 1000) } as any) : null,
-          completedBy: nextState ? (staffName || staffId || 'User') : null,
+          completedBy: nextState ? currentName : null,
         }
       }
       return item
@@ -158,8 +159,8 @@ export function DossierPanel({ dossier, onClose, canEdit }: DossierPanelProps) {
     if (!content || sendingComment) return
 
     setSendingComment(true)
-    const sender = staffName || 'Thành viên'
-    const sId = staffId || 'anonymous'
+    const sender = staffName || (isAdmin ? 'Admin' : 'Thành viên')
+    const sId = staffId || (isAdmin ? 'admin' : 'anonymous')
 
     try {
       const added = await addDossierComment(
@@ -356,8 +357,11 @@ export function DossierPanel({ dossier, onClose, canEdit }: DossierPanelProps) {
               </div>
             ) : (
               comments.map(c => {
-                const isMine = c.senderId === staffId
-                const canDelete = isMine || role === 'admin'
+                const isMine =
+                  (staffId && c.senderId === staffId) ||
+                  (isAdmin && (c.senderId === 'admin' || c.senderName === 'Admin' || c.senderId === 'anonymous')) ||
+                  (staffName && c.senderName === staffName)
+                const canDelete = isMine || isAdmin
                 return (
                   <div
                     key={c.id}
