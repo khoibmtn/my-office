@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useMemo, Suspense } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { Loader2, FileText, LogIn, LogOut, Settings, Menu, X, User, Folder } from 'lucide-react'
@@ -198,7 +198,15 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           )}
         </header>
 
-        <main className="flex-1 overflow-y-auto">{children}</main>
+        <main className="flex-1 overflow-y-auto">
+          <Suspense fallback={
+            <div className="h-full flex items-center justify-center bg-slate-50">
+              <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
+            </div>
+          }>
+            {children}
+          </Suspense>
+        </main>
       </div>
     </div>
   )

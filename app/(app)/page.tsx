@@ -1,7 +1,14 @@
 'use client'
 
-import { redirect } from 'next/navigation'
+import { useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 
 export default function HomePage() {
-  redirect('/documents')
+  const router = useRouter()
+
+  useEffect(() => {
+    router.replace('/documents')
+  }, [router])
+
+  return null
 }
