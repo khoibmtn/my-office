@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import {
   Folder, FolderPlus, Pencil, Trash2, Archive, ArchiveRestore,
   Search, FileText, AlertCircle, Loader2, X, PlusSquare, MinusSquare, ArrowRightLeft,
-  ChevronUp, ChevronDown, FolderSymlink, UserCheck
+  ChevronUp, ChevronDown, FolderSymlink, UserCheck, Share2, Users
 } from 'lucide-react'
 import type { Dossier, Document } from '@/types'
 import { toggleArchiveDossier, reorderLevel1Dossiers } from '@/lib/dossiers'
@@ -20,6 +20,7 @@ interface DossierTableProps {
   onEditDossier: (dossier: Dossier) => void
   onDeleteDossier: (dossier: Dossier) => void
   onTransferDossier?: (dossier: Dossier) => void
+  onShareDossier?: (dossier: Dossier) => void
   perms: {
     canCreateDossier?: boolean
     canEditDossier?: boolean
@@ -80,6 +81,7 @@ export function DossierTable({
   onEditDossier,
   onDeleteDossier,
   onTransferDossier,
+  onShareDossier,
   perms,
 }: DossierTableProps) {
   const router = useRouter()
@@ -387,7 +389,16 @@ export function DossierTable({
                         )}
 
                         {(() => {
+                          const isShared = (dossier.sharedWith || []).length > 0
                           const folderColor = isArchived ? '#a855f7' : (dossier.color || '#3b82f6')
+                          if (isShared) {
+                            return (
+                              <FolderSymlink
+                                className="w-4 h-4 shrink-0 mt-0.5"
+                                style={{ color: folderColor }}
+                              />
+                            )
+                          }
                           return (
                             <Folder
                               className="w-4 h-4 shrink-0 mt-0.5"
@@ -416,6 +427,15 @@ export function DossierTable({
                             }`}>
                               Cấp {dossier.level}
                             </span>
+                            {dossier.sharedWith && dossier.sharedWith.length > 0 && (
+                              <span
+                                className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] bg-teal-50 text-teal-700 border border-teal-200 font-semibold"
+                                title={`Đã chia sẻ với ${dossier.sharedWith.length} cán bộ`}
+                              >
+                                <Users className="w-3 h-3" />
+                                <span>{dossier.sharedWith.length}</span>
+                              </span>
+                            )}
                           </div>
                           {dossier.description && (
                             <p className="text-[11px] text-slate-400 italic line-clamp-1 mt-0.5">
@@ -533,6 +553,20 @@ export function DossierTable({
                             title="Di chuyển hồ sơ này sang vị trí thư mục khác"
                           >
                             <FolderSymlink className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+
+                        {/* Share Dossier */}
+                        {onShareDossier && perms.canEditDossier && !isArchived && (
+                          <button
+                            onClick={e => {
+                              e.stopPropagation()
+                              onShareDossier(dossier)
+                            }}
+                            className="p-1.5 text-teal-600 hover:bg-teal-100 rounded-md transition-colors"
+                            title="Chia sẻ hồ sơ này cho cán bộ khác"
+                          >
+                            <Share2 className="w-3.5 h-3.5" />
                           </button>
                         )}
 

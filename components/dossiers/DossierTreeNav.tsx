@@ -2,9 +2,11 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Folder, PlusSquare, MinusSquare, ChevronDown, ChevronRight } from 'lucide-react'
+import { Folder, PlusSquare, MinusSquare, ChevronDown, ChevronRight, FolderSymlink, Users } from 'lucide-react'
 import { useDossiers } from '@/hooks/useDossiers'
 import { useDocuments } from '@/hooks/useDocuments'
+import { useStaff } from '@/hooks/useStaff'
+import { useRole } from '@/hooks/useRole'
 import type { Dossier } from '@/types'
 
 interface DossierNavItemProps {
@@ -18,14 +20,37 @@ export function DossierNavItem({ active }: DossierNavItemProps) {
   
   const { dossiers, loading } = useDossiers()
   const { documents } = useDocuments()
+  const { staff: allStaff } = useStaff()
+  const { staffId, isAdmin } = useRole()
 
   const [isOpen, setIsOpen] = useState(true)
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
 
-  // Filter out archived dossiers: only active dossiers are shown in left panel
+  // Active non-archived dossiers
   const activeDossiers = useMemo(() => {
     return dossiers.filter(d => !d.isArchived)
   }, [dossiers])
+
+  // Split into "My Dossiers" and "Shared with Me"
+  const { myDossiers, sharedDossiers } = useMemo(() => {
+    const my: Dossier[] = []
+    const shared: Dossier[] = []
+
+    activeDossiers.forEach(d => {
+      const isOwner = d.ownerId === staffId || (isAdmin && (d.ownerId === 'admin' || !d.ownerId))
+      const isSharedWithMe = staffId && (d.sharedWith || []).includes(staffId) && d.ownerId !== staffId
+
+      if (isOwner || (isAdmin && !d.sharedWith?.includes('admin'))) {
+        my.push(d)
+      } else if (isSharedWithMe) {
+        shared.push(d)
+      } else if (isAdmin) {
+        my.push(d)
+      }
+    })
+
+    return { myDossiers: my, sharedDossiers: shared }
+  }, [activeDossiers, staffId, isAdmin])
 
   // Calculate document counts per dossier
   const docCounts = useMemo(() => {
@@ -38,6 +63,14 @@ export function DossierNavItem({ active }: DossierNavItemProps) {
     })
     return counts
   }, [documents])
+
+  // Get owner display name
+  const getOwnerDisplayName = useCallback((ownerId: string) => {
+    if (ownerId === 'admin') return 'Admin'
+    const found = allStaff.find(s => s.id === ownerId)
+    if (found) return found.shortName
+    return ownerId || 'Khác'
+  }, [allStaff])
 
   // Get parent dossiers that have children
   const parentIdsWithChildren = useMemo(() => {
@@ -117,21 +150,26 @@ export function DossierNavItem({ active }: DossierNavItemProps) {
     }
   }
 
-  // Recursive Tree Node renderer
-  const renderDossierNode = (dossier: Dossier, level: number = 0) => {
-    const children = activeDossiers
+  // Recursive Tree Node renderer for My Dossiers
+  const renderDossierNode = (dossier: Dossier, level: number = 0, isSharedList: boolean = false) => {
+    const list = isSharedList ? sharedDossiers : myDossiers
+    const children = list
       .filter(child => child.parentId === dossier.id)
       .sort((a, b) => (a.order ?? 9999) - (b.order ?? 9999) || a.name.localeCompare(b.name, 'vi'))
     const hasChildren = children.length > 0
     const isExpanded = expandedIds.has(dossier.id)
     const isActive = activeId === dossier.id
     const count = docCounts[dossier.id] || 0
+    const isShared = isSharedList || (dossier.sharedWith && dossier.sharedWith.length > 0)
+    const displayName = isSharedList
+      ? `${dossier.name} (${getOwnerDisplayName(dossier.ownerId)})`
+      : dossier.name
 
     return (
       <div key={dossier.id} className="flex flex-col">
         <div
           onClick={() => handleSelect(dossier.id)}
-          title={`${dossier.name} (${count} văn bản)`}
+          title={`${displayName} (${count} văn bản)`}
           className={`
             group flex items-center justify-between py-1 px-2 rounded-md text-xs cursor-pointer select-none transition-colors
             ${isActive
@@ -158,11 +196,18 @@ export function DossierNavItem({ active }: DossierNavItemProps) {
               <span className="w-4 shrink-0" />
             )}
 
-            <Folder
-              className="w-3.5 h-3.5 shrink-0"
-              style={{ color: dossier.color || '#3b82f6', fill: dossier.color || '#3b82f6' }}
-            />
-            <span className="truncate">{dossier.name}</span>
+            {isShared ? (
+              <FolderSymlink
+                className="w-3.5 h-3.5 shrink-0"
+                style={{ color: dossier.color || '#3b82f6' }}
+              />
+            ) : (
+              <Folder
+                className="w-3.5 h-3.5 shrink-0"
+                style={{ color: dossier.color || '#3b82f6', fill: dossier.color || '#3b82f6' }}
+              />
+            )}
+            <span className="truncate">{displayName}</span>
           </div>
 
           <span title={`${count} văn bản`} className={`text-[10px] ml-1 font-mono px-1 rounded ${isActive ? 'text-blue-600 bg-blue-100' : 'text-slate-400 group-hover:text-slate-600'}`}>
@@ -173,18 +218,24 @@ export function DossierNavItem({ active }: DossierNavItemProps) {
         {/* Render child nodes recursively */}
         {hasChildren && isExpanded && (
           <div className="flex flex-col mt-0.5">
-            {children.map(child => renderDossierNode(child, level + 1))}
+            {children.map(child => renderDossierNode(child, level + 1, isSharedList))}
           </div>
         )}
       </div>
     )
   }
 
-  const rootDossiers = useMemo(() => {
-    return activeDossiers
+  const rootMyDossiers = useMemo(() => {
+    return myDossiers
       .filter(d => !d.parentId)
       .sort((a, b) => (a.order ?? 9999) - (b.order ?? 9999) || a.name.localeCompare(b.name, 'vi'))
-  }, [activeDossiers])
+  }, [myDossiers])
+
+  const rootSharedDossiers = useMemo(() => {
+    return sharedDossiers
+      .filter(d => !d.parentId || !sharedDossiers.some(p => p.id === d.parentId))
+      .sort((a, b) => a.name.localeCompare(b.name, 'vi'))
+  }, [sharedDossiers])
 
   return (
     <div className="flex flex-col">
@@ -243,7 +294,21 @@ export function DossierNavItem({ active }: DossierNavItemProps) {
               <div className="h-3.5 bg-slate-200 animate-pulse rounded w-2/3 ml-3" />
             </div>
           ) : (
-            rootDossiers.map(d => renderDossierNode(d, 0))
+            <>
+              {/* My Dossiers */}
+              {rootMyDossiers.map(d => renderDossierNode(d, 0, false))}
+
+              {/* Shared With Me Section */}
+              {rootSharedDossiers.length > 0 && (
+                <div className="mt-2 pt-2 border-t border-slate-200/80 flex flex-col gap-0.5">
+                  <div className="px-2 py-1 text-[11px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5 select-none">
+                    <FolderSymlink className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+                    <span className="truncate">Chia sẻ với tôi</span>
+                  </div>
+                  {rootSharedDossiers.map(d => renderDossierNode(d, 0, true))}
+                </div>
+              )}
+            </>
           )}
         </div>
       )}

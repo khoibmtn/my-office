@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 import {
   X, CheckSquare, Plus, Trash2, FileText, Loader2, StickyNote,
-  MessageSquare, Send, CornerDownLeft, User
+  MessageSquare, Send, CornerDownLeft, User, Share2
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import type { Dossier, DossierChecklistItem, DossierComment } from '@/types'
@@ -14,6 +14,7 @@ interface DossierPanelProps {
   dossier: Dossier
   onClose: () => void
   canEdit: boolean
+  onShare?: () => void
 }
 
 function formatCommentTime(ts: any): string {
@@ -42,8 +43,11 @@ function formatCommentTime(ts: any): string {
   return `${hours}:${mins} ${day}/${month}`
 }
 
-export function DossierPanel({ dossier, onClose, canEdit }: DossierPanelProps) {
+export function DossierPanel({ dossier, onClose, canEdit, onShare }: DossierPanelProps) {
   const { staffId, staffName, role, isAdmin } = useRole()
+  const isOwner = dossier.ownerId === staffId || (isAdmin && (dossier.ownerId === 'admin' || !dossier.ownerId)) || isAdmin
+  const canEditChecklist = isOwner || isAdmin
+  const canShare = isOwner || isAdmin
   
   // Section 1: Description
   const [description, setDescription] = useState(dossier.description || '')
@@ -115,7 +119,7 @@ export function DossierPanel({ dossier, onClose, canEdit }: DossierPanelProps) {
   // Save checklist helper
   const saveChecklist = async (newList: DossierChecklistItem[]) => {
     setChecklist(newList)
-    if (!canEdit) return
+    if (!canEditChecklist) return
     try {
       await updateDossier(dossier.id, { checklist: newList }, staffId || 'unknown')
     } catch (err) {
@@ -124,6 +128,7 @@ export function DossierPanel({ dossier, onClose, canEdit }: DossierPanelProps) {
   }
 
   const handleToggleTask = (taskId: string) => {
+    if (!canEditChecklist) return
     const currentName = staffName || (isAdmin ? 'Admin' : 'Thành viên')
     const newList = checklist.map(item => {
       if (item.id === taskId) {
@@ -142,7 +147,7 @@ export function DossierPanel({ dossier, onClose, canEdit }: DossierPanelProps) {
 
   const handleAddTask = (e: React.FormEvent) => {
     e.preventDefault()
-    if (!newTaskTitle.trim()) return
+    if (!canEditChecklist || !newTaskTitle.trim()) return
     const newItem: DossierChecklistItem = {
       id: Math.random().toString(36).substring(2, 10),
       title: newTaskTitle.trim(),
@@ -157,6 +162,7 @@ export function DossierPanel({ dossier, onClose, canEdit }: DossierPanelProps) {
   }
 
   const handleDeleteTask = (taskId: string) => {
+    if (!canEditChecklist) return
     const newList = checklist.filter(t => t.id !== taskId)
     saveChecklist(newList)
   }
@@ -215,12 +221,23 @@ export function DossierPanel({ dossier, onClose, canEdit }: DossierPanelProps) {
             Chi tiết — {dossier.name}
           </h3>
         </div>
-        <button
-          onClick={onClose}
-          className="p-1 rounded text-slate-400 hover:text-slate-600 hover:bg-slate-200 transition-colors cursor-pointer"
-        >
-          <X className="w-4 h-4" />
-        </button>
+        <div className="flex items-center gap-1">
+          {onShare && canShare && (
+            <button
+              onClick={onShare}
+              className="p-1 rounded text-slate-500 hover:text-blue-600 hover:bg-blue-50 transition-colors cursor-pointer"
+              title="Chia sẻ hồ sơ"
+            >
+              <Share2 className="w-4 h-4" />
+            </button>
+          )}
+          <button
+            onClick={onClose}
+            className="p-1 rounded text-slate-400 hover:text-slate-600 hover:bg-slate-200 transition-colors cursor-pointer"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
       </div>
 
       {/* Content Area */}

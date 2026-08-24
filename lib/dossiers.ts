@@ -156,6 +156,24 @@ export async function deleteDossierComment(
   await updateDossier(dossierId, { comments: nextComments }, actorId)
 }
 
+export async function shareDossier(
+  dossierId: string,
+  sharedWith: string[],
+  actorId: string
+): Promise<void> {
+  const batch = writeBatch(db())
+  const ref = doc(db(), 'dossiers', dossierId)
+  batch.update(ref, {
+    sharedWith,
+    updatedAt: serverTimestamp(),
+  })
+  appendAuditLogToBatch(batch, 'dossier', dossierId, 'UPDATE', actorId, {
+    operation: 'SHARE',
+    sharedWith,
+  })
+  await batch.commit()
+}
+
 export async function deleteDossier(
   dossierId: string,
   option: 'move_to_parent' | 'release',

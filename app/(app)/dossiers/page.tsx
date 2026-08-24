@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useMemo, useEffect, useCallback, Suspense } from 'react'
-import { FolderPlus, ArrowRightLeft, Trash2, PanelRightOpen, PanelRightClose, Archive, FileText, Layers, Loader2 } from 'lucide-react'
+import { FolderPlus, ArrowRightLeft, Trash2, PanelRightOpen, PanelRightClose, Archive, FileText, Layers, Loader2, Share2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useDossiers } from '@/hooks/useDossiers'
 import { useDocuments } from '@/hooks/useDocuments'
@@ -14,6 +14,7 @@ import { DossierPanel } from '@/components/dossiers/DossierPanel'
 import { DossierModal } from '@/components/dossiers/DossierModal'
 import { DeleteDossierModal } from '@/components/dossiers/DeleteDossierModal'
 import { TransferDossierModal } from '@/components/dossiers/TransferDossierModal'
+import { ShareDossierModal } from '@/components/dossiers/ShareDossierModal'
 import { DossierTable } from '@/components/dossiers/DossierTable'
 import { DocumentTable } from '@/components/documents/DocumentTable'
 import { useSearchParams, useRouter } from 'next/navigation'
@@ -27,7 +28,7 @@ function DossiersContent() {
   const { documents, loading: docsLoading } = useDocuments()
   const { staff } = useStaff()
   const perms = usePermissions()
-  const { isGuest, staffId } = useRole()
+  const { isGuest, staffId, isAdmin } = useRole()
 
   // Navigation path state
   const [activePath, setActivePath] = useState<Dossier[]>([])
@@ -91,6 +92,7 @@ function DossiersContent() {
   const [parentDossierForCreate, setParentDossierForCreate] = useState<Dossier | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<Dossier | null>(null)
   const [transferTarget, setTransferTarget] = useState<Dossier | null>(null)
+  const [shareTarget, setShareTarget] = useState<Dossier | null>(null)
   const [includeSubDossiers, setIncludeSubDossiers] = useState<boolean>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('myoffice_dossier_includeSubDossiers')
@@ -218,6 +220,19 @@ function DossiersContent() {
             </Button>
           )}
 
+          {/* Share Button: Shown when user is owner or admin */}
+          {activeFolder && (isAdmin || activeFolder.ownerId === staffId) && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setShareTarget(activeFolder)}
+              className="text-slate-700 hover:text-blue-700 border-slate-200 shadow-2xs"
+            >
+              <Share2 className="w-4 h-4 mr-1.5 text-teal-600" />
+              Chia sẻ
+            </Button>
+          )}
+
           {/* Toggle Panel Button: Shown when viewing a specific dossier */}
           {activeFolder && (
             <Button
@@ -275,6 +290,7 @@ function DossiersContent() {
                   onEditDossier={handleEditDossier}
                   onDeleteDossier={setDeleteTarget}
                   onTransferDossier={setTransferTarget}
+                  onShareDossier={setShareTarget}
                   perms={perms}
                 />
               ) : (
@@ -297,6 +313,7 @@ function DossiersContent() {
             dossier={activeFolder}
             onClose={() => setPanelOpen(false)}
             canEdit={!!perms.canEditDossier}
+            onShare={() => setShareTarget(activeFolder)}
           />
         )}
       </div>
@@ -335,6 +352,14 @@ function DossiersContent() {
           staffList={staff}
           onClose={() => setTransferTarget(null)}
           onSuccess={() => {}}
+        />
+      )}
+
+      {shareTarget && (
+        <ShareDossierModal
+          dossier={shareTarget}
+          isOpen={Boolean(shareTarget)}
+          onClose={() => setShareTarget(null)}
         />
       )}
     </div>
