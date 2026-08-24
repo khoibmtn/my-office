@@ -925,23 +925,6 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
                 <>Thống kê văn bản từ {periodRange!.from.toLocaleDateString('vi-VN')} đến {periodRange!.to.toLocaleDateString('vi-VN')}</>
               )}
             </div>
-
-            {/* Total doc count / selection badge */}
-            {selectedDocIds.length > 0 && (
-              <div className="flex items-center gap-1.5 px-2.5 py-1 bg-blue-50 border border-blue-200 rounded-lg text-xs font-semibold text-blue-900 shadow-2xs animate-in fade-in duration-150 shrink-0">
-                <span className="flex items-center gap-1 text-blue-700 font-bold whitespace-nowrap">
-                  <Folder className="w-3.5 h-3.5 text-blue-600 shrink-0" />
-                  Đã chọn {selectedDocIds.length} văn bản
-                </span>
-                <button
-                  onClick={() => setSelectedDocIds([])}
-                  className="text-xs text-slate-400 hover:text-red-600 font-bold px-1 ml-1"
-                  title="Bỏ chọn tất cả"
-                >
-                  ✕
-                </button>
-              </div>
-            )}
           </div>
         )}
 
