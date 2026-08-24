@@ -8,6 +8,7 @@ import { useDocuments } from '@/hooks/useDocuments'
 import { useStaff } from '@/hooks/useStaff'
 import { usePermissions } from '@/hooks/usePermissions'
 import { useRole } from '@/hooks/useRole'
+import { useDossierUnread } from '@/hooks/useDossierUnread'
 import { toggleArchiveDossier } from '@/lib/dossiers'
 import { DossierBreadcrumb } from '@/components/dossiers/DossierBreadcrumb'
 import { DossierPanel } from '@/components/dossiers/DossierPanel'
@@ -29,6 +30,7 @@ function DossiersContent() {
   const { staff } = useStaff()
   const perms = usePermissions()
   const { isGuest, staffId, staffName, isAdmin } = useRole()
+  const { markAsRead } = useDossierUnread(dossiers)
 
   // Navigation path state
   const [activePath, setActivePath] = useState<Dossier[]>([])
@@ -79,6 +81,8 @@ function DossiersContent() {
       return
     }
 
+    markAsRead(targetId)
+
     const path: Dossier[] = [target]
     let curr = target.parentId
     while (curr) {
@@ -91,7 +95,7 @@ function DossiersContent() {
       }
     }
     setActivePath(path)
-  }, [targetId, dossiers])
+  }, [targetId, dossiers, markAsRead])
 
   // Panel state
   const [panelOpen, setPanelOpen] = useState(false)

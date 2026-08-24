@@ -7,6 +7,7 @@ import { useDossiers } from '@/hooks/useDossiers'
 import { useDocuments } from '@/hooks/useDocuments'
 import { useStaff } from '@/hooks/useStaff'
 import { useRole } from '@/hooks/useRole'
+import { useDossierUnread } from '@/hooks/useDossierUnread'
 import type { Dossier } from '@/types'
 
 interface DossierNavItemProps {
@@ -30,6 +31,9 @@ export function DossierNavItem({ active }: DossierNavItemProps) {
   const activeDossiers = useMemo(() => {
     return dossiers.filter(d => !d.isArchived)
   }, [dossiers])
+
+  // Track unread comments for dossiers
+  const { unreadMap, getSubtreeUnread, markAsRead } = useDossierUnread(activeDossiers)
 
   // Split into "My Dossiers" and "Shared with Me"
   const { myDossiers, sharedDossiers } = useMemo(() => {
@@ -169,6 +173,7 @@ export function DossierNavItem({ active }: DossierNavItemProps) {
 
   const handleSelect = (id: string | null) => {
     if (id) {
+      markAsRead(id)
       router.push(`/dossiers?id=${id}`)
     } else {
       router.push('/dossiers')
@@ -190,11 +195,14 @@ export function DossierNavItem({ active }: DossierNavItemProps) {
       ? `${dossier.name} (${getOwnerDisplayName(dossier.ownerId)})`
       : dossier.name
 
+    // If expanded, show direct unread count; if collapsed, aggregate entire subtree unread
+    const unreadCount = isExpanded ? (unreadMap[dossier.id] || 0) : getSubtreeUnread(dossier.id)
+
     return (
       <div key={dossier.id} className="flex flex-col">
         <div
           onClick={() => handleSelect(dossier.id)}
-          title={`${displayName} (${count} văn bản)`}
+          title={`${displayName} (${count} văn bản)${unreadCount > 0 ? ` • ${unreadCount} tin nhắn mới` : ''}`}
           className={`
             group flex items-center justify-between py-1 px-2 rounded-md text-xs cursor-pointer select-none transition-colors
             ${isActive
@@ -235,9 +243,20 @@ export function DossierNavItem({ active }: DossierNavItemProps) {
             <span className="truncate">{displayName}</span>
           </div>
 
-          <span title={`${count} văn bản`} className={`text-[10px] ml-1 font-mono px-1 rounded ${isActive ? 'text-blue-600 bg-blue-100' : 'text-slate-400 group-hover:text-slate-600'}`}>
-            ({count})
-          </span>
+          <div className="flex items-center gap-1 shrink-0 ml-1">
+            {/* Telegram / Zalo style Red Unread Pill Badge */}
+            {unreadCount > 0 && (
+              <span
+                title={`${unreadCount} tin nhắn mới chưa đọc`}
+                className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-bold text-white bg-red-600 rounded-full shrink-0 shadow-2xs animate-in zoom-in-50 duration-150"
+              >
+                {unreadCount > 99 ? '99+' : unreadCount}
+              </span>
+            )}
+            <span title={`${count} văn bản`} className={`text-[10px] font-mono px-1 rounded ${isActive ? 'text-blue-600 bg-blue-100' : 'text-slate-400 group-hover:text-slate-600'}`}>
+              ({count})
+            </span>
+          </div>
         </div>
 
         {/* Render child nodes recursively */}
@@ -262,6 +281,10 @@ export function DossierNavItem({ active }: DossierNavItemProps) {
       .sort((a, b) => a.name.localeCompare(b.name, 'vi'))
   }, [sharedDossiers])
 
+  const totalUnreadAll = useMemo(() => {
+    return Object.values(unreadMap).reduce((sum, v) => sum + v, 0)
+  }, [unreadMap])
+
   return (
     <div className="flex flex-col">
       {/* Menu item row */}
@@ -278,7 +301,15 @@ export function DossierNavItem({ active }: DossierNavItemProps) {
         {/* Label + [+] / [-] button */}
         <div className="flex items-center gap-1.5 flex-1 min-w-0">
           <span className="truncate">Quản lý Hồ sơ</span>
-          {parentIdsWithChildren.length > 0 && (
+          {!isOpen && totalUnreadAll > 0 && (
+            <span
+              title={`${totalUnreadAll} tin nhắn mới chưa đọc`}
+              className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-bold text-white bg-red-600 rounded-full shrink-0 shadow-2xs animate-in zoom-in-50 duration-150"
+            >
+              {totalUnreadAll > 99 ? '99+' : totalUnreadAll}
+            </span>
+          )}
+          {isOpen && parentIdsWithChildren.length > 0 && (
             <button
               type="button"
               onClick={handleToggleExpandAll}

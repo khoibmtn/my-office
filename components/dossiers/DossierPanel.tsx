@@ -81,6 +81,15 @@ export function DossierPanel({ dossier, onClose, canEdit, onShare }: DossierPane
     commentsEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [comments.length])
 
+  // Mark dossier comments as read when panel is open for this dossier
+  useEffect(() => {
+    if (dossier?.id && typeof window !== 'undefined') {
+      const userKey = staffId || (isAdmin ? 'admin' : 'guest')
+      localStorage.setItem(`myoffice_dossier_read_${dossier.id}_${userKey}`, String(Date.now()))
+      window.dispatchEvent(new CustomEvent('myoffice_dossier_read', { detail: { dossierId: dossier.id } }))
+    }
+  }, [dossier?.id, comments.length, staffId, isAdmin])
+
   // Debounced auto-save description (1000ms)
   const descTimer = useRef<NodeJS.Timeout | null>(null)
   const handleDescriptionChange = (text: string) => {

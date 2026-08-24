@@ -10,6 +10,7 @@ import {
 import type { Dossier, Document } from '@/types'
 import { toggleArchiveDossier, reorderLevel1Dossiers } from '@/lib/dossiers'
 import { useRole } from '@/hooks/useRole'
+import { useDossierUnread } from '@/hooks/useDossierUnread'
 import { MoveDossierModal } from './MoveDossierModal'
 
 interface DossierTableProps {
@@ -86,6 +87,7 @@ export function DossierTable({
 }: DossierTableProps) {
   const router = useRouter()
   const { staffId } = useRole()
+  const { unreadMap, getSubtreeUnread, markAsRead } = useDossierUnread(dossiers)
 
   const [tab, setTab] = useState<'active' | 'archived' | 'all'>(() => {
     if (typeof window !== 'undefined') {
@@ -220,6 +222,7 @@ export function DossierTable({
       setTimeout(() => setArchivedAlert(null), 5000)
       return
     }
+    markAsRead(dossier.id)
     router.push(`/dossiers?id=${dossier.id}`)
   }
 
@@ -282,7 +285,7 @@ export function DossierTable({
             onClick={() => handleSetTab('all')}
             className={`px-3 py-1.5 rounded-md transition-all ${
               tab === 'all'
-                ? 'bg-white text-slate-900 shadow-2xs font-bold'
+                ? 'bg-white text-slate-800 shadow-2xs font-bold'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
@@ -349,6 +352,7 @@ export function DossierTable({
                 const hasChildren = dossiers.some(c => c.parentId === dossier.id)
                 const isExpanded = expandedIds.has(dossier.id)
                 const isArchived = !!dossier.isArchived
+                const unreadCount = isExpanded ? (unreadMap[dossier.id] || 0) : getSubtreeUnread(dossier.id)
 
                 const rootIndex = activeRootDossiers.findIndex(r => r.id === dossier.id)
                 const isFirstRoot = rootIndex === 0
@@ -418,6 +422,14 @@ export function DossierTable({
                             >
                               <Highlight text={dossier.name} query={search} />
                             </button>
+                            {unreadCount > 0 && (
+                              <span
+                                title={`${unreadCount} tin nhắn mới chưa đọc`}
+                                className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-bold text-white bg-red-600 rounded-full shrink-0 shadow-2xs animate-in zoom-in-50 duration-150"
+                              >
+                                {unreadCount > 99 ? '99+' : unreadCount}
+                              </span>
+                            )}
                             <span className={`px-1.5 py-0.5 rounded text-[10px] font-mono shrink-0 ${
                               dossier.level === 1
                                 ? 'bg-blue-100 text-blue-800 border border-blue-200 font-bold'
