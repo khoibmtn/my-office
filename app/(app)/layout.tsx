@@ -1,9 +1,9 @@
 'use client'
 
 import React, { useEffect, useState, useMemo, useCallback, useRef, Suspense } from 'react'
-import { useRouter, usePathname } from 'next/navigation'
+import { useRouter, usePathname, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import { Loader2, FileText, LogIn, LogOut, Settings, Menu, X, User, Folder } from 'lucide-react'
+import { Loader2, FileText, LogIn, LogOut, Settings, Menu, X, User, Folder, ChevronDown, ChevronRight } from 'lucide-react'
 import { useAuth, AuthProvider } from '@/hooks/useAuth'
 import { useRole } from '@/hooks/useRole'
 import { usePermissions } from '@/hooks/usePermissions'
@@ -18,8 +18,19 @@ function InnerAppLayout({ children }: { children: React.ReactNode }) {
   const perms = usePermissions()
   const router = useRouter()
   const pathname = usePathname()
+  const searchParams = useSearchParams()
+  const activeDossierId = searchParams.get('id')
+
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [selectedTagId, setSelectedTagId] = useState<string | null>(null)
+  const [dossiersTreeOpen, setDossiersTreeOpen] = useState(false)
+
+  // Auto open tree when a specific dossier ID is in the URL
+  useEffect(() => {
+    if (activeDossierId) {
+      setDossiersTreeOpen(true)
+    }
+  }, [activeDossierId])
 
   // Resizable sidebar width (min 200px, default 260px, max 480px)
   const [sidebarWidth, setSidebarWidth] = useState(260)
@@ -144,23 +155,49 @@ function InnerAppLayout({ children }: { children: React.ReactNode }) {
         {/* Middle: Nav — takes remaining space */}
         <nav className="flex-1 p-3 flex flex-col gap-1 overflow-y-auto">
           {NAV.map(({ href, icon: Icon, label }) => {
+            const isDossiersItem = href === '/dossiers'
             const active = pathname === href || (href !== '/' && pathname.startsWith(href))
+
             return (
               <React.Fragment key={href}>
-                <Link
-                  href={href}
-                  className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors shrink-0 ${
-                    active
-                      ? 'bg-slate-100 text-slate-900 font-semibold'
-                      : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
-                  }`}
-                >
-                  <Icon className="h-4.5 w-4.5 shrink-0 text-blue-600" />
-                  <span className="flex-1">{label}</span>
-                </Link>
-                {!isGuest && href === '/dossiers' && (
+                {isDossiersItem ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      router.push('/dossiers')
+                      setDossiersTreeOpen(prev => !prev)
+                    }}
+                    className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors shrink-0 text-left w-full select-none cursor-pointer ${
+                      active
+                        ? 'bg-slate-100 text-slate-900 font-semibold'
+                        : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                    }`}
+                  >
+                    <Icon className="h-4.5 w-4.5 shrink-0 text-blue-600" />
+                    <span className="flex-1">{label}</span>
+                    {dossiersTreeOpen ? (
+                      <ChevronDown className="w-4 h-4 text-slate-400 shrink-0" />
+                    ) : (
+                      <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />
+                    )}
+                  </button>
+                ) : (
+                  <Link
+                    href={href}
+                    className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors shrink-0 ${
+                      active
+                        ? 'bg-slate-100 text-slate-900 font-semibold'
+                        : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                    }`}
+                  >
+                    <Icon className="h-4.5 w-4.5 shrink-0 text-blue-600" />
+                    <span className="flex-1">{label}</span>
+                  </Link>
+                )}
+
+                {!isGuest && isDossiersItem && (
                   <div className="pl-1 pr-0.5 -mt-0.5">
-                    <DossierTreeNav />
+                    <DossierTreeNav isOpen={dossiersTreeOpen} />
                   </div>
                 )}
               </React.Fragment>

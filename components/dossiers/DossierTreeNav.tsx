@@ -7,7 +7,11 @@ import { useDossiers } from '@/hooks/useDossiers'
 import { useDocuments } from '@/hooks/useDocuments'
 import type { Dossier } from '@/types'
 
-export function DossierTreeNav() {
+interface DossierTreeNavProps {
+  isOpen?: boolean
+}
+
+export function DossierTreeNav({ isOpen = true }: DossierTreeNavProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const activeId = searchParams.get('id')
@@ -69,6 +73,21 @@ export function DossierTreeNav() {
     })
   }
 
+  const handleExpandAll = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    e.preventDefault()
+    const allParentIds = activeDossiers
+      .filter(parent => activeDossiers.some(child => child.parentId === parent.id))
+      .map(d => d.id)
+    setExpandedIds(new Set(allParentIds))
+  }
+
+  const handleCollapseAll = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    e.preventDefault()
+    setExpandedIds(new Set())
+  }
+
   const handleSelect = (id: string | null) => {
     if (id) {
       router.push(`/dossiers?id=${id}`)
@@ -98,35 +117,31 @@ export function DossierTreeNav() {
               ? 'bg-blue-50 text-blue-700 font-semibold border-l-2 border-blue-600 pl-1.5'
               : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'}
           `}
-          style={{ paddingLeft: level > 0 ? `${level * 14 + (isActive ? 6 : 8)}px` : undefined }}
+          style={{ paddingLeft: level > 0 ? `${level * 12 + 8}px` : undefined }}
         >
-          <div className="flex items-center gap-1.5 min-w-0 flex-1" title={`${dossier.name} (${count} văn bản)`}>
-            {/* Expand/Collapse Toggle Button */}
+          <div className="flex items-center gap-1.5 min-w-0 flex-1">
             {hasChildren ? (
               <button
-                onClick={(e) => toggleExpand(dossier.id, e)}
-                className="w-4 h-4 flex items-center justify-center rounded text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 shrink-0"
-                title={isExpanded ? 'Thu gọn hồ sơ con' : 'Mở rộng hồ sơ con'}
+                onClick={e => toggleExpand(dossier.id, e)}
+                className="p-0.5 hover:bg-slate-200 rounded transition-colors text-slate-500 shrink-0"
               >
                 {isExpanded ? (
-                  <MinusSquare className="w-3 h-3 text-blue-600" />
+                  <MinusSquare className="w-3 h-3 text-slate-500" />
                 ) : (
-                  <PlusSquare className="w-3 h-3 text-slate-500" />
+                  <PlusSquare className="w-3 h-3 text-blue-500" />
                 )}
               </button>
             ) : (
-              <span className="w-4 h-4 shrink-0" />
+              <span className="w-4 shrink-0" />
             )}
 
             <Folder
               className="w-3.5 h-3.5 shrink-0"
               style={{ color: dossier.color || '#3b82f6', fill: dossier.color || '#3b82f6' }}
             />
-            
-            <span className="truncate font-medium" title={`${dossier.name} (${count} văn bản)`}>{dossier.name}</span>
+            <span className="truncate">{dossier.name}</span>
           </div>
 
-          {/* Doc count badge */}
           <span title={`${count} văn bản`} className={`text-[10px] ml-1 font-mono px-1 rounded ${isActive ? 'text-blue-600 bg-blue-100' : 'text-slate-400 group-hover:text-slate-600'}`}>
             ({count})
           </span>
@@ -148,6 +163,8 @@ export function DossierTreeNav() {
       .sort((a, b) => (a.order ?? 9999) - (b.order ?? 9999) || a.name.localeCompare(b.name, 'vi'))
   }, [activeDossiers])
 
+  if (!isOpen) return null
+
   if (loading) {
     return (
       <div className="flex flex-col gap-1.5 mt-0.5 mb-1 px-2">
@@ -161,7 +178,33 @@ export function DossierTreeNav() {
   if (activeDossiers.length === 0) return null
 
   return (
-    <div className="flex flex-col gap-0.5 mt-0.5 mb-1 pl-1">
+    <div className="flex flex-col gap-0.5 mt-1 mb-1.5 pl-1 bg-slate-50/60 p-1.5 rounded-lg border border-slate-200/60">
+      {/* Action controls: Bung hết / Thu hết */}
+      <div className="flex items-center justify-between px-1.5 py-1 mb-1 text-[11px] font-medium border-b border-slate-200/60">
+        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Danh mục cây</span>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={handleExpandAll}
+            className="flex items-center gap-1 text-[11px] text-blue-600 hover:text-blue-800 hover:underline font-semibold transition-colors cursor-pointer"
+            title="Mở rộng tất cả hồ sơ Cấp 1, Cấp 2 để lộ tất cả hồ sơ con"
+          >
+            <PlusSquare className="w-3 h-3" />
+            <span>Bung hết</span>
+          </button>
+          <span className="text-slate-300">|</span>
+          <button
+            type="button"
+            onClick={handleCollapseAll}
+            className="flex items-center gap-1 text-[11px] text-slate-500 hover:text-slate-800 hover:underline font-semibold transition-colors cursor-pointer"
+            title="Thu gọn tất cả hồ sơ con về Cấp 1 gốc"
+          >
+            <MinusSquare className="w-3 h-3" />
+            <span>Thu hết</span>
+          </button>
+        </div>
+      </div>
+
       {rootDossiers.map(d => renderDossierNode(d, 0))}
     </div>
   )
