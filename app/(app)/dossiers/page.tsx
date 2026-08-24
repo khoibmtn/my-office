@@ -78,17 +78,41 @@ export default function DossiersPage() {
   const [parentDossierForCreate, setParentDossierForCreate] = useState<Dossier | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<Dossier | null>(null)
   const [transferTarget, setTransferTarget] = useState<Dossier | null>(null)
+  const [includeSubDossiers, setIncludeSubDossiers] = useState(false)
 
-  // Filter documents in current folder
+  // Collect all descendant dossier IDs for the active folder
+  const descendantDossierIds = useMemo(() => {
+    if (!activeFolder) return []
+    const ids: string[] = []
+    const collect = (pid: string) => {
+      const children = dossiers.filter(d => d.parentId === pid && !d.deletedAt)
+      children.forEach(c => {
+        ids.push(c.id)
+        collect(c.id)
+      })
+    }
+    collect(activeFolder.id)
+    return ids
+  }, [activeFolder, dossiers])
+
+  const hasSubDossiers = descendantDossierIds.length > 0
+
+  // Filter documents in current folder (and optional sub-dossiers)
   const currentDocs = useMemo(() => {
     if (!documents) return []
     if (!activeFolder) {
       // Root level: show documents that have no dossierIds
       return documents.filter(d => !d.dossierIds || d.dossierIds.length === 0)
     }
-    // Specific dossier level: show documents containing activeFolder.id
+
+    if (includeSubDossiers && hasSubDossiers) {
+      const targetIds = new Set([activeFolder.id, ...descendantDossierIds])
+      return documents.filter(d => (d.dossierIds || []).some(id => targetIds.has(id)))
+    }
+
+    // Specific dossier level only: show documents containing activeFolder.id
     return documents.filter(d => (d.dossierIds || []).includes(activeFolder.id))
-  }, [documents, activeFolder])
+  }, [documents, activeFolder, includeSubDossiers, hasSubDossiers, descendantDossierIds])
 
   // Navigate breadcrumb
   const handleNavigate = (targetFolder: Dossier | null) => {
@@ -131,7 +155,13 @@ export default function DossiersPage() {
       {/* Top Action Header with Integrated Breadcrumb */}
       <header className="px-6 py-3.5 bg-white border-b border-slate-200 shrink-0 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 shadow-xs">
         <div className="flex items-center gap-2 min-w-0 flex-1">
-          <DossierBreadcrumb currentPath={activePath} onNavigate={handleNavigate} />
+          <DossierBreadcrumb
+            currentPath={activePath}
+            onNavigate={handleNavigate}
+            hasSubDossiers={hasSubDossiers}
+            includeSubDossiers={includeSubDossiers}
+            onToggleIncludeSubDossiers={setIncludeSubDossiers}
+          />
         </div>
 
         <div className="flex items-center gap-2 flex-wrap w-full md:w-auto shrink-0">
