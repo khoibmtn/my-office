@@ -515,14 +515,14 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
     setAssigningBatch(false)
   }
 
-  // Resolve dossier hierarchy path helper: e.g. "Kế hoạch / Chỉ đạo tuyến"
+  // Resolve dossier display name: Level 1 => "Name", Level 2 => "../Name", Level 3 => "../../Name"
   const getDossierPathName = useCallback((dossierId: string): string => {
     const d = dossiers.find(item => item.id === dossierId)
     if (!d) return ''
-    if (!d.parentId) return d.name
-    const parent = dossiers.find(item => item.id === d.parentId)
-    if (parent) return `${parent.name} / ${d.name}`
-    return d.name
+    const level = d.level || 1
+    if (level === 1) return d.name
+    if (level === 2) return `../${d.name}`
+    return `../../${d.name}`
   }, [dossiers])
 
   // Auto-filter to staff's own documents when they log in

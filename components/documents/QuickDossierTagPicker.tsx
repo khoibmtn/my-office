@@ -133,21 +133,24 @@ export function QuickDossierTagPicker({ document: docItem, onUpdate }: QuickDoss
 
         {/* Attached Dossiers Badges */}
         <div className="flex flex-wrap gap-1.5 mb-2">
-          {currentDossiers.map(d => (
-            <span
-              key={d.id}
-              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200"
-            >
-              <span>📂 {d.name}</span>
-              <button
-                onClick={() => handleRemoveDossier(d.id)}
-                className="hover:text-red-600 transition-colors p-0.5"
-                title="Gỡ khỏi hồ sơ"
+          {currentDossiers.map(d => {
+            const prefix = d.level === 3 ? '../../' : d.level === 2 ? '../' : ''
+            return (
+              <span
+                key={d.id}
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200"
               >
-                <X className="w-3 h-3" />
-              </button>
-            </span>
-          ))}
+                <span>📂 {prefix}{d.name}</span>
+                <button
+                  onClick={() => handleRemoveDossier(d.id)}
+                  className="hover:text-red-600 transition-colors p-0.5"
+                  title="Gỡ khỏi hồ sơ"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            )
+          })}
           {currentDossiers.length === 0 && (
             <span className="text-xs text-slate-400 italic">Chưa xếp vào hồ sơ nào</span>
           )}
