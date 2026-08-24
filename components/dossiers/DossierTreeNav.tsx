@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Folder, ChevronRight, ChevronDown, PlusSquare, MinusSquare } from 'lucide-react'
+import { Folder, PlusSquare, MinusSquare } from 'lucide-react'
 import { useDossiers } from '@/hooks/useDossiers'
 import { useDocuments } from '@/hooks/useDocuments'
 import type { Dossier } from '@/types'
@@ -16,6 +16,11 @@ export function DossierTreeNav() {
   const { documents } = useDocuments()
 
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
+
+  // Filter out archived dossiers: only active dossiers are shown in left panel
+  const activeDossiers = useMemo(() => {
+    return dossiers.filter(d => !d.isArchived)
+  }, [dossiers])
 
   // Calculate document counts per dossier
   const docCounts = useMemo(() => {
@@ -31,7 +36,7 @@ export function DossierTreeNav() {
 
   // Auto-expand parents of active dossier
   useEffect(() => {
-    if (!activeId || dossiers.length === 0) return
+    if (!activeId || activeDossiers.length === 0) return
     const newExpanded = new Set(expandedIds)
     let curr: string | null = activeId
     
@@ -39,7 +44,7 @@ export function DossierTreeNav() {
     newExpanded.add(activeId)
 
     while (curr) {
-      const d = dossiers.find(item => item.id === curr)
+      const d = activeDossiers.find(item => item.id === curr)
       if (d && d.parentId) {
         newExpanded.add(d.parentId)
         curr = d.parentId
@@ -48,7 +53,7 @@ export function DossierTreeNav() {
       }
     }
     setExpandedIds(newExpanded)
-  }, [activeId, dossiers])
+  }, [activeId, activeDossiers])
 
   const toggleExpand = (id: string, e: React.MouseEvent) => {
     e.stopPropagation()
@@ -74,7 +79,7 @@ export function DossierTreeNav() {
 
   // Recursive Tree Node renderer
   const renderDossierNode = (dossier: Dossier, level: number = 0) => {
-    const children = dossiers.filter(child => child.parentId === dossier.id)
+    const children = activeDossiers.filter(child => child.parentId === dossier.id)
     const hasChildren = children.length > 0
     const isExpanded = expandedIds.has(dossier.id)
     const isActive = activeId === dossier.id
@@ -133,10 +138,10 @@ export function DossierTreeNav() {
   }
 
   const rootDossiers = useMemo(() => {
-    return dossiers.filter(d => !d.parentId)
-  }, [dossiers])
+    return activeDossiers.filter(d => !d.parentId)
+  }, [activeDossiers])
 
-  if (dossiers.length === 0) return null
+  if (activeDossiers.length === 0) return null
 
   return (
     <div className="flex flex-col gap-0.5 my-1 pl-1">

@@ -1,40 +1,59 @@
 'use client'
 
 import React, { useState, useMemo, useEffect } from 'react'
-import { FolderPlus, ArrowRightLeft, Trash2, PanelRightOpen, PanelRightClose } from 'lucide-react'
+import { FolderPlus, ArrowRightLeft, Trash2, PanelRightOpen, PanelRightClose, Archive, FileText, Layers } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useDossiers } from '@/hooks/useDossiers'
 import { useDocuments } from '@/hooks/useDocuments'
 import { useStaff } from '@/hooks/useStaff'
 import { usePermissions } from '@/hooks/usePermissions'
 import { useRole } from '@/hooks/useRole'
+import { toggleArchiveDossier } from '@/lib/dossiers'
 import { DossierBreadcrumb } from '@/components/dossiers/DossierBreadcrumb'
 import { DossierPanel } from '@/components/dossiers/DossierPanel'
 import { DossierModal } from '@/components/dossiers/DossierModal'
 import { DeleteDossierModal } from '@/components/dossiers/DeleteDossierModal'
 import { TransferDossierModal } from '@/components/dossiers/TransferDossierModal'
+import { DossierTable } from '@/components/dossiers/DossierTable'
 import { DocumentTable } from '@/components/documents/DocumentTable'
-import { useSearchParams } from 'next/navigation'
+import { useSearchParams, useRouter } from 'next/navigation'
 import type { Dossier, Document } from '@/types'
 
 export default function DossiersPage() {
+  const router = useRouter()
   const searchParams = useSearchParams()
   const targetId = searchParams.get('id')
   const { dossiers, loading: dossiersLoading } = useDossiers()
   const { documents, loading: docsLoading } = useDocuments()
   const { staff } = useStaff()
   const perms = usePermissions()
-  const { isGuest } = useRole()
+  const { isGuest, staffId } = useRole()
 
   // Navigation path state
   const [activePath, setActivePath] = useState<Dossier[]>([])
   const activeFolder = activePath[activePath.length - 1] || null
 
+  // Root view tab ('dossiers' | 'unassigned')
+  const [rootTab, setRootTab] = useState<'dossiers' | 'unassigned'>('dossiers')
+
   // Auto-expand breadcrumb path when URL has ?id=...
   useEffect(() => {
-    if (!targetId || dossiers.length === 0) return
+    if (!targetId) {
+      setActivePath([])
+      return
+    }
+    if (dossiers.length === 0) return
     const target = dossiers.find(d => d.id === targetId)
-    if (!target) return
+    if (!target) {
+      setActivePath([])
+      return
+    }
+
+    // Do not expand archived dossiers in panel
+    if (target.isArchived) {
+      setActivePath([])
+      return
+    }
 
     const path: Dossier[] = [target]
     let curr = target.parentId
@@ -56,6 +75,7 @@ export default function DossiersPage() {
   // Modals state
   const [modalOpen, setModalOpen] = useState(false)
   const [editingDossier, setEditingDossier] = useState<Dossier | null>(null)
+  const [parentDossierForCreate, setParentDossierForCreate] = useState<Dossier | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<Dossier | null>(null)
   const [transferTarget, setTransferTarget] = useState<Dossier | null>(null)
 
@@ -74,14 +94,22 @@ export default function DossiersPage() {
   const handleNavigate = (targetFolder: Dossier | null) => {
     if (!targetFolder) {
       setActivePath([])
+      router.push('/dossiers')
       return
     }
-    const idx = activePath.findIndex(d => d.id === targetFolder.id)
-    if (idx >= 0) {
-      setActivePath(activePath.slice(0, idx + 1))
-    } else {
-      setActivePath([...activePath, targetFolder])
-    }
+    router.push(`/dossiers?id=${targetFolder.id}`)
+  }
+
+  const handleAddSubDossier = (parent: Dossier) => {
+    setEditingDossier(null)
+    setParentDossierForCreate(parent)
+    setModalOpen(true)
+  }
+
+  const handleEditDossier = (dossier: Dossier) => {
+    setEditingDossier(dossier)
+    setParentDossierForCreate(null)
+    setModalOpen(true)
   }
 
   // Count children of delete target
@@ -113,6 +141,7 @@ export default function DossiersPage() {
               size="sm"
               onClick={() => {
                 setEditingDossier(null)
+                setParentDossierForCreate(null)
                 setModalOpen(true)
               }}
             >
@@ -132,6 +161,21 @@ export default function DossiersPage() {
                 >
                   <ArrowRightLeft className="w-4 h-4 mr-1.5 text-blue-600" />
                   Chuyển hồ sơ này
+                </Button>
+              )}
+              {perms.canEditDossier && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="text-amber-700 hover:bg-amber-50 border-amber-300"
+                  onClick={async () => {
+                    await toggleArchiveDossier(activeFolder.id, true, staffId || 'unknown')
+                    handleNavigate(null)
+                  }}
+                  title="Lưu trữ hồ sơ này (rút khỏi danh sách điều hướng)"
+                >
+                  <Archive className="w-4 h-4 mr-1.5" />
+                  Lưu trữ
                 </Button>
               )}
               {perms.canDeleteDossier && (
@@ -167,10 +211,56 @@ export default function DossiersPage() {
       <div className="flex-1 flex min-h-0 overflow-hidden">
         {/* Main Content Pane */}
         <main className="flex-1 overflow-y-auto p-4 sm:p-6 flex flex-col min-w-0">
-          {/* Documents Table Container */}
-          <div className="flex-1 bg-white rounded-xl border border-slate-200 shadow-sm p-3 sm:p-4 min-h-[300px] min-w-0 max-w-full overflow-x-auto">
-            <DocumentTable documents={currentDocs} />
-          </div>
+          {!activeFolder ? (
+            /* Root View: Show Tab Switcher between Dossiers Management & Unassigned Docs */
+            <div className="flex flex-col gap-4 flex-1">
+              <div className="flex items-center gap-2 border-b border-slate-200 pb-2">
+                <button
+                  onClick={() => setRootTab('dossiers')}
+                  className={`flex items-center gap-1.5 px-4 py-2 text-xs font-bold rounded-lg transition-all ${
+                    rootTab === 'dossiers'
+                      ? 'bg-blue-600 text-white shadow-xs'
+                      : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100'
+                  }`}
+                >
+                  <Layers className="w-4 h-4" />
+                  <span>Danh sách tất cả Hồ sơ ({dossiers.length})</span>
+                </button>
+
+                <button
+                  onClick={() => setRootTab('unassigned')}
+                  className={`flex items-center gap-1.5 px-4 py-2 text-xs font-bold rounded-lg transition-all ${
+                    rootTab === 'unassigned'
+                      ? 'bg-blue-600 text-white shadow-xs'
+                      : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100'
+                  }`}
+                >
+                  <FileText className="w-4 h-4" />
+                  <span>Văn bản chưa xếp Hồ sơ ({currentDocs.length})</span>
+                </button>
+              </div>
+
+              {rootTab === 'dossiers' ? (
+                <DossierTable
+                  dossiers={dossiers}
+                  documents={documents}
+                  onAddSubDossier={handleAddSubDossier}
+                  onEditDossier={handleEditDossier}
+                  onDeleteDossier={setDeleteTarget}
+                  perms={perms}
+                />
+              ) : (
+                <div className="flex-1 bg-white rounded-xl border border-slate-200 shadow-sm p-3 sm:p-4 min-h-[300px] min-w-0 max-w-full overflow-x-auto">
+                  <DocumentTable documents={currentDocs} />
+                </div>
+              )}
+            </div>
+          ) : (
+            /* Specific Active Dossier View: Show Documents Table */
+            <div className="flex-1 bg-white rounded-xl border border-slate-200 shadow-sm p-3 sm:p-4 min-h-[300px] min-w-0 max-w-full overflow-x-auto">
+              <DocumentTable documents={currentDocs} />
+            </div>
+          )}
         </main>
 
         {/* Collapsible Right Panel */}
@@ -187,9 +277,12 @@ export default function DossiersPage() {
       {modalOpen && (
         <DossierModal
           editingDossier={editingDossier}
-          parentDossier={activeFolder}
+          parentDossier={parentDossierForCreate || activeFolder}
           availableParents={dossiers}
-          onClose={() => setModalOpen(false)}
+          onClose={() => {
+            setModalOpen(false)
+            setParentDossierForCreate(null)
+          }}
           onSuccess={() => {}}
         />
       )}

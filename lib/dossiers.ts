@@ -286,3 +286,22 @@ export async function moveDocumentDossier(
   })
   await batch.commit()
 }
+
+export async function toggleArchiveDossier(
+  dossierId: string,
+  archive: boolean,
+  actorId: string
+): Promise<void> {
+  const batch = writeBatch(db())
+  const ref = doc(db(), 'dossiers', dossierId)
+  batch.update(ref, {
+    isArchived: archive,
+    updatedAt: serverTimestamp(),
+  })
+  appendAuditLogToBatch(batch, 'dossier', dossierId, 'UPDATE', actorId, {
+    field: 'isArchived',
+    value: archive,
+  })
+  await batch.commit()
+}
+
