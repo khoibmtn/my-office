@@ -1,7 +1,8 @@
 'use client'
 
 import React, { useState } from 'react'
-import { Search, X, Tag as TagIcon } from 'lucide-react'
+import { Search, X, Tag as TagIcon, Pencil } from 'lucide-react'
+import { TagEditModal } from './TagEditModal'
 import type { Tag } from '@/types'
 
 interface TagSearchModalProps {
@@ -18,6 +19,7 @@ export function TagSearchModal({
   onClose,
 }: TagSearchModalProps) {
   const [query, setQuery] = useState('')
+  const [editingTag, setEditingTag] = useState<Tag | null>(null)
 
   const filteredTags = tags.filter(t =>
     t.name.toLowerCase().includes(query.trim().toLowerCase())
@@ -67,25 +69,50 @@ export function TagSearchModal({
               filteredTags.map(tag => {
                 const isSelected = selectedTagId === tag.id
                 return (
-                  <button
+                  <div
                     key={tag.id}
                     onClick={() => { onSelectTag(isSelected ? null : tag.id); onClose() }}
-                    className={`w-full flex items-center justify-between p-2 rounded-lg text-xs font-medium transition-colors ${
-                      isSelected ? 'bg-blue-50 text-blue-700 border border-blue-200' : 'hover:bg-slate-50 text-slate-700'
+                    className={`group w-full flex items-center justify-between p-2 rounded-lg text-xs font-medium cursor-pointer transition-colors ${
+                      isSelected ? 'bg-blue-50 text-blue-700 border border-blue-200 font-semibold' : 'hover:bg-slate-50 text-slate-700'
                     }`}
                   >
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 truncate flex-1 min-w-0 pr-1">
                       <span className="w-3 h-3 rounded-full shrink-0 shadow-sm" style={{ background: tag.color }} />
-                      <span>{tag.name}</span>
+                      <span className="truncate">{tag.name}</span>
                     </div>
-                    {isSelected && <span className="text-[10px] font-bold text-blue-600">✓ Đang chọn</span>}
-                  </button>
+
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setEditingTag(tag)
+                        }}
+                        className="opacity-0 group-hover:opacity-100 p-1 text-slate-400 hover:text-blue-600 hover:bg-slate-200/60 rounded transition-all"
+                        title="Sửa hoặc gộp nhãn này"
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                      </button>
+                      {isSelected && <span className="text-[10px] font-bold text-blue-600">✓</span>}
+                    </div>
+                  </div>
                 )
               })
             )}
           </div>
         </div>
       </div>
+
+      {editingTag && (
+        <TagEditModal
+          tag={editingTag}
+          onClose={() => setEditingTag(null)}
+          onSuccess={(finalId) => {
+            if (selectedTagId === editingTag.id) {
+              onSelectTag(finalId)
+            }
+          }}
+        />
+      )}
     </div>
   )
 }

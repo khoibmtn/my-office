@@ -6,7 +6,7 @@ export function appendAuditLogToBatch(
   batch: WriteBatch,
   entityType: 'dossier' | 'document' | 'tag',
   entityId: string,
-  action: 'CREATE' | 'UPDATE' | 'DELETE' | 'TRANSFER' | 'ASSIGN',
+  action: 'CREATE' | 'UPDATE' | 'DELETE' | 'TRANSFER' | 'ASSIGN' | 'MERGE',
   actorId: string,
   metadata: AuditLogMetadata = {}
 ): void {
