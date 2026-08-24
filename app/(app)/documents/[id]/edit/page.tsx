@@ -13,6 +13,7 @@ import { AttachmentInput } from '@/components/documents/AttachmentInput'
 import { getDocument, updateDocument, submitDocumentWithDriveCopy } from '@/lib/firestore'
 import { usePermissions } from '@/hooks/usePermissions'
 import { useStaff } from '@/hooks/useStaff'
+import { CoAssigneePicker } from '@/components/documents/CoAssigneePicker'
 import type { Document, DocumentStatus, AttachmentInput as AttachmentItem } from '@/types'
 
 type AttachmentRow = AttachmentItem & { id: string }
@@ -275,30 +276,13 @@ export default function EditDocumentPage() {
 
         <div className="flex flex-col gap-1.5">
           <Label>Người phối hợp (Nhiều người, chỉ xem)</Label>
-          <div className="flex flex-wrap gap-2 p-2.5 border border-slate-200 rounded-md bg-slate-50/50">
-            {activeStaff
-              .filter(s => s.id !== assigneeId)
-              .map(s => {
-                const checked = coAssigneeIds.includes(s.id)
-                return (
-                  <label
-                    key={s.id}
-                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium cursor-pointer border transition-colors ${
-                      checked ? 'bg-blue-100 border-blue-300 text-blue-800' : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'
-                    }`}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={checked}
-                      onChange={() => handleToggleCoAssignee(s.id)}
-                      className="sr-only"
-                    />
-                    <span>{checked ? '✓' : '+'}</span>
-                    <span>{s.shortName}</span>
-                  </label>
-                )
-              })}
-          </div>
+          <CoAssigneePicker
+            allStaff={staff}
+            mainAssigneeId={assigneeId}
+            value={coAssigneeIds}
+            onChange={setCoAssigneeIds}
+            placeholder="Tìm và gắp người phối hợp..."
+          />
         </div>
 
         <div className="flex flex-col gap-1">
