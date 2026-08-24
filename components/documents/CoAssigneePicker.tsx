@@ -181,9 +181,9 @@ export function CoAssigneePicker({
 
       {/* Dropdown List */}
       {isOpen && (
-        <div className="absolute top-full left-0 right-0 z-50 mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-52 overflow-y-auto p-1 flex flex-col gap-0.5 animate-in fade-in-50 duration-100">
+        <div className="absolute top-full left-0 right-0 z-50 mt-1 bg-white border border-slate-200 rounded-lg shadow-xl max-h-56 overflow-y-auto p-1 flex flex-col gap-0.5 animate-in fade-in-50 duration-100">
           {filteredStaff.length === 0 ? (
-            <div className="px-3 py-2 text-xs text-slate-400 text-center italic">
+            <div className="px-3 py-2.5 text-xs text-slate-400 text-center italic">
               {search ? 'Không tìm thấy nhân viên phù hợp' : 'Đã chọn tất cả nhân viên'}
             </div>
           ) : (
@@ -191,9 +191,9 @@ export function CoAssigneePicker({
               <div
                 key={s.id}
                 onClick={() => handleAddStaff(s.id)}
-                className="px-2.5 py-1.5 rounded-md text-xs font-medium cursor-pointer select-none transition-colors text-slate-700 hover:bg-blue-50 hover:text-blue-700 truncate"
+                className="shrink-0 min-h-[32px] flex items-center px-3 py-1.5 rounded-md text-xs font-medium cursor-pointer select-none transition-colors text-slate-700 hover:bg-blue-50 hover:text-blue-700 leading-normal"
               >
-                {s.shortName}
+                <span className="truncate">{s.shortName}</span>
               </div>
             ))
           )}
