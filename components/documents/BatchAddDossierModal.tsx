@@ -1,7 +1,7 @@
 'use client'
 
-import React, { useState } from 'react'
-import { Folder, Search, X, Check, Loader2 } from 'lucide-react'
+import React, { useState, useMemo } from 'react'
+import { Folder, Search, X, Loader2, PlusSquare, MinusSquare } from 'lucide-react'
 import type { Dossier } from '@/types'
 
 interface BatchAddDossierModalProps {
@@ -18,17 +18,27 @@ export function BatchAddDossierModal({
   onClose,
 }: BatchAddDossierModalProps) {
   const [selectedIds, setSelectedIds] = useState<string[]>([])
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(() => {
+    // Default expand root level 1 dossiers
+    return new Set(dossiers.filter(d => !d.parentId).map(d => d.id))
+  })
   const [search, setSearch] = useState('')
   const [submitting, setSubmitting] = useState(false)
-
-  const filtered = dossiers.filter(d =>
-    d.name.toLowerCase().includes(search.trim().toLowerCase())
-  )
 
   const toggleSelect = (id: string) => {
     setSelectedIds(prev =>
       prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
     )
+  }
+
+  const toggleExpand = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation()
+    setExpandedIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
   }
 
   const handleSubmit = async () => {
@@ -42,6 +52,76 @@ export function BatchAddDossierModal({
     } finally {
       setSubmitting(false)
     }
+  }
+
+  const searchNormalized = search.trim().toLowerCase()
+  const isSearching = searchNormalized.length > 0
+
+  const rootDossiers = useMemo(() => {
+    return dossiers.filter(d => !d.parentId)
+  }, [dossiers])
+
+  const renderTreeNode = (d: Dossier, level: number = 0) => {
+    const children = dossiers.filter(c => c.parentId === d.id)
+    const hasChildren = children.length > 0
+    const isExpanded = expandedIds.has(d.id)
+    const isChecked = selectedIds.includes(d.id)
+
+    return (
+      <div key={d.id} className="flex flex-col">
+        <div
+          onClick={() => toggleSelect(d.id)}
+          className={`group flex items-center justify-between p-2 rounded-lg border text-xs font-medium cursor-pointer transition-colors ${
+            isChecked
+              ? 'bg-blue-50/90 border-blue-300 text-blue-900 font-semibold'
+              : 'bg-white border-slate-200/80 hover:bg-slate-50 text-slate-700'
+          }`}
+          style={{ paddingLeft: `${level * 16 + 8}px` }}
+        >
+          {/* Left side: Expand toggle + Folder icon + Folder Name */}
+          <div className="flex items-center gap-1.5 truncate flex-1 min-w-0 pr-2">
+            {hasChildren ? (
+              <button
+                onClick={e => toggleExpand(d.id, e)}
+                className="p-0.5 text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 rounded shrink-0"
+                title={isExpanded ? 'Thu gọn' : 'Mở rộng'}
+              >
+                {isExpanded ? (
+                  <MinusSquare className="w-3.5 h-3.5 text-blue-600" />
+                ) : (
+                  <PlusSquare className="w-3.5 h-3.5 text-slate-500" />
+                )}
+              </button>
+            ) : (
+              <span className="w-3.5 h-3.5 shrink-0" />
+            )}
+
+            <Folder className={`w-4 h-4 shrink-0 ${isChecked ? 'text-blue-600 fill-blue-100' : 'text-slate-400 group-hover:text-slate-600'}`} />
+            <span className="truncate">{d.name}</span>
+          </div>
+
+          {/* Right side: Level badge + Checkbox at the FAR RIGHT */}
+          <div className="flex items-center gap-2 shrink-0">
+            <span className="text-[10px] text-slate-400 font-mono">
+              (Cấp {d.level})
+            </span>
+            <input
+              type="checkbox"
+              checked={isChecked}
+              onChange={() => {}}
+              className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer shrink-0"
+            />
+          </div>
+        </div>
+
+        {/* Recursive Children */}
+        {hasChildren && isExpanded && (
+          <div className="flex flex-col gap-1 mt-1 pl-1">
+            {children.map(child => renderTreeNode(child, level + 1))}
+          </div>
+        )}
+      </div>
+    )
   }
 
   return (
@@ -80,39 +160,47 @@ export function BatchAddDossierModal({
             />
           </div>
 
-          {/* Dossiers Checkbox List */}
-          <div className="space-y-1 max-h-60 overflow-y-auto pr-1">
-            {filtered.length === 0 ? (
-              <p className="text-xs text-slate-400 text-center py-6">Không tìm thấy hồ sơ nào.</p>
+          {/* Dossiers Tree / Flat List when searching */}
+          <div className="space-y-1 max-h-64 overflow-y-auto pr-1">
+            {isSearching ? (
+              dossiers.filter(d => d.name.toLowerCase().includes(searchNormalized)).length === 0 ? (
+                <p className="text-xs text-slate-400 text-center py-6">Không tìm thấy hồ sơ nào.</p>
+              ) : (
+                dossiers
+                  .filter(d => d.name.toLowerCase().includes(searchNormalized))
+                  .map(d => {
+                    const isChecked = selectedIds.includes(d.id)
+                    return (
+                      <div
+                        key={d.id}
+                        onClick={() => toggleSelect(d.id)}
+                        className={`flex items-center justify-between p-2 rounded-lg border text-xs font-medium cursor-pointer transition-colors ${
+                          isChecked
+                            ? 'bg-blue-50/90 border-blue-300 text-blue-900 font-semibold'
+                            : 'bg-white border-slate-200/80 hover:bg-slate-50 text-slate-700'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 truncate pr-2">
+                          <Folder className={`w-4 h-4 shrink-0 ${isChecked ? 'text-blue-600 fill-blue-100' : 'text-slate-400'}`} />
+                          <span className="truncate">{d.name}</span>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className="text-[10px] text-slate-400 font-mono">(Cấp {d.level})</span>
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={() => {}}
+                            className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer shrink-0"
+                          />
+                        </div>
+                      </div>
+                    )
+                  })
+              )
+            ) : rootDossiers.length === 0 ? (
+              <p className="text-xs text-slate-400 text-center py-6">Chưa có hồ sơ nào.</p>
             ) : (
-              filtered.map(d => {
-                const isChecked = selectedIds.includes(d.id)
-                return (
-                  <label
-                    key={d.id}
-                    onClick={() => toggleSelect(d.id)}
-                    className={`flex items-center justify-between p-2.5 rounded-lg border text-xs font-medium cursor-pointer transition-colors ${
-                      isChecked
-                        ? 'bg-blue-50 border-blue-300 text-blue-900 font-semibold'
-                        : 'bg-white border-slate-150 hover:bg-slate-50 text-slate-700'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2 truncate pr-2" style={{ paddingLeft: `${(d.level - 1) * 12}px` }}>
-                      <input
-                        type="checkbox"
-                        checked={isChecked}
-                        onChange={() => {}}
-                        className="rounded text-blue-600 focus:ring-blue-500 shrink-0"
-                      />
-                      <Folder className={`w-3.5 h-3.5 shrink-0 ${isChecked ? 'text-blue-600 fill-blue-100' : 'text-slate-400'}`} />
-                      <span className="truncate">{d.name}</span>
-                    </div>
-                    <span className="text-[10px] text-slate-400 shrink-0 font-mono">
-                      (Cấp {d.level})
-                    </span>
-                  </label>
-                )
-              })
+              rootDossiers.map(d => renderTreeNode(d, 0))
             )}
           </div>
         </div>
