@@ -28,6 +28,15 @@ function formatCommentTime(ts: any): string {
 
   const hours = String(d.getHours()).padStart(2, '0')
   const mins = String(d.getMinutes()).padStart(2, '0')
+  const now = new Date()
+  const isToday =
+    d.getDate() === now.getDate() &&
+    d.getMonth() === now.getMonth() &&
+    d.getFullYear() === now.getFullYear()
+
+  if (isToday) {
+    return `${hours}:${mins}`
+  }
   const day = String(d.getDate()).padStart(2, '0')
   const month = String(d.getMonth() + 1).padStart(2, '0')
   return `${hours}:${mins} ${day}/${month}`
@@ -350,7 +359,7 @@ export function DossierPanel({ dossier, onClose, canEdit }: DossierPanelProps) {
           </div>
 
           {/* Messages list container */}
-          <div className="space-y-3 max-h-64 overflow-y-auto pr-1 mb-3">
+          <div className="space-y-2.5 max-h-72 overflow-y-auto pr-1 mb-3">
             {comments.length === 0 ? (
               <div className="text-center py-6 text-slate-400 text-xs italic">
                 Chưa có trao đổi nào. Hãy gửi tin nhắn đầu tiên!
@@ -365,37 +374,48 @@ export function DossierPanel({ dossier, onClose, canEdit }: DossierPanelProps) {
                 return (
                   <div
                     key={c.id}
-                    className={`flex flex-col gap-1 group ${isMine ? 'items-end' : 'items-start'}`}
+                    className={`flex flex-col group ${isMine ? 'items-end' : 'items-start'}`}
                   >
-                    <div className="flex items-center gap-1.5 text-[11px] text-slate-500 px-1">
-                      {!isMine && (
-                        <div className="w-4 h-4 rounded-full bg-blue-100 text-blue-700 font-bold flex items-center justify-center text-[9px] shrink-0">
-                          {c.senderName ? c.senderName.charAt(0).toUpperCase() : 'U'}
+                    {isMine ? (
+                      /* My Message: Right aligned, Blue bubble, discreet time inside */
+                      <div className="relative max-w-[85%] bg-blue-600 text-white rounded-2xl rounded-tr-xs px-3 py-2 text-xs leading-relaxed break-words shadow-2xs">
+                        <p className="whitespace-pre-line inline">{c.content}</p>
+                        <span className="inline-flex items-center gap-1 float-right mt-1 ml-2 text-[10px] text-blue-200/90 select-none leading-none pt-0.5">
+                          <span>{formatCommentTime(c.createdAt)}</span>
+                          {canDelete && (
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteComment(c.id)}
+                              className="opacity-0 group-hover:opacity-100 p-0.5 text-blue-200 hover:text-white transition-opacity cursor-pointer ml-0.5"
+                              title="Xóa tin nhắn"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </button>
+                          )}
+                        </span>
+                      </div>
+                    ) : (
+                      /* Other's Message: Left aligned, Slate bubble with sender name on top & discreet time inside */
+                      <div className="relative max-w-[85%] bg-slate-100 text-slate-800 border border-slate-200/80 rounded-2xl rounded-tl-xs px-3 py-2 text-xs leading-relaxed break-words shadow-2xs">
+                        <div className="font-bold text-[11px] text-blue-600 mb-1 select-none flex items-center gap-1">
+                          <span>{c.senderName}</span>
                         </div>
-                      )}
-                      <span className="font-semibold text-slate-700">{isMine ? 'Bạn' : c.senderName}</span>
-                      <span className="text-[10px] text-slate-400">{formatCommentTime(c.createdAt)}</span>
-                      {canDelete && (
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteComment(c.id)}
-                          className="opacity-0 group-hover:opacity-100 p-0.5 text-slate-400 hover:text-red-600 transition-opacity cursor-pointer ml-1"
-                          title="Xóa tin nhắn"
-                        >
-                          <Trash2 className="w-3 h-3" />
-                        </button>
-                      )}
-                    </div>
-
-                    <div
-                      className={`px-3 py-2 rounded-xl text-xs max-w-[85%] leading-relaxed break-words shadow-2xs ${
-                        isMine
-                          ? 'bg-blue-600 text-white rounded-tr-xs'
-                          : 'bg-white text-slate-800 border border-slate-200/80 rounded-tl-xs'
-                      }`}
-                    >
-                      <p className="whitespace-pre-line">{c.content}</p>
-                    </div>
+                        <p className="whitespace-pre-line inline text-slate-800">{c.content}</p>
+                        <span className="inline-flex items-center gap-1 float-right mt-1 ml-2 text-[10px] text-slate-400 select-none leading-none pt-0.5">
+                          <span>{formatCommentTime(c.createdAt)}</span>
+                          {canDelete && (
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteComment(c.id)}
+                              className="opacity-0 group-hover:opacity-100 p-0.5 text-slate-400 hover:text-red-600 transition-opacity cursor-pointer ml-0.5"
+                              title="Xóa tin nhắn"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </button>
+                          )}
+                        </span>
+                      </div>
+                    )}
                   </div>
                 )
               })
