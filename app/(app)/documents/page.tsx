@@ -1,10 +1,11 @@
 'use client'
 
+import React, { Suspense } from 'react'
 import { useDocuments } from '@/hooks/useDocuments'
 import { DocumentTable } from '@/components/documents/DocumentTable'
 import { Skeleton } from '@/components/ui/skeleton'
 
-export default function DocumentsPage() {
+function DocumentsContent() {
   const { documents, loading } = useDocuments()
 
   if (loading) {
@@ -32,5 +33,19 @@ export default function DocumentsPage() {
     <main className="p-4 lg:p-6 xl:p-8">
       <DocumentTable documents={documents} />
     </main>
+  )
+}
+
+export default function DocumentsPage() {
+  return (
+    <Suspense fallback={
+      <main className="p-4 lg:p-6 xl:p-8 space-y-3">
+        <Skeleton className="h-12 w-full" />
+        <Skeleton className="h-12 w-full" />
+        <Skeleton className="h-12 w-full" />
+      </main>
+    }>
+      <DocumentsContent />
+    </Suspense>
   )
 }

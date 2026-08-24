@@ -1,7 +1,7 @@
 'use client'
 
-import React, { useState, useMemo, useEffect } from 'react'
-import { FolderPlus, ArrowRightLeft, Trash2, PanelRightOpen, PanelRightClose, Archive, FileText, Layers } from 'lucide-react'
+import React, { useState, useMemo, useEffect, Suspense } from 'react'
+import { FolderPlus, ArrowRightLeft, Trash2, PanelRightOpen, PanelRightClose, Archive, FileText, Layers, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useDossiers } from '@/hooks/useDossiers'
 import { useDocuments } from '@/hooks/useDocuments'
@@ -19,7 +19,7 @@ import { DocumentTable } from '@/components/documents/DocumentTable'
 import { useSearchParams, useRouter } from 'next/navigation'
 import type { Dossier, Document } from '@/types'
 
-export default function DossiersPage() {
+function DossiersContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const targetId = searchParams.get('id')
@@ -300,5 +300,17 @@ export default function DossiersPage() {
         />
       )}
     </div>
+  )
+}
+
+export default function DossiersPage() {
+  return (
+    <Suspense fallback={
+      <div className="h-full flex items-center justify-center bg-slate-50">
+        <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
+      </div>
+    }>
+      <DossiersContent />
+    </Suspense>
   )
 }

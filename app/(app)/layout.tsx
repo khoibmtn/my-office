@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useEffect, useState, useMemo, useCallback, useRef, Suspense } from 'react'
-import { useRouter, usePathname, useSearchParams } from 'next/navigation'
+import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { Loader2, FileText, LogIn, LogOut, Settings, Menu, X, User, Folder, ChevronDown, ChevronRight } from 'lucide-react'
 import { useAuth, AuthProvider } from '@/hooks/useAuth'
@@ -18,19 +18,10 @@ function InnerAppLayout({ children }: { children: React.ReactNode }) {
   const perms = usePermissions()
   const router = useRouter()
   const pathname = usePathname()
-  const searchParams = useSearchParams()
-  const activeDossierId = searchParams.get('id')
 
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [selectedTagId, setSelectedTagId] = useState<string | null>(null)
-  const [dossiersTreeOpen, setDossiersTreeOpen] = useState(false)
-
-  // Auto open tree when a specific dossier ID is in the URL
-  useEffect(() => {
-    if (activeDossierId) {
-      setDossiersTreeOpen(true)
-    }
-  }, [activeDossierId])
+  const [dossiersTreeOpen, setDossiersTreeOpen] = useState(pathname.startsWith('/dossiers'))
 
   // Resizable sidebar width (min 200px, default 260px, max 480px)
   const [sidebarWidth, setSidebarWidth] = useState(260)
@@ -197,7 +188,9 @@ function InnerAppLayout({ children }: { children: React.ReactNode }) {
 
                 {!isGuest && isDossiersItem && (
                   <div className="pl-1 pr-0.5 -mt-0.5">
-                    <DossierTreeNav isOpen={dossiersTreeOpen} />
+                    <Suspense fallback={null}>
+                      <DossierTreeNav isOpen={dossiersTreeOpen} />
+                    </Suspense>
                   </div>
                 )}
               </React.Fragment>
