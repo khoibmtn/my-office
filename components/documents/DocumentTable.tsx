@@ -437,6 +437,10 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
   const [badgeFilters, setBadgeFilters] = useState<string[]>([])
   const [priorityBadgeFilters, setPriorityBadgeFilters] = useState<string[]>([])
   const [staffBadgeFilter, setStaffBadgeFilter] = useState<string | null>(null)
+  // Staff Badges pagination & view limit state
+  const [staffPage, setStaffPage] = useState(0)
+  const [showAllStaff, setShowAllStaff] = useState(false)
+  const STAFF_PER_PAGE = 5
 
   // Batch Modals State
   const [batchAddModalOpen, setBatchAddModalOpen] = useState(false)
@@ -662,6 +666,13 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
     })
     return Object.entries(counts).sort((a, b) => a[0].localeCompare(b[0]))
   }, [baseDocs, getStaffName])
+
+  const totalStaffPages = useMemo(() => Math.ceil(staffStats.length / STAFF_PER_PAGE), [staffStats, STAFF_PER_PAGE])
+  const visibleStaffStats = useMemo(() => {
+    if (showAllStaff) return staffStats
+    const start = staffPage * STAFF_PER_PAGE
+    return staffStats.slice(start, start + STAFF_PER_PAGE)
+  }, [staffStats, showAllStaff, staffPage, STAFF_PER_PAGE])
 
   // Priority stats from baseDocs
   const priorityStats = useMemo(() => {
@@ -1152,22 +1163,39 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
         {/* Row 2: Staff Badges & Copy (Right) */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-end gap-2 w-full min-w-0 flex-1">
 
-          {/* Staff Badges + Copy Button (RIGHT SIDE) */}
-          <div className="flex items-center gap-2 shrink-0 ml-auto">
-            <div className="scroll-x-badges flex-1 min-w-0 sm:flex sm:flex-wrap sm:gap-2 sm:overflow-visible items-start xl:justify-end">
-              {staffStats.map(([name, count]) => {
+          {/* Staff Badges + Navigation Controls + Copy Button (RIGHT SIDE) */}
+          <div className="flex items-center gap-1.5 shrink-0 ml-auto max-w-full flex-wrap justify-end">
+            <div className="flex items-center gap-1 flex-wrap">
+              {/* Previous Page Arrow */}
+              {!showAllStaff && totalStaffPages > 1 && (
+                <button
+                  onClick={() => setStaffPage(prev => Math.max(0, prev - 1))}
+                  disabled={staffPage === 0}
+                  className={`p-1 rounded-md border text-xs transition-colors shrink-0 ${
+                    staffPage === 0
+                      ? 'border-slate-200 text-slate-300 cursor-not-allowed bg-slate-50'
+                      : 'border-slate-300 text-slate-700 hover:bg-slate-100 bg-white shadow-2xs'
+                  }`}
+                  title="Trang cán bộ trước"
+                >
+                  <ChevronLeft className="w-3.5 h-3.5" />
+                </button>
+              )}
+
+              {/* Visible Staff Badges */}
+              {visibleStaffStats.map(([name, count]) => {
                 const isSelected = staffBadgeFilter === name
                 return (
                   <button
                     key={name}
                     onClick={() => setStaffBadgeFilter(staffBadgeFilter === name ? null : name)}
-                    className="badge-filter px-2 py-1 rounded shadow-sm flex items-center gap-1 transition-all border text-xs font-semibold whitespace-nowrap shrink-0"
+                    className="badge-filter px-2 py-1 rounded shadow-2xs flex items-center gap-1 transition-all border text-xs font-semibold whitespace-nowrap shrink-0"
                     style={{
-                      '--badge-color': isSelected ? '#475569' : '#475569',
-                      background: isSelected ? '#475569' : '#f1f5f9',
-                      borderColor: isSelected ? '#334155' : '#cbd5e1',
+                      '--badge-color': isSelected ? '#334155' : '#475569',
+                      background: isSelected ? '#334155' : '#f1f5f9',
+                      borderColor: isSelected ? '#1e293b' : '#cbd5e1',
                       color: isSelected ? '#fff' : '#475569',
-                      boxShadow: isSelected ? '0 0 0 2px #fff, 0 0 0 4px #475569' : 'none'
+                      boxShadow: isSelected ? '0 0 0 2px #fff, 0 0 0 4px #334155' : 'none'
                     } as React.CSSProperties}
                   >
                     {name}: {count}
@@ -1175,6 +1203,33 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
                   </button>
                 )
               })}
+
+              {/* Next Page Arrow */}
+              {!showAllStaff && totalStaffPages > 1 && (
+                <button
+                  onClick={() => setStaffPage(prev => Math.min(totalStaffPages - 1, prev + 1))}
+                  disabled={staffPage >= totalStaffPages - 1}
+                  className={`p-1 rounded-md border text-xs transition-colors shrink-0 ${
+                    staffPage >= totalStaffPages - 1
+                      ? 'border-slate-200 text-slate-300 cursor-not-allowed bg-slate-50'
+                      : 'border-slate-300 text-slate-700 hover:bg-slate-100 bg-white shadow-2xs'
+                  }`}
+                  title="Trang cán bộ tiếp theo"
+                >
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+              )}
+
+              {/* View All / Collapse Toggle */}
+              {staffStats.length > STAFF_PER_PAGE && (
+                <button
+                  onClick={() => setShowAllStaff(!showAllStaff)}
+                  className="px-2 py-1 text-[11px] font-bold text-blue-700 bg-blue-50 border border-blue-200 hover:bg-blue-100 rounded-md transition-colors whitespace-nowrap shrink-0"
+                  title={showAllStaff ? "Thu gọn danh sách" : `Xem tất cả ${staffStats.length} cán bộ`}
+                >
+                  {showAllStaff ? 'Thu gọn' : `+${staffStats.length - STAFF_PER_PAGE}`}
+                </button>
+              )}
             </div>
 
           <button
