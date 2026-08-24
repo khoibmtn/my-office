@@ -28,10 +28,12 @@ export function CoAssigneePicker({
   const containerRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
-  // Filter available active staff (exclude main assignee)
+  // Filter available active staff (exclude main assignee AND already-selected staff)
   const availableStaff = useMemo(() => {
-    return allStaff.filter(s => s.isActive && s.id !== mainAssigneeId)
-  }, [allStaff, mainAssigneeId])
+    return allStaff.filter(
+      s => s.isActive && s.id !== mainAssigneeId && !value.includes(s.id)
+    )
+  }, [allStaff, mainAssigneeId, value])
 
   // Selected staff objects
   const selectedStaff = useMemo(() => {
@@ -64,13 +66,11 @@ export function CoAssigneePicker({
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  const handleToggleStaff = (staffId: string) => {
+  const handleAddStaff = (staffId: string) => {
     if (disabled || readOnly) return
-    const isSelected = value.includes(staffId)
-    const next = isSelected
-      ? value.filter(id => id !== staffId)
-      : [...value, staffId]
-    onChange(next)
+    if (!value.includes(staffId)) {
+      onChange([...value, staffId])
+    }
     setSearch('')
     // Keep focus on input to allow quickly picking multiple staff
     if (inputRef.current) {
@@ -118,7 +118,7 @@ export function CoAssigneePicker({
                 <button
                   type="button"
                   onClick={(e) => handleRemove(s.id, e)}
-                  className="p-0.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                  className="p-0.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors cursor-pointer"
                   title={`Gỡ ${s.shortName}`}
                 >
                   <X className="w-3 h-3" />
@@ -167,7 +167,7 @@ export function CoAssigneePicker({
               e.stopPropagation()
               setSearch('')
             }}
-            className="p-0.5 text-slate-400 hover:text-slate-600"
+            className="p-0.5 text-slate-400 hover:text-slate-600 cursor-pointer"
           >
             <X className="w-3 h-3" />
           </button>
@@ -184,48 +184,30 @@ export function CoAssigneePicker({
         <div className="absolute top-full left-0 right-0 z-50 mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-52 overflow-y-auto p-1 flex flex-col gap-0.5 animate-in fade-in-50 duration-100">
           {filteredStaff.length === 0 ? (
             <div className="px-3 py-3 text-xs text-slate-400 text-center italic">
-              {search ? 'Không tìm thấy nhân viên' : 'Không có nhân viên khả dụng'}
+              {search ? 'Không tìm thấy nhân viên phù hợp' : 'Đã chọn tất cả nhân viên khả dụng'}
             </div>
           ) : (
-            filteredStaff.map(s => {
-              const isSelected = value.includes(s.id)
-              return (
-                <div
-                  key={s.id}
-                  onClick={() => handleToggleStaff(s.id)}
-                  className={`flex items-center justify-between px-2.5 py-1.5 rounded-md text-xs cursor-pointer select-none transition-colors ${
-                    isSelected
-                      ? 'bg-blue-50 text-blue-800 font-medium'
-                      : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900'
-                  }`}
-                >
-                  <div className="flex items-center gap-2 min-w-0 flex-1">
-                    <div
-                      className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ${
-                        isSelected ? 'bg-blue-200 text-blue-800' : 'bg-slate-100 text-slate-600'
-                      }`}
-                    >
-                      {s.shortName.charAt(0).toUpperCase()}
-                    </div>
-                    <div className="flex flex-col min-w-0">
-                      <span className="truncate font-semibold">{s.shortName}</span>
-                      <span className="text-[10px] text-slate-400 truncate">{s.fullName}</span>
-                    </div>
+            filteredStaff.map(s => (
+              <div
+                key={s.id}
+                onClick={() => handleAddStaff(s.id)}
+                className="flex items-center justify-between px-2.5 py-1.5 rounded-md text-xs cursor-pointer select-none transition-colors text-slate-700 hover:bg-blue-50 hover:text-blue-900 group"
+              >
+                <div className="flex items-center gap-2 min-w-0 flex-1">
+                  <div className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 bg-slate-100 text-slate-600 group-hover:bg-blue-200 group-hover:text-blue-800">
+                    {s.shortName.charAt(0).toUpperCase()}
                   </div>
-
-                  {isSelected ? (
-                    <span className="inline-flex items-center gap-1 text-[11px] text-blue-600 font-bold shrink-0 ml-2">
-                      <Check className="w-3.5 h-3.5" />
-                      <span>Đã chọn</span>
-                    </span>
-                  ) : (
-                    <span className="text-[11px] text-slate-400 group-hover:text-slate-600 shrink-0 ml-2">
-                      + Chọn
-                    </span>
-                  )}
+                  <div className="flex flex-col min-w-0">
+                    <span className="truncate font-semibold text-slate-800 group-hover:text-blue-900">{s.shortName}</span>
+                    <span className="text-[10px] text-slate-400 truncate group-hover:text-blue-700/70">{s.fullName}</span>
+                  </div>
                 </div>
-              )
-            })
+
+                <span className="text-[11px] text-slate-400 group-hover:text-blue-600 font-medium shrink-0 ml-2">
+                  + Chọn
+                </span>
+              </div>
+            ))
           )}
         </div>
       )}
