@@ -1301,10 +1301,10 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
           <button
             onClick={() => setBatchAddModalOpen(true)}
             disabled={selectedDocIds.length === 0 || assigningBatch}
-            className={`badge-filter px-2 py-1 rounded shadow-2xs flex items-center justify-center transition-all border text-xs font-semibold shrink-0 ${
+            className={`px-2 py-1 rounded-lg flex items-center justify-center transition-all border text-xs font-semibold shrink-0 h-7 ${
               selectedDocIds.length === 0
-                ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed opacity-60 shadow-none'
-                : 'bg-blue-600 text-white border-blue-600 hover:bg-blue-700 cursor-pointer'
+                ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed opacity-50'
+                : 'bg-blue-600 text-white border-blue-600 hover:bg-blue-700 active:scale-95 cursor-pointer shadow-xs'
             }`}
             title={
               selectedDocIds.length === 0
@@ -1312,17 +1312,17 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
                 : `Thêm ${selectedDocIds.length} văn bản đã chọn vào Hồ sơ`
             }
           >
-            <FolderPlus className="w-3.5 h-3.5" />
+            <FolderPlus className="w-4 h-4" />
           </button>
 
           {/* Button 2: Di chuyển Hồ sơ (Icon-only, luôn hiện, disabled khi không chọn văn bản) */}
           <button
             onClick={() => setBatchMoveModalOpen(true)}
             disabled={selectedDocIds.length === 0 || assigningBatch}
-            className={`badge-filter px-2 py-1 rounded shadow-2xs flex items-center justify-center transition-all border text-xs font-semibold shrink-0 ${
+            className={`px-2 py-1 rounded-lg flex items-center justify-center transition-all border text-xs font-semibold shrink-0 h-7 ${
               selectedDocIds.length === 0
-                ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed opacity-60 shadow-none'
-                : 'bg-amber-500 text-white border-amber-500 hover:bg-amber-600 cursor-pointer'
+                ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed opacity-50'
+                : 'bg-amber-500 text-white border-amber-500 hover:bg-amber-600 active:scale-95 cursor-pointer shadow-xs'
             }`}
             title={
               selectedDocIds.length === 0
@@ -1330,7 +1330,7 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
                 : `Di chuyển ${selectedDocIds.length} văn bản đã chọn sang Hồ sơ khác`
             }
           >
-            <ArrowRightLeft className="w-3.5 h-3.5" />
+            <ArrowRightLeft className="w-4 h-4" />
           </button>
 
           {/* Mobile count */}
