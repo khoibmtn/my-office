@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   Folder, FolderPlus, Pencil, Trash2, Archive, ArchiveRestore,
@@ -85,7 +85,28 @@ export function DossierTable({
   const router = useRouter()
   const { staffId } = useRole()
 
-  const [tab, setTab] = useState<'active' | 'archived' | 'all'>('active')
+  const [tab, setTab] = useState<'active' | 'archived' | 'all'>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('myoffice_dossierTable_tab')
+      if (saved === 'active' || saved === 'archived' || saved === 'all') return saved
+    }
+    return 'active'
+  })
+
+  const handleSetTab = (t: 'active' | 'archived' | 'all') => {
+    setTab(t)
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('myoffice_dossierTable_tab', t)
+    }
+  }
+
+  useEffect(() => {
+    const saved = localStorage.getItem('myoffice_dossierTable_tab')
+    if (saved === 'active' || saved === 'archived' || saved === 'all') {
+      setTab(saved)
+    }
+  }, [])
+
   const [search, setSearch] = useState('')
   const [archivingId, setArchivingId] = useState<string | null>(null)
   const [archivedAlert, setArchivedAlert] = useState<string | null>(null)
@@ -236,7 +257,7 @@ export function DossierTable({
         {/* Status Tabs */}
         <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-lg text-xs font-semibold">
           <button
-            onClick={() => setTab('active')}
+            onClick={() => handleSetTab('active')}
             className={`px-3 py-1.5 rounded-md transition-all ${
               tab === 'active'
                 ? 'bg-white text-blue-700 shadow-2xs font-bold'
@@ -246,7 +267,7 @@ export function DossierTable({
             📂 Đang hoạt động ({activeCount})
           </button>
           <button
-            onClick={() => setTab('archived')}
+            onClick={() => handleSetTab('archived')}
             className={`px-3 py-1.5 rounded-md transition-all ${
               tab === 'archived'
                 ? 'bg-white text-purple-700 shadow-2xs font-bold'
@@ -256,7 +277,7 @@ export function DossierTable({
             📦 Đã lưu trữ ({archivedCount})
           </button>
           <button
-            onClick={() => setTab('all')}
+            onClick={() => handleSetTab('all')}
             className={`px-3 py-1.5 rounded-md transition-all ${
               tab === 'all'
                 ? 'bg-white text-slate-900 shadow-2xs font-bold'

@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useMemo, useEffect, Suspense } from 'react'
+import React, { useState, useMemo, useEffect, useCallback, Suspense } from 'react'
 import { FolderPlus, ArrowRightLeft, Trash2, PanelRightOpen, PanelRightClose, Archive, FileText, Layers, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useDossiers } from '@/hooks/useDossiers'
@@ -34,7 +34,20 @@ function DossiersContent() {
   const activeFolder = activePath[activePath.length - 1] || null
 
   // Root view tab ('dossiers' | 'unassigned')
-  const [rootTab, setRootTab] = useState<'dossiers' | 'unassigned'>('dossiers')
+  const [rootTab, setRootTab] = useState<'dossiers' | 'unassigned'>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('myoffice_dossier_rootTab')
+      if (saved === 'dossiers' || saved === 'unassigned') return saved
+    }
+    return 'dossiers'
+  })
+
+  const handleSetRootTab = useCallback((tab: 'dossiers' | 'unassigned') => {
+    setRootTab(tab)
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('myoffice_dossier_rootTab', tab)
+    }
+  }, [])
 
   // Auto-expand breadcrumb path when URL has ?id=...
   useEffect(() => {
@@ -78,7 +91,32 @@ function DossiersContent() {
   const [parentDossierForCreate, setParentDossierForCreate] = useState<Dossier | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<Dossier | null>(null)
   const [transferTarget, setTransferTarget] = useState<Dossier | null>(null)
-  const [includeSubDossiers, setIncludeSubDossiers] = useState(false)
+  const [includeSubDossiers, setIncludeSubDossiers] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('myoffice_dossier_includeSubDossiers')
+      if (saved !== null) return saved === 'true'
+    }
+    return false
+  })
+
+  const handleToggleIncludeSubDossiers = useCallback((val: boolean) => {
+    setIncludeSubDossiers(val)
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('myoffice_dossier_includeSubDossiers', String(val))
+    }
+  }, [])
+
+  // Hydrate preferences on mount
+  useEffect(() => {
+    const savedInclude = localStorage.getItem('myoffice_dossier_includeSubDossiers')
+    if (savedInclude !== null) {
+      setIncludeSubDossiers(savedInclude === 'true')
+    }
+    const savedTab = localStorage.getItem('myoffice_dossier_rootTab')
+    if (savedTab === 'dossiers' || savedTab === 'unassigned') {
+      setRootTab(savedTab)
+    }
+  }, [])
 
   // Collect all descendant dossier IDs for the active folder
   const descendantDossierIds = useMemo(() => {
@@ -160,7 +198,7 @@ function DossiersContent() {
             onNavigate={handleNavigate}
             hasSubDossiers={hasSubDossiers}
             includeSubDossiers={includeSubDossiers}
-            onToggleIncludeSubDossiers={setIncludeSubDossiers}
+            onToggleIncludeSubDossiers={handleToggleIncludeSubDossiers}
           />
         </div>
 
@@ -204,7 +242,7 @@ function DossiersContent() {
             <div className="flex flex-col gap-4 flex-1">
               <div className="flex items-center gap-2 border-b border-slate-200 pb-2">
                 <button
-                  onClick={() => setRootTab('dossiers')}
+                  onClick={() => handleSetRootTab('dossiers')}
                   className={`flex items-center gap-1.5 px-4 py-2 text-xs font-bold rounded-lg transition-all ${
                     rootTab === 'dossiers'
                       ? 'bg-blue-600 text-white shadow-xs'
@@ -216,7 +254,7 @@ function DossiersContent() {
                 </button>
 
                 <button
-                  onClick={() => setRootTab('unassigned')}
+                  onClick={() => handleSetRootTab('unassigned')}
                   className={`flex items-center gap-1.5 px-4 py-2 text-xs font-bold rounded-lg transition-all ${
                     rootTab === 'unassigned'
                       ? 'bg-blue-600 text-white shadow-xs'

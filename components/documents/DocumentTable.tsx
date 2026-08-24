@@ -559,13 +559,29 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
   const [customTo, setCustomTo] = useState('')
   const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' } | null>(null)
   const [currentPage, setCurrentPage] = useState(1)
-  const [pageSize, setPageSize] = useState(20)
+  const [pageSize, setPageSize] = useState<number>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('myoffice_docTable_pageSize')
+      if (saved) {
+        const parsed = parseInt(saved, 10)
+        if ([10, 20, 50, 100].includes(parsed)) return parsed
+      }
+    }
+    return 20
+  })
   
   const [colWidths, setColWidths] = useState<Record<string, number>>({
     stt: 50, issueDate: 90, docNumber: 120, title: 300, status: 110, deadline: 90, remaining: 70, assignee: 100, actions: 110
   })
 
   useEffect(() => {
+    // Restore page size
+    const savedSize = localStorage.getItem('myoffice_docTable_pageSize')
+    if (savedSize) {
+      const parsed = parseInt(savedSize, 10)
+      if ([10, 20, 50, 100].includes(parsed)) setPageSize(parsed)
+    }
+
     // v2: flexible layout - clear old fixed-width cache
     const version = localStorage.getItem('docTableWidths_v')
     if (version !== '2') {
@@ -576,6 +592,14 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
     const saved = localStorage.getItem('docTableWidths')
     if (saved) {
       try { setColWidths(JSON.parse(saved)) } catch {}
+    }
+  }, [])
+
+  const handlePageSizeChange = useCallback((size: number) => {
+    setPageSize(size)
+    setCurrentPage(1)
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('myoffice_docTable_pageSize', String(size))
     }
   }, [])
 
@@ -1675,7 +1699,7 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
           pageSize={pageSize}
           totalItems={filteredDocs.length}
           onPageChange={setCurrentPage}
-          onPageSizeChange={(size) => { setPageSize(size); setCurrentPage(1) }}
+          onPageSizeChange={handlePageSizeChange}
         />
       )}
 
