@@ -440,10 +440,44 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
   const [deleting, setDeleting] = useState<string | null>(null)
   const [viewingId, setViewingId] = useState<string | null>(null)
   const [copyModalContent, setCopyModalContent] = useState<string | null>(null)
-  const [filterStatus, setFilterStatus] = useState<string>('all')
-  const [badgeFilters, setBadgeFilters] = useState<string[]>([])
-  const [priorityBadgeFilters, setPriorityBadgeFilters] = useState<string[]>([])
-  const [staffBadgeFilter, setStaffBadgeFilter] = useState<string | null>(null)
+  const [filterStatus, setFilterStatus] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('myoffice_docTable_filterStatus')
+      if (saved && ['all', 'pending', 'completed'].includes(saved)) return saved
+    }
+    return 'pending'
+  })
+  const [badgeFilters, setBadgeFilters] = useState<string[]>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('myoffice_docTable_badgeFilters')
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved)
+          if (Array.isArray(parsed)) return parsed
+        } catch {}
+      }
+    }
+    return []
+  })
+  const [priorityBadgeFilters, setPriorityBadgeFilters] = useState<string[]>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('myoffice_docTable_priorityBadges')
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved)
+          if (Array.isArray(parsed)) return parsed
+        } catch {}
+      }
+    }
+    return []
+  })
+  const [staffBadgeFilter, setStaffBadgeFilter] = useState<string | null>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('myoffice_docTable_staffBadgeFilter')
+      if (saved !== null) return saved ? saved : null
+    }
+    return null
+  })
   const [staffDropdownOpen, setStaffDropdownOpen] = useState(false)
   const [staffSearchQuery, setStaffSearchQuery] = useState('')
   const staffDropdownRef = useRef<HTMLDivElement>(null)
@@ -549,15 +583,47 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
   const staffFilterApplied = useRef(false)
   useEffect(() => {
     if (role === 'staff' && currentStaffId && !staffFilterApplied.current) {
-      setStaffBadgeFilter(currentStaffId)
       staffFilterApplied.current = true
+      const savedStaff = localStorage.getItem('myoffice_docTable_staffBadgeFilter')
+      if (savedStaff === null) {
+        setStaffBadgeFilter(currentStaffId)
+      }
     }
   }, [role, currentStaffId])
   const [searchQuery, setSearchQuery] = useState('')
-  const [timePeriod, setTimePeriod] = useState<string>('today')
-  const [customFrom, setCustomFrom] = useState('')
-  const [customTo, setCustomTo] = useState('')
-  const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' } | null>(null)
+  const [timePeriod, setTimePeriod] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('myoffice_docTable_timePeriod')
+      if (saved && ['today', 'week', 'last_month', 'custom'].includes(saved)) return saved
+    }
+    return 'today'
+  })
+  const [customFrom, setCustomFrom] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('myoffice_docTable_customFrom') || ''
+    }
+    return ''
+  })
+  const [customTo, setCustomTo] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('myoffice_docTable_customTo') || ''
+    }
+    return ''
+  })
+  const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' } | null>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('myoffice_docTable_sortConfig')
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved)
+          if (parsed && typeof parsed.key === 'string' && (parsed.direction === 'asc' || parsed.direction === 'desc')) {
+            return parsed
+          }
+        } catch {}
+      }
+    }
+    return null
+  })
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize, setPageSize] = useState<number>(() => {
     if (typeof window !== 'undefined') {
@@ -573,6 +639,56 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
   const [colWidths, setColWidths] = useState<Record<string, number>>({
     stt: 50, issueDate: 90, docNumber: 120, title: 300, status: 110, deadline: 90, remaining: 70, assignee: 100, actions: 110
   })
+
+  // Hydrate preferences and save changes to localStorage
+  const isHydrated = useRef(false)
+  useEffect(() => {
+    isHydrated.current = true
+  }, [])
+
+  useEffect(() => {
+    if (!isHydrated.current) return
+    localStorage.setItem('myoffice_docTable_filterStatus', filterStatus)
+  }, [filterStatus])
+
+  useEffect(() => {
+    if (!isHydrated.current) return
+    localStorage.setItem('myoffice_docTable_timePeriod', timePeriod)
+  }, [timePeriod])
+
+  useEffect(() => {
+    if (!isHydrated.current) return
+    localStorage.setItem('myoffice_docTable_customFrom', customFrom)
+  }, [customFrom])
+
+  useEffect(() => {
+    if (!isHydrated.current) return
+    localStorage.setItem('myoffice_docTable_customTo', customTo)
+  }, [customTo])
+
+  useEffect(() => {
+    if (!isHydrated.current) return
+    localStorage.setItem('myoffice_docTable_priorityBadges', JSON.stringify(priorityBadgeFilters))
+  }, [priorityBadgeFilters])
+
+  useEffect(() => {
+    if (!isHydrated.current) return
+    localStorage.setItem('myoffice_docTable_badgeFilters', JSON.stringify(badgeFilters))
+  }, [badgeFilters])
+
+  useEffect(() => {
+    if (!isHydrated.current) return
+    localStorage.setItem('myoffice_docTable_staffBadgeFilter', staffBadgeFilter || '')
+  }, [staffBadgeFilter])
+
+  useEffect(() => {
+    if (!isHydrated.current) return
+    if (sortConfig) {
+      localStorage.setItem('myoffice_docTable_sortConfig', JSON.stringify(sortConfig))
+    } else {
+      localStorage.removeItem('myoffice_docTable_sortConfig')
+    }
+  }, [sortConfig])
 
   useEffect(() => {
     // Restore page size
@@ -973,11 +1089,6 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
                 onChange={e => {
                   const val = e.target.value
                   setTimePeriod(val)
-                  if (val === 'today') {
-                    setFilterStatus('pending')
-                  } else {
-                    setFilterStatus('all')
-                  }
                   e.target.blur()
                 }}
               >
