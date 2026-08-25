@@ -1,0 +1,819 @@
+{
+  "schema_version": 1,
+  "source_root": "/Users/buiminhkhoi/Documents/Antigravity/tool",
+  "skills": [
+    {
+      "id": "using-superpowers",
+      "source": "/Users/buiminhkhoi/Documents/Antigravity/tool/superpowers/skills/using-superpowers",
+      "destination": "using-superpowers",
+      "owner": "superpowers-lifecycle",
+      "activation": "automatic",
+      "dependencies": [],
+      "include": [
+        "SKILL.md",
+        "references/**"
+      ],
+      "exclude": [
+        "hooks/**",
+        ".git/**"
+      ]
+    },
+    {
+      "id": "brainstorming",
+      "source": "/Users/buiminhkhoi/Documents/Antigravity/tool/superpowers/skills/brainstorming",
+      "destination": "brainstorming",
+      "owner": "superpowers-lifecycle",
+      "activation": "automatic",
+      "dependencies": [],
+      "include": [
+        "SKILL.md",
+        "references/**"
+      ],
+      "exclude": [
+        "hooks/**",
+        ".git/**"
+      ]
+    },
+    {
+      "id": "writing-plans",
+      "source": "/Users/buiminhkhoi/Documents/Antigravity/tool/superpowers/skills/writing-plans",
+      "destination": "writing-plans",
+      "owner": "superpowers-lifecycle",
+      "activation": "automatic",
+      "dependencies": [],
+      "include": [
+        "SKILL.md",
+        "references/**"
+      ],
+      "exclude": [
+        "hooks/**",
+        ".git/**"
+      ]
+    },
+    {
+      "id": "executing-plans",
+      "source": "/Users/buiminhkhoi/Documents/Antigravity/tool/superpowers/skills/executing-plans",
+      "destination": "executing-plans",
+      "owner": "superpowers-lifecycle",
+      "activation": "automatic",
+      "dependencies": [],
+      "include": [
+        "SKILL.md",
+        "references/**"
+      ],
+      "exclude": [
+        "hooks/**",
+        ".git/**"
+      ]
+    },
+    {
+      "id": "test-driven-development",
+      "source": "/Users/buiminhkhoi/Documents/Antigravity/tool/superpowers/skills/test-driven-development",
+      "destination": "test-driven-development",
+      "owner": "superpowers-lifecycle",
+      "activation": "automatic",
+      "dependencies": [],
+      "include": [
+        "SKILL.md",
+        "references/**"
+      ],
+      "exclude": [
+        "hooks/**",
+        ".git/**"
+      ]
+    },
+    {
+      "id": "systematic-debugging",
+      "source": "/Users/buiminhkhoi/Documents/Antigravity/tool/superpowers/skills/systematic-debugging",
+      "destination": "systematic-debugging",
+      "owner": "superpowers-lifecycle",
+      "activation": "automatic",
+      "dependencies": [],
+      "include": [
+        "SKILL.md",
+        "references/**"
+      ],
+      "exclude": [
+        "hooks/**",
+        ".git/**"
+      ]
+    },
+    {
+      "id": "requesting-code-review",
+      "source": "/Users/buiminhkhoi/Documents/Antigravity/tool/superpowers/skills/requesting-code-review",
+      "destination": "requesting-code-review",
+      "owner": "superpowers-lifecycle",
+      "activation": "automatic",
+      "dependencies": [],
+      "include": [
+        "SKILL.md",
+        "references/**"
+      ],
+      "exclude": [
+        "hooks/**",
+        ".git/**"
+      ]
+    },
+    {
+      "id": "receiving-code-review",
+      "source": "/Users/buiminhkhoi/Documents/Antigravity/tool/superpowers/skills/receiving-code-review",
+      "destination": "receiving-code-review",
+      "owner": "superpowers-lifecycle",
+      "activation": "automatic",
+      "dependencies": [],
+      "include": [
+        "SKILL.md",
+        "references/**"
+      ],
+      "exclude": [
+        "hooks/**",
+        ".git/**"
+      ]
+    },
+    {
+      "id": "verification-before-completion",
+      "source": "/Users/buiminhkhoi/Documents/Antigravity/tool/superpowers/skills/verification-before-completion",
+      "destination": "verification-before-completion",
+      "owner": "superpowers-lifecycle",
+      "activation": "automatic",
+      "dependencies": [],
+      "include": [
+        "SKILL.md",
+        "references/**"
+      ],
+      "exclude": [
+        "hooks/**",
+        ".git/**"
+      ]
+    },
+    {
+      "id": "finishing-a-development-branch",
+      "source": "/Users/buiminhkhoi/Documents/Antigravity/tool/superpowers/skills/finishing-a-development-branch",
+      "destination": "finishing-a-development-branch",
+      "owner": "superpowers-lifecycle",
+      "activation": "automatic",
+      "dependencies": [],
+      "include": [
+        "SKILL.md",
+        "references/**"
+      ],
+      "exclude": [
+        "hooks/**",
+        ".git/**"
+      ]
+    },
+    {
+      "id": "using-git-worktrees",
+      "source": "/Users/buiminhkhoi/Documents/Antigravity/tool/superpowers/skills/using-git-worktrees",
+      "destination": "using-git-worktrees",
+      "owner": "superpowers-lifecycle",
+      "activation": "explicit",
+      "dependencies": [],
+      "include": [
+        "SKILL.md",
+        "references/**"
+      ],
+      "exclude": [
+        "hooks/**",
+        ".git/**"
+      ]
+    },
+    {
+      "id": "dispatching-parallel-agents",
+      "source": "/Users/buiminhkhoi/Documents/Antigravity/tool/superpowers/skills/dispatching-parallel-agents",
+      "destination": "dispatching-parallel-agents",
+      "owner": "superpowers-lifecycle",
+      "activation": "conditional",
+      "dependencies": [
+        "multi_agent"
+      ],
+      "include": [
+        "SKILL.md",
+        "references/**"
+      ],
+      "exclude": [
+        "hooks/**",
+        ".git/**"
+      ]
+    },
+    {
+      "id": "subagent-driven-development",
+      "source": "/Users/buiminhkhoi/Documents/Antigravity/tool/superpowers/skills/subagent-driven-development",
+      "destination": "subagent-driven-development",
+      "owner": "superpowers-lifecycle",
+      "activation": "conditional",
+      "dependencies": [
+        "multi_agent"
+      ],
+      "include": [
+        "SKILL.md",
+        "references/**"
+      ],
+      "exclude": [
+        "hooks/**",
+        ".git/**"
+      ]
+    },
+    {
+      "id": "app-builder",
+      "source": "/Users/buiminhkhoi/Documents/Antigravity/tool/antigravity-kit-main/.agent/skills/app-builder",
+      "destination": "app-builder",
+      "owner": "ag-kit-domain",
+      "activation": "automatic",
+      "dependencies": [],
+      "include": [
+        "SKILL.md",
+        "*.md",
+        "templates/**"
+      ],
+      "exclude": [
+        "hooks/**",
+        ".git/**"
+      ]
+    },
+    {
+      "id": "architecture",
+      "source": "/Users/buiminhkhoi/Documents/Antigravity/tool/antigravity-kit-main/.agent/skills/architecture",
+      "destination": "architecture",
+      "owner": "ag-kit-domain",
+      "activation": "automatic",
+      "dependencies": [],
+      "include": [
+        "SKILL.md",
+        "*.md"
+      ],
+      "exclude": [
+        "hooks/**",
+        ".git/**"
+      ]
+    },
+    {
+      "id": "api-patterns",
+      "source": "/Users/buiminhkhoi/Documents/Antigravity/tool/antigravity-kit-main/.agent/skills/api-patterns",
+      "destination": "api-patterns",
+      "owner": "ag-kit-domain",
+      "activation": "automatic",
+      "dependencies": [],
+      "include": [
+        "SKILL.md",
+        "*.md"
+      ],
+      "exclude": [
+        "hooks/**",
+        ".git/**"
+      ]
+    },
+    {
+      "id": "database-design",
+      "source": "/Users/buiminhkhoi/Documents/Antigravity/tool/antigravity-kit-main/.agent/skills/database-design",
+      "destination": "database-design",
+      "owner": "ag-kit-domain",
+      "activation": "automatic",
+      "dependencies": [],
+      "include": [
+        "SKILL.md",
+        "*.md"
+      ],
+      "exclude": [
+        "hooks/**",
+        ".git/**"
+      ]
+    },
+    {
+      "id": "clean-code",
+      "source": "/Users/buiminhkhoi/Documents/Antigravity/tool/antigravity-kit-main/.agent/skills/clean-code",
+      "destination": "clean-code",
+      "owner": "ag-kit-domain",
+      "activation": "automatic",
+      "dependencies": [],
+      "include": [
+        "SKILL.md",
+        "*.md"
+      ],
+      "exclude": [
+        "hooks/**",
+        ".git/**"
+      ]
+    },
+    {
+      "id": "documentation-templates",
+      "source": "/Users/buiminhkhoi/Documents/Antigravity/tool/antigravity-kit-main/.agent/skills/documentation-templates",
+      "destination": "documentation-templates",
+      "owner": "ag-kit-domain",
+      "activation": "automatic",
+      "dependencies": [],
+      "include": [
+        "SKILL.md",
+        "*.md"
+      ],
+      "exclude": [
+        "hooks/**",
+        ".git/**"
+      ]
+    },
+    {
+      "id": "bash-linux",
+      "source": "/Users/buiminhkhoi/Documents/Antigravity/tool/antigravity-kit-main/.agent/skills/bash-linux",
+      "destination": "bash-linux",
+      "owner": "ag-kit-domain",
+      "activation": "automatic",
+      "dependencies": [],
+      "include": [
+        "SKILL.md",
+        "*.md"
+      ],
+      "exclude": [
+        "hooks/**",
+        ".git/**"
+      ]
+    },
+    {
+      "id": "powershell-windows",
+      "source": "/Users/buiminhkhoi/Documents/Antigravity/tool/antigravity-kit-main/.agent/skills/powershell-windows",
+      "destination": "powershell-windows",
+      "owner": "ag-kit-domain",
+      "activation": "automatic",
+      "dependencies": [],
+      "include": [
+        "SKILL.md",
+        "*.md"
+      ],
+      "exclude": [
+        "hooks/**",
+        ".git/**"
+      ]
+    },
+    {
+      "id": "python-patterns",
+      "source": "/Users/buiminhkhoi/Documents/Antigravity/tool/antigravity-kit-main/.agent/skills/python-patterns",
+      "destination": "python-patterns",
+      "owner": "ag-kit-domain",
+      "activation": "automatic",
+      "dependencies": [],
+      "include": [
+        "SKILL.md",
+        "*.md"
+      ],
+      "exclude": [
+        "hooks/**",
+        ".git/**"
+      ]
+    },
+    {
+      "id": "rust-pro",
+      "source": "/Users/buiminhkhoi/Documents/Antigravity/tool/antigravity-kit-main/.agent/skills/rust-pro",
+      "destination": "rust-pro",
+      "owner": "ag-kit-domain",
+      "activation": "automatic",
+      "dependencies": [],
+      "include": [
+        "SKILL.md",
+        "*.md"
+      ],
+      "exclude": [
+        "hooks/**",
+        ".git/**"
+      ]
+    },
+    {
+      "id": "nodejs-best-practices",
+      "source": "/Users/buiminhkhoi/Documents/Antigravity/tool/antigravity-kit-main/.agent/skills/nodejs-best-practices",
+      "destination": "nodejs-best-practices",
+      "owner": "ag-kit-domain",
+      "activation": "automatic",
+      "dependencies": [],
+      "include": [
+        "SKILL.md",
+        "*.md"
+      ],
+      "exclude": [
+        "hooks/**",
+        ".git/**"
+      ]
+    },
+    {
+      "id": "react-best-practices",
+      "source": "/Users/buiminhkhoi/Documents/Antigravity/tool/antigravity-kit-main/.agent/skills/nextjs-react-expert",
+      "destination": "react-best-practices",
+      "owner": "ag-kit-domain",
+      "activation": "automatic",
+      "dependencies": [],
+      "include": [
+        "SKILL.md",
+        "*.md"
+      ],
+      "exclude": [
+        "hooks/**",
+        ".git/**"
+      ]
+    },
+    {
+      "id": "mcp-builder",
+      "source": "/Users/buiminhkhoi/Documents/Antigravity/tool/antigravity-kit-main/.agent/skills/mcp-builder",
+      "destination": "mcp-builder",
+      "owner": "ag-kit-domain",
+      "activation": "automatic",
+      "dependencies": [],
+      "include": [
+        "SKILL.md",
+        "*.md"
+      ],
+      "exclude": [
+        "hooks/**",
+        ".git/**"
+      ]
+    },
+    {
+      "id": "lint-and-validate",
+      "source": "/Users/buiminhkhoi/Documents/Antigravity/tool/antigravity-kit-main/.agent/skills/lint-and-validate",
+      "destination": "lint-and-validate",
+      "owner": "ag-kit-quality",
+      "activation": "automatic",
+      "dependencies": [],
+      "include": [
+        "SKILL.md",
+        "*.md"
+      ],
+      "exclude": [
+        "hooks/**",
+        ".git/**"
+      ]
+    },
+    {
+      "id": "testing-patterns",
+      "source": "/Users/buiminhkhoi/Documents/Antigravity/tool/antigravity-kit-main/.agent/skills/testing-patterns",
+      "destination": "testing-patterns",
+      "owner": "ag-kit-quality",
+      "activation": "automatic",
+      "dependencies": [],
+      "include": [
+        "SKILL.md",
+        "*.md"
+      ],
+      "exclude": [
+        "hooks/**",
+        ".git/**"
+      ]
+    },
+    {
+      "id": "webapp-testing",
+      "source": "/Users/buiminhkhoi/Documents/Antigravity/tool/antigravity-kit-main/.agent/skills/webapp-testing",
+      "destination": "webapp-testing",
+      "owner": "ag-kit-quality",
+      "activation": "automatic",
+      "dependencies": [],
+      "include": [
+        "SKILL.md",
+        "*.md"
+      ],
+      "exclude": [
+        "hooks/**",
+        ".git/**"
+      ]
+    },
+    {
+      "id": "performance-profiling",
+      "source": "/Users/buiminhkhoi/Documents/Antigravity/tool/antigravity-kit-main/.agent/skills/performance-profiling",
+      "destination": "performance-profiling",
+      "owner": "ag-kit-quality",
+      "activation": "automatic",
+      "dependencies": [],
+      "include": [
+        "SKILL.md",
+        "*.md"
+      ],
+      "exclude": [
+        "hooks/**",
+        ".git/**"
+      ]
+    },
+    {
+      "id": "deployment-procedures",
+      "source": "/Users/buiminhkhoi/Documents/Antigravity/tool/antigravity-kit-main/.agent/skills/deployment-procedures",
+      "destination": "deployment-procedures",
+      "owner": "ag-kit-quality",
+      "activation": "explicit",
+      "dependencies": [],
+      "include": [
+        "SKILL.md",
+        "*.md"
+      ],
+      "exclude": [
+        "hooks/**",
+        ".git/**"
+      ]
+    },
+    {
+      "id": "server-management",
+      "source": "/Users/buiminhkhoi/Documents/Antigravity/tool/antigravity-kit-main/.agent/skills/server-management",
+      "destination": "server-management",
+      "owner": "ag-kit-quality",
+      "activation": "explicit",
+      "dependencies": [],
+      "include": [
+        "SKILL.md",
+        "*.md"
+      ],
+      "exclude": [
+        "hooks/**",
+        ".git/**"
+      ]
+    },
+    {
+      "id": "frontend-design",
+      "source": "/Users/buiminhkhoi/Documents/Antigravity/tool/antigravity-kit-main/.agent/skills/frontend-design",
+      "destination": "frontend-design",
+      "owner": "ag-kit-ui",
+      "activation": "automatic",
+      "dependencies": [],
+      "include": [
+        "SKILL.md",
+        "*.md"
+      ],
+      "exclude": [
+        "hooks/**",
+        ".git/**"
+      ]
+    },
+    {
+      "id": "mobile-design",
+      "source": "/Users/buiminhkhoi/Documents/Antigravity/tool/antigravity-kit-main/.agent/skills/mobile-design",
+      "destination": "mobile-design",
+      "owner": "ag-kit-ui",
+      "activation": "automatic",
+      "dependencies": [],
+      "include": [
+        "SKILL.md",
+        "*.md"
+      ],
+      "exclude": [
+        "hooks/**",
+        ".git/**"
+      ]
+    },
+    {
+      "id": "tailwind-patterns",
+      "source": "/Users/buiminhkhoi/Documents/Antigravity/tool/antigravity-kit-main/.agent/skills/tailwind-patterns",
+      "destination": "tailwind-patterns",
+      "owner": "ag-kit-ui",
+      "activation": "automatic",
+      "dependencies": [],
+      "include": [
+        "SKILL.md",
+        "*.md"
+      ],
+      "exclude": [
+        "hooks/**",
+        ".git/**"
+      ]
+    },
+    {
+      "id": "web-design-guidelines",
+      "source": "/Users/buiminhkhoi/Documents/Antigravity/tool/antigravity-kit-main/.agent/skills/web-design-guidelines",
+      "destination": "web-design-guidelines",
+      "owner": "ag-kit-ui",
+      "activation": "automatic",
+      "dependencies": [],
+      "include": [
+        "SKILL.md",
+        "*.md"
+      ],
+      "exclude": [
+        "hooks/**",
+        ".git/**"
+      ]
+    },
+    {
+      "id": "i18n-localization",
+      "source": "/Users/buiminhkhoi/Documents/Antigravity/tool/antigravity-kit-main/.agent/skills/i18n-localization",
+      "destination": "i18n-localization",
+      "owner": "ag-kit-domain",
+      "activation": "automatic",
+      "dependencies": [],
+      "include": [
+        "SKILL.md",
+        "*.md"
+      ],
+      "exclude": [
+        "hooks/**",
+        ".git/**"
+      ]
+    },
+    {
+      "id": "seo-fundamentals",
+      "source": "/Users/buiminhkhoi/Documents/Antigravity/tool/antigravity-kit-main/.agent/skills/seo-fundamentals",
+      "destination": "seo-fundamentals",
+      "owner": "ag-kit-domain",
+      "activation": "automatic",
+      "dependencies": [],
+      "include": [
+        "SKILL.md",
+        "*.md"
+      ],
+      "exclude": [
+        "hooks/**",
+        ".git/**"
+      ]
+    },
+    {
+      "id": "geo-fundamentals",
+      "source": "/Users/buiminhkhoi/Documents/Antigravity/tool/antigravity-kit-main/.agent/skills/geo-fundamentals",
+      "destination": "geo-fundamentals",
+      "owner": "ag-kit-domain",
+      "activation": "automatic",
+      "dependencies": [],
+      "include": [
+        "SKILL.md",
+        "*.md"
+      ],
+      "exclude": [
+        "hooks/**",
+        ".git/**"
+      ]
+    },
+    {
+      "id": "vulnerability-scanner",
+      "source": "/Users/buiminhkhoi/Documents/Antigravity/tool/antigravity-kit-main/.agent/skills/vulnerability-scanner",
+      "destination": "vulnerability-scanner",
+      "owner": "ag-kit-security",
+      "activation": "explicit",
+      "dependencies": [],
+      "include": [
+        "SKILL.md",
+        "*.md"
+      ],
+      "exclude": [
+        "hooks/**",
+        ".git/**"
+      ]
+    },
+    {
+      "id": "red-team-tactics",
+      "source": "/Users/buiminhkhoi/Documents/Antigravity/tool/antigravity-kit-main/.agent/skills/red-team-tactics",
+      "destination": "red-team-tactics",
+      "owner": "ag-kit-security",
+      "activation": "explicit",
+      "dependencies": [],
+      "include": [
+        "SKILL.md",
+        "*.md"
+      ],
+      "exclude": [
+        "hooks/**",
+        ".git/**"
+      ]
+    },
+    {
+      "id": "game-development",
+      "source": "/Users/buiminhkhoi/Documents/Antigravity/tool/antigravity-kit-main/.agent/skills/game-development",
+      "destination": "game-development",
+      "owner": "ag-kit-game",
+      "activation": "automatic",
+      "dependencies": [],
+      "include": [
+        "SKILL.md",
+        "*/SKILL.md"
+      ],
+      "exclude": [
+        "hooks/**",
+        ".git/**"
+      ]
+    },
+    {
+      "id": "enhance-prompt",
+      "source": "/Users/buiminhkhoi/Documents/Antigravity/tool/stitch-skills-main/stitch-skills-main/skills/enhance-prompt",
+      "destination": "enhance-prompt",
+      "owner": "stitch-ui",
+      "activation": "automatic",
+      "dependencies": [
+        "stitch_optional"
+      ],
+      "include": [
+        "SKILL.md",
+        "README.md",
+        "references/**"
+      ],
+      "exclude": [
+        "hooks/**",
+        ".git/**"
+      ]
+    },
+    {
+      "id": "design-md",
+      "source": "/Users/buiminhkhoi/Documents/Antigravity/tool/stitch-skills-main/stitch-skills-main/skills/design-md",
+      "destination": "design-md",
+      "owner": "stitch-ui",
+      "activation": "automatic",
+      "dependencies": [
+        "stitch_optional"
+      ],
+      "include": [
+        "SKILL.md",
+        "README.md",
+        "examples/**"
+      ],
+      "exclude": [
+        "hooks/**",
+        ".git/**"
+      ]
+    },
+    {
+      "id": "shadcn-ui",
+      "source": "/Users/buiminhkhoi/Documents/Antigravity/tool/stitch-skills-main/stitch-skills-main/skills/shadcn-ui",
+      "destination": "shadcn-ui",
+      "owner": "stitch-ui",
+      "activation": "automatic",
+      "dependencies": [],
+      "include": [
+        "SKILL.md",
+        "README.md",
+        "resources/**"
+      ],
+      "exclude": [
+        "hooks/**",
+        ".git/**"
+      ]
+    },
+    {
+      "id": "react-components",
+      "source": "/Users/buiminhkhoi/Documents/Antigravity/tool/stitch-skills-main/stitch-skills-main/skills/react-components",
+      "destination": "react-components",
+      "owner": "stitch-ui",
+      "activation": "explicit",
+      "dependencies": [
+        "stitch_optional",
+        "node"
+      ],
+      "include": [
+        "SKILL.md",
+        "README.md",
+        "resources/**"
+      ],
+      "exclude": [
+        "hooks/**",
+        ".git/**"
+      ]
+    },
+    {
+      "id": "stitch-loop",
+      "source": "/Users/buiminhkhoi/Documents/Antigravity/tool/stitch-skills-main/stitch-skills-main/skills/stitch-loop",
+      "destination": "stitch-loop",
+      "owner": "stitch-ui",
+      "activation": "explicit",
+      "dependencies": [
+        "stitch_server",
+        "node"
+      ],
+      "include": [
+        "SKILL.md",
+        "README.md",
+        "examples/**",
+        "resources/**"
+      ],
+      "exclude": [
+        "hooks/**",
+        ".git/**"
+      ]
+    },
+    {
+      "id": "ui-ux-pro-max",
+      "source": "/Users/buiminhkhoi/.codex/skills/ui-ux-pro-max",
+      "candidate": "/Users/buiminhkhoi/Documents/Antigravity/tool/ui-ux-pro-max-skill/.claude/skills/ui-ux-pro-max",
+      "destination": "ui-ux-pro-max",
+      "owner": "existing-global",
+      "activation": "automatic",
+      "dependencies": [
+        "python3"
+      ],
+      "include": [
+        "SKILL.md",
+        "references/**",
+        "scripts/**",
+        "data/**"
+      ],
+      "exclude": [
+        "hooks/**",
+        ".git/**"
+      ],
+      "selected_source": "/Users/buiminhkhoi/Documents/Antigravity/tool/ui-ux-pro-max-skill/.claude/skills/ui-ux-pro-max",
+      "comparison": {
+        "current": {
+          "path": "/Users/buiminhkhoi/.codex/skills/ui-ux-pro-max",
+          "hash": "86970c51230ad33603344559ba354ed7eaa522e9d89d499c7ac016cf09478657",
+          "features": 15,
+          "valid": true
+        },
+        "candidate": {
+          "path": "/Users/buiminhkhoi/Documents/Antigravity/tool/ui-ux-pro-max-skill/.claude/skills/ui-ux-pro-max",
+          "hash": "0a413bf988d06481f69bb81df2070741c3ba12dd9f1be2706d57f259c905992d",
+          "features": 29,
+          "valid": true
+        },
+        "winner": "/Users/buiminhkhoi/Documents/Antigravity/tool/ui-ux-pro-max-skill/.claude/skills/ui-ux-pro-max"
+      }
+    },
+    {"id":"load-project-context","source":"/Users/buiminhkhoi/Documents/Antigravity/Claude/my-office/.worktrees/my-office-global-skills/personal-workflows/load-project-context","destination":"load-project-context","owner":"personal-workflows","activation":"automatic","dependencies":[],"include":["SKILL.md"],"exclude":[]},
+    {"id":"save-project-context","source":"/Users/buiminhkhoi/Documents/Antigravity/Claude/my-office/.worktrees/my-office-global-skills/personal-workflows/save-project-context","destination":"save-project-context","owner":"personal-workflows","activation":"explicit","dependencies":[],"include":["SKILL.md"],"exclude":[]},
+    {"id":"safe-project-sync","source":"/Users/buiminhkhoi/Documents/Antigravity/Claude/my-office/.worktrees/my-office-global-skills/personal-workflows/safe-project-sync","destination":"safe-project-sync","owner":"personal-workflows","activation":"explicit","dependencies":[],"include":["SKILL.md"],"exclude":[]}
+  ]
+}
