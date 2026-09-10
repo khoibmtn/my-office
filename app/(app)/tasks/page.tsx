@@ -16,7 +16,7 @@ import { TASK_STATUS_LABELS } from '@/lib/tasks/constants'
 
 export default function TasksPage() {
   const { isAdmin, staffId, staffName } = useRole()
-  const { staffList } = useStaff()
+  const { staff: staffList } = useStaff()
   const { departments } = useDepartments()
   const { stats } = useTaskStats('user', staffId || 'global')
 

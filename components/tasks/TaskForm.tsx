@@ -24,7 +24,7 @@ interface TaskFormProps {
 
 export function TaskForm({ actorId, actorName, onClose, dossierId, documentId }: TaskFormProps) {
   const router = useRouter()
-  const { staffList } = useStaff()
+  const { staff: staffList } = useStaff()
   const { departments } = useDepartments()
   const { tags } = useTags()
 

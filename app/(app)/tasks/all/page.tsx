@@ -9,7 +9,7 @@ import { TaskTable } from '@/components/tasks/TaskTable'
 import { TaskFilters, DEFAULT_FILTERS, type TaskFilterValues } from '@/components/tasks/TaskFilters'
 
 export default function AllTasksPage() {
-  const { staffList } = useStaff()
+  const { staff: staffList } = useStaff()
   const { departments } = useDepartments()
   const [filters, setFilters] = useState<TaskFilterValues>(DEFAULT_FILTERS)
 
