@@ -49,11 +49,11 @@ export default function RecurringPage() {
   const [generatingSeriesId, setGeneratingSeriesId] = useState<string | null>(null)
   const [expandedSeries, setExpandedSeries] = useState<Record<string, boolean>>({})
 
-  // Map generated occurrence tasks by seriesId
+  // Map generated occurrence tasks by seriesId (top-level only, excluding child subtasks)
   const seriesTasksMap = useMemo(() => {
     const map: Record<string, Task[]> = {}
     for (const t of allTasks) {
-      if (t.seriesId) {
+      if (t.seriesId && !t.parentTaskId) {
         if (!map[t.seriesId]) map[t.seriesId] = []
         map[t.seriesId].push(t)
       }
@@ -343,10 +343,10 @@ export default function RecurringPage() {
                       const statusColor = TASK_STATUS_COLORS[task.status]
 
                       return (
-                        <div
+                        <Link
                           key={task.id}
-                          onClick={() => router.push(`/tasks/${task.id}`)}
-                          className="bg-white rounded-xl border border-slate-200 p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:border-blue-300 hover:shadow-xs cursor-pointer transition-all group"
+                          href={`/tasks/${task.id}`}
+                          className="bg-white rounded-xl border border-slate-200 p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:border-blue-300 hover:shadow-xs cursor-pointer transition-all group block"
                         >
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-2 mb-1 flex-wrap">
@@ -390,16 +390,14 @@ export default function RecurringPage() {
                               </span>
                             </div>
 
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="text-xs text-blue-600 group-hover:bg-blue-50 px-2 h-7 font-semibold"
+                            <div
+                              className="text-xs text-blue-600 group-hover:bg-blue-50 px-2.5 py-1 rounded-md font-semibold inline-flex items-center"
                             >
                               Xử lý & Chat
                               <ArrowUpRight className="w-3.5 h-3.5 ml-0.5" />
-                            </Button>
+                            </div>
                           </div>
-                        </div>
+                        </Link>
                       )
                     })
                   )}
