@@ -2,10 +2,11 @@
 
 import React, { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import {
   ArrowLeft, CheckCircle2, Ban, XCircle, Trash2,
   MoreHorizontal, Play, RefreshCw, Calendar, User,
-  Loader2, FileText, Folder, Edit3,
+  Loader2, FileText, Folder, Edit3, History,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useStaff } from '@/hooks/useStaff'
@@ -20,7 +21,7 @@ import { computeDerivedStates } from '@/lib/tasks/progress'
 import { isValidTransition } from '@/lib/tasks/validation'
 import { canEditTask, canChangeStatus, canDeleteTask, canAddComment, canAddSubtask } from '@/lib/tasks/permissions'
 import { updateTaskStatus, deleteTask } from '@/lib/tasks/mutations'
-import { deleteRecurringTaskScoped, type RecurrenceMutationScope } from '@/lib/tasks/series'
+import { deleteRecurringTaskScoped, generateNextCompletionOccurrence, type RecurrenceMutationScope } from '@/lib/tasks/series'
 import type { Task, TaskComment, TaskActivity, TaskStatus } from '@/types/tasks'
 import { TASK_STATUS_LABELS } from '@/lib/tasks/constants'
 
@@ -80,6 +81,13 @@ export function TaskDetail({
     setActionLoading(true)
     try {
       await updateTaskStatus(task.id, newStatus, actorId, actorName)
+      if (newStatus === 'completed' && task.seriesId) {
+        try {
+          await generateNextCompletionOccurrence(task)
+        } catch (genErr) {
+          console.warn('Next occurrence trigger warning:', genErr)
+        }
+      }
     } catch (err) {
       console.error('Status change failed:', err)
     } finally {
@@ -170,8 +178,30 @@ export function TaskDetail({
           <TaskStatusBadge status={task.status} derivedStates={derivedStates} size="md" />
           <TaskPriorityBadge priority={task.priority} size="md" />
 
+          {task.seriesId && (
+            <Link
+              href="/tasks/recurring"
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-purple-50 text-purple-700 border border-purple-200 hover:bg-purple-100 transition-colors"
+            >
+              <RefreshCw className="w-3 h-3 text-purple-600" />
+              Chuỗi định kỳ
+            </Link>
+          )}
+
+          {task.previousTaskId && (
+            <button
+              type="button"
+              onClick={() => router.push(`/tasks/${task.previousTaskId}`)}
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 transition-colors"
+              title="Xem công việc của kỳ trước"
+            >
+              <History className="w-3 h-3 text-blue-600" />
+              Xem kỳ trước đó
+            </button>
+          )}
+
           {_canStatus && transitions.length > 0 && (
-            <div className="flex items-center gap-1 ml-2">
+            <div className="flex items-center gap-1 ml-auto">
               {transitions.map(t => (
                 <button
                   key={t.status}
