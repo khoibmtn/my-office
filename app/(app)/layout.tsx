@@ -3,7 +3,7 @@
 import React, { useEffect, useState, useMemo, useCallback, useRef, Suspense } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
-import { Loader2, FileText, LogIn, LogOut, Settings, Menu, X, User, Folder, ChevronDown, ChevronRight } from 'lucide-react'
+import { Loader2, FileText, LogIn, LogOut, Settings, Menu, X, User, Folder, ChevronDown, ChevronRight, CheckSquare } from 'lucide-react'
 import { useAuth, AuthProvider } from '@/hooks/useAuth'
 import { useRole } from '@/hooks/useRole'
 import { usePermissions } from '@/hooks/usePermissions'
@@ -81,6 +81,7 @@ function InnerAppLayout({ children }: { children: React.ReactNode }) {
     ]
     if (!isGuest) {
       items.push({ href: '/dossiers', icon: Folder, label: 'Quản lý Hồ sơ' })
+      items.push({ href: '/tasks', icon: CheckSquare, label: 'Công việc' })
     }
     if (perms.canAccessSettings) {
       items.push({ href: '/settings', icon: Settings, label: 'Cài đặt' })
