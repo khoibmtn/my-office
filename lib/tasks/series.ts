@@ -458,3 +458,249 @@ export async function triggerSeriesGenerationNow(seriesId: string): Promise<numb
   // Ensure windowStart encompasses now so current occurrence is generated
   return await generateSeriesOccurrences(series, windowEnd)
 }
+
+// ===== Google Calendar 3-Scope Mutator =====
+
+export type RecurrenceMutationScope = 'this_only' | 'this_and_future' | 'all'
+
+/**
+ * Updates a recurring task according to the selected scope (Google Calendar model).
+ *
+ * Scopes:
+ * - 'this_only': Detaches this occurrence (isDetached: true). Series & other occurrences unaffected.
+ * - 'this_and_future': Closes old series right before this occurrence, spawns a new series starting from this occurrence, and updates future unclosed occurrences.
+ * - 'all': Updates the series blueprint and updates all open, non-detached occurrences in the series.
+ */
+export async function updateRecurringTaskScoped(
+  task: Task,
+  scope: RecurrenceMutationScope,
+  updates: Partial<Task>,
+  actorId: string,
+  actorName: string
+): Promise<void> {
+  if (!task.seriesId || scope === 'this_only') {
+    // Just update this single task and mark it detached
+    const taskRef = doc(db(), TASKS_COLLECTION, task.id)
+    await updateDoc(taskRef, {
+      ...updates,
+      isDetached: true,
+      updatedAt: serverTimestamp(),
+    })
+    return
+  }
+
+  const seriesRef = doc(db(), SERIES_COLLECTION, task.seriesId)
+  const seriesSnap = await getDoc(seriesRef)
+  if (!seriesSnap.exists()) {
+    // If series not found, fallback to updating this task
+    await updateDoc(doc(db(), TASKS_COLLECTION, task.id), {
+      ...updates,
+      updatedAt: serverTimestamp(),
+    })
+    return
+  }
+
+  const oldSeries = { id: seriesSnap.id, ...seriesSnap.data() } as TaskSeries
+  const taskOccDate = task.occurrenceDate instanceof Timestamp
+    ? task.occurrenceDate.toDate()
+    : (task.occurrenceDate ? new Date(task.occurrenceDate as any) : new Date())
+
+  if (scope === 'this_and_future') {
+    // 1. Close old series before this occurrence
+    const prevDay = new Date(taskOccDate.getTime() - 86400000)
+    await updateDoc(seriesRef, {
+      endDate: Timestamp.fromDate(prevDay),
+      updatedAt: serverTimestamp(),
+    })
+
+    // 2. Create new series starting from this occurrence
+    const newSeriesData: Omit<TaskSeries, 'id' | 'createdAt' | 'updatedAt' | 'lastGeneratedDate'> = {
+      title: updates.title || oldSeries.title,
+      description: (updates.description !== undefined ? updates.description : oldSeries.description) || null,
+      recurrenceType: oldSeries.recurrenceType || 'calendar',
+      completionOffsetDays: oldSeries.completionOffsetDays || 1,
+      frequency: oldSeries.frequency,
+      interval: oldSeries.interval,
+      byWeekday: oldSeries.byWeekday || null,
+      byMonthDay: oldSeries.byMonthDay || null,
+      byMonth: oldSeries.byMonth || null,
+      bySetPos: oldSeries.bySetPos !== undefined ? oldSeries.bySetPos : null,
+      anchorDate: Timestamp.fromDate(taskOccDate),
+      timezone: oldSeries.timezone || 'Asia/Ho_Chi_Minh',
+      weekendPolicy: oldSeries.weekendPolicy || 'exact',
+      occurrenceTime: oldSeries.occurrenceTime || null,
+      dueOffsetMinutes: oldSeries.dueOffsetMinutes || 0,
+      leadDays: oldSeries.leadDays || 0,
+      status: 'active',
+      startDate: Timestamp.fromDate(taskOccDate),
+      endDate: oldSeries.endDate || null,
+      misfirePolicy: oldSeries.misfirePolicy || 'CREATE_MISSED',
+      rollingWindowDays: oldSeries.rollingWindowDays || 14,
+      defaultAssigneeId: updates.assigneeId !== undefined ? updates.assigneeId : oldSeries.defaultAssigneeId,
+      defaultCollaboratorIds: updates.collaboratorIds || oldSeries.defaultCollaboratorIds,
+      defaultFollowerIds: updates.followerIds || oldSeries.defaultFollowerIds,
+      defaultPriority: updates.priority || oldSeries.defaultPriority,
+      defaultEstimatedMinutes: updates.estimatedMinutes !== undefined ? updates.estimatedMinutes : oldSeries.defaultEstimatedMinutes,
+      defaultDossierIds: updates.dossierIds || oldSeries.defaultDossierIds,
+      defaultDocumentIds: updates.documentIds || oldSeries.defaultDocumentIds,
+      defaultDepartmentId: updates.departmentId !== undefined ? updates.departmentId : oldSeries.defaultDepartmentId,
+      defaultTagIds: updates.tagIds || oldSeries.defaultTagIds,
+      defaultSubtasks: oldSeries.defaultSubtasks || [],
+      templateId: oldSeries.templateId || null,
+      previousSeriesId: oldSeries.id,
+      createdBy: actorId,
+    }
+
+    const newSeriesRef = await addDoc(collection(db(), SERIES_COLLECTION), {
+      ...newSeriesData,
+      lastGeneratedDate: Timestamp.fromDate(taskOccDate),
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    })
+    const newSeriesId = newSeriesRef.id
+
+    // 3. Update current task and future tasks of oldSeries
+    const tasksSnap = await getDocs(query(
+      collection(db(), TASKS_COLLECTION),
+      where('seriesId', '==', oldSeries.id)
+    ))
+
+    const batch = writeBatch(db())
+    const occTime = taskOccDate.getTime()
+
+    for (const d of tasksSnap.docs) {
+      const t = d.data() as Task
+      if (t.isClosed || t.isDetached) continue
+      const tOcc = t.occurrenceDate instanceof Timestamp
+        ? t.occurrenceDate.toDate()
+        : (t.occurrenceDate ? new Date(t.occurrenceDate as any) : null)
+      if (tOcc && tOcc.getTime() >= occTime) {
+        batch.update(d.ref, {
+          ...updates,
+          seriesId: newSeriesId,
+          updatedAt: serverTimestamp(),
+        })
+      }
+    }
+
+    await batch.commit()
+    return
+  }
+
+  if (scope === 'all') {
+    // 1. Update series blueprint
+    const seriesUpdates: Partial<TaskSeries> = {
+      updatedAt: serverTimestamp() as any,
+    }
+    if (updates.title) seriesUpdates.title = updates.title
+    if (updates.description !== undefined) seriesUpdates.description = updates.description
+    if (updates.priority) seriesUpdates.defaultPriority = updates.priority
+    if (updates.assigneeId !== undefined) seriesUpdates.defaultAssigneeId = updates.assigneeId
+    if (updates.departmentId !== undefined) seriesUpdates.defaultDepartmentId = updates.departmentId
+    if (updates.tagIds) seriesUpdates.defaultTagIds = updates.tagIds
+
+    await updateDoc(seriesRef, seriesUpdates)
+
+    // 2. Batch update unclosed non-detached tasks
+    const tasksSnap = await getDocs(query(
+      collection(db(), TASKS_COLLECTION),
+      where('seriesId', '==', oldSeries.id)
+    ))
+
+    const batch = writeBatch(db())
+    for (const d of tasksSnap.docs) {
+      const t = d.data() as Task
+      if (t.isClosed || t.isDetached) continue
+      batch.update(d.ref, {
+        ...updates,
+        updatedAt: serverTimestamp(),
+      })
+    }
+    await batch.commit()
+  }
+}
+
+/**
+ * Deletes/Cancels a recurring task according to the selected scope (Google Calendar model).
+ */
+export async function deleteRecurringTaskScoped(
+  task: Task,
+  scope: RecurrenceMutationScope,
+  actorId: string
+): Promise<void> {
+  if (!task.seriesId || scope === 'this_only') {
+    // Soft delete this single task
+    await updateDoc(doc(db(), TASKS_COLLECTION, task.id), {
+      isClosed: true,
+      deletedAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    })
+    return
+  }
+
+  const seriesRef = doc(db(), SERIES_COLLECTION, task.seriesId)
+  const taskOccDate = task.occurrenceDate instanceof Timestamp
+    ? task.occurrenceDate.toDate()
+    : (task.occurrenceDate ? new Date(task.occurrenceDate as any) : new Date())
+
+  if (scope === 'this_and_future') {
+    // End old series right before this occurrence
+    const prevDay = new Date(taskOccDate.getTime() - 86400000)
+    await updateDoc(seriesRef, {
+      endDate: Timestamp.fromDate(prevDay),
+      updatedAt: serverTimestamp(),
+    })
+
+    // Soft delete this occurrence and all future ones
+    const tasksSnap = await getDocs(query(
+      collection(db(), TASKS_COLLECTION),
+      where('seriesId', '==', task.seriesId)
+    ))
+
+    const occTime = taskOccDate.getTime()
+    const batch = writeBatch(db())
+    for (const d of tasksSnap.docs) {
+      const t = d.data() as Task
+      const tOcc = t.occurrenceDate instanceof Timestamp
+        ? t.occurrenceDate.toDate()
+        : (t.occurrenceDate ? new Date(t.occurrenceDate as any) : null)
+      if (tOcc && tOcc.getTime() >= occTime && !t.isClosed) {
+        batch.update(d.ref, {
+          isClosed: true,
+          deletedAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        })
+      }
+    }
+    await batch.commit()
+    return
+  }
+
+  if (scope === 'all') {
+    // End series
+    await updateDoc(seriesRef, {
+      status: 'ended',
+      endDate: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    })
+
+    // Soft delete all open occurrences of series
+    const tasksSnap = await getDocs(query(
+      collection(db(), TASKS_COLLECTION),
+      where('seriesId', '==', task.seriesId)
+    ))
+
+    const batch = writeBatch(db())
+    for (const d of tasksSnap.docs) {
+      const t = d.data() as Task
+      if (!t.isClosed) {
+        batch.update(d.ref, {
+          isClosed: true,
+          deletedAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        })
+      }
+    }
+    await batch.commit()
+  }
+}

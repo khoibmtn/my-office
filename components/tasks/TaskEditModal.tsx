@@ -8,6 +8,8 @@ import { useStaff } from "@/hooks/useStaff"
 import { useDepartments } from "@/hooks/useDepartments"
 import { useTags } from "@/hooks/useTags"
 import { updateTask } from "@/lib/tasks/mutations"
+import { updateRecurringTaskScoped, type RecurrenceMutationScope } from "@/lib/tasks/series"
+import { RecurringScopeModal } from "./RecurringScopeModal"
 import type { Task, TaskPriority } from "@/types/tasks"
 import { TASK_PRIORITY_LABELS } from "@/lib/tasks/constants"
 
@@ -36,37 +38,67 @@ export function TaskEditModal({ task, actorId, actorName, onClose, onSuccess }: 
   const [departmentId, setDepartmentId] = useState(task.departmentId || "")
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>(task.tagIds || [])
   const [saving, setSaving] = useState(false)
+  const [showScopeModal, setShowScopeModal] = useState(false)
+  const [pendingFields, setPendingFields] = useState<any>(null)
 
   const activeStaff = useMemo(() => staffList.filter(s => s.isActive), [staffList])
+
+  const prepareFields = () => {
+    const chosenStaff = activeStaff.find(s => s.id === assigneeId || (s as any).staffId === assigneeId)
+    const fields: any = {
+      title: title.trim(),
+      description: description.trim() || null,
+      priority,
+      assigneeId: assigneeId || null,
+      assigneeName: chosenStaff ? (chosenStaff.shortName || chosenStaff.fullName) : null,
+      departmentId: departmentId || null,
+      tagIds: selectedTagIds,
+    }
+
+    if (dueDate) {
+      fields.dueDate = Timestamp.fromDate(new Date(dueDate + "T23:59:59"))
+    } else {
+      fields.dueDate = null
+    }
+
+    return fields
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!title.trim() || saving) return
 
+    const fields = prepareFields()
+
+    // If task belongs to a recurring series, prompt for Google Calendar scope
+    if (task.seriesId) {
+      setPendingFields(fields)
+      setShowScopeModal(true)
+      return
+    }
+
     setSaving(true)
     try {
-      const chosenStaff = activeStaff.find(s => s.id === assigneeId || (s as any).staffId === assigneeId)
-      const fields: any = {
-        title: title.trim(),
-        description: description.trim() || null,
-        priority,
-        assigneeId: assigneeId || null,
-        assigneeName: chosenStaff ? (chosenStaff.shortName || chosenStaff.fullName) : null,
-        departmentId: departmentId || null,
-        tagIds: selectedTagIds,
-      }
-
-      if (dueDate) {
-        fields.dueDate = Timestamp.fromDate(new Date(dueDate + "T23:59:59"))
-      } else {
-        fields.dueDate = null
-      }
-
       await updateTask(task.id, fields, actorId, actorName)
       onSuccess?.()
       onClose()
     } catch (err) {
       console.error("Failed to update task:", err)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleScopeConfirm = async (scope: RecurrenceMutationScope) => {
+    if (!pendingFields) return
+    setSaving(true)
+    try {
+      await updateRecurringTaskScoped(task, scope, pendingFields, actorId, actorName)
+      setShowScopeModal(false)
+      onSuccess?.()
+      onClose()
+    } catch (err) {
+      console.error("Failed to update scoped recurring task:", err)
     } finally {
       setSaving(false)
     }
@@ -180,6 +212,17 @@ export function TaskEditModal({ task, actorId, actorName, onClose, onSuccess }: 
           </div>
         </form>
       </div>
+
+      {showScopeModal && (
+        <RecurringScopeModal
+          isOpen={showScopeModal}
+          action="edit"
+          taskTitle={task.title}
+          onClose={() => setShowScopeModal(false)}
+          onConfirm={handleScopeConfirm}
+          loading={saving}
+        />
+      )}
     </div>
   )
 }

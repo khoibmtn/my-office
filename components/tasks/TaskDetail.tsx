@@ -15,10 +15,12 @@ import { TaskCommentThread } from './TaskCommentThread'
 import { TaskActivityFeed } from './TaskActivityFeed'
 import { SubtaskList } from './SubtaskList'
 import { TaskEditModal } from './TaskEditModal'
+import { RecurringScopeModal } from './RecurringScopeModal'
 import { computeDerivedStates } from '@/lib/tasks/progress'
 import { isValidTransition } from '@/lib/tasks/validation'
 import { canEditTask, canChangeStatus, canDeleteTask, canAddComment, canAddSubtask } from '@/lib/tasks/permissions'
 import { updateTaskStatus, deleteTask } from '@/lib/tasks/mutations'
+import { deleteRecurringTaskScoped, type RecurrenceMutationScope } from '@/lib/tasks/series'
 import type { Task, TaskComment, TaskActivity, TaskStatus } from '@/types/tasks'
 import { TASK_STATUS_LABELS } from '@/lib/tasks/constants'
 
@@ -48,6 +50,7 @@ export function TaskDetail({
   const [actionLoading, setActionLoading] = useState(false)
   const [showActions, setShowActions] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
+  const [showDeleteScopeModal, setShowDeleteScopeModal] = useState(false)
 
   const userCtx = { id: actorId, role: actorRole, departmentIds: actorDepartmentIds }
   const taskCtx = {
@@ -86,6 +89,10 @@ export function TaskDetail({
 
   const handleDelete = async () => {
     if (!_canDelete) return
+    if (task.seriesId) {
+      setShowDeleteScopeModal(true)
+      return
+    }
     if (!confirm('Xóa công việc này?')) return
     setActionLoading(true)
     try {
@@ -93,6 +100,18 @@ export function TaskDetail({
       router.push('/tasks')
     } catch (err) {
       console.error('Delete failed:', err)
+      setActionLoading(false)
+    }
+  }
+
+  const handleDeleteScopeConfirm = async (scope: RecurrenceMutationScope) => {
+    setActionLoading(true)
+    try {
+      await deleteRecurringTaskScoped(task, scope, actorId)
+      setShowDeleteScopeModal(false)
+      router.push('/tasks')
+    } catch (err) {
+      console.error('Scoped delete failed:', err)
       setActionLoading(false)
     }
   }
@@ -280,6 +299,18 @@ export function TaskDetail({
           actorId={actorId}
           actorName={actorName}
           onClose={() => setShowEditModal(false)}
+        />
+      )}
+
+      {/* Delete Scope Modal */}
+      {showDeleteScopeModal && (
+        <RecurringScopeModal
+          isOpen={showDeleteScopeModal}
+          action="delete"
+          taskTitle={task.title}
+          onClose={() => setShowDeleteScopeModal(false)}
+          onConfirm={handleDeleteScopeConfirm}
+          loading={actionLoading}
         />
       )}
     </div>
