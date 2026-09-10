@@ -12,8 +12,10 @@ import { resetSession } from '@/lib/firebase'
 import { TagSidebarPanel } from '@/components/tags/TagSidebarPanel'
 import { DossierNavItem } from '@/components/dossiers/DossierTreeNav'
 import { NotificationBell } from '@/components/notifications/NotificationBell'
+import { useRecurringScheduler } from '@/hooks/useRecurringScheduler'
 
 function InnerAppLayout({ children }: { children: React.ReactNode }) {
+  useRecurringScheduler()
   const { user, loading } = useAuth()
   const { role, isAdmin, isGuest, isStaff, staffName, logout: roleLogout } = useRole()
   const perms = usePermissions()
