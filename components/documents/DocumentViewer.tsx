@@ -8,6 +8,7 @@ import { parseFileNameFromUrl, getStructuredMainFileName } from '@/lib/utils'
 import { useAuth } from '@/hooks/useAuth'
 import { IframePreview } from './IframePreview'
 import { QuickDossierTagPicker } from './QuickDossierTagPicker'
+import { DocumentTaskSection } from './DocumentTaskSection'
 
 interface DocumentViewerProps {
   doc: Document
@@ -84,6 +85,12 @@ export function DocumentViewer({ doc }: DocumentViewerProps) {
         <QuickDossierTagPicker
           document={docItem}
           onUpdate={(fields) => setDocItem(prev => ({ ...prev, ...fields }))}
+        />
+
+        {/* Document Tasks */}
+        <DocumentTaskSection
+          documentId={docItem.id}
+          documentTitle={docItem.title}
         />
 
         <AttachmentPanel attachments={docItem.attachments ?? []} onTabSelect={setActiveUrl} />

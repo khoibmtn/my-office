@@ -7,15 +7,17 @@ import {
   queryAllActiveTasks,
   queryDepartmentTasks,
   queryDossierTasks,
+  queryDocumentTasks,
   subscribeToQuery,
 } from '@/lib/tasks/firestore'
 import type { Task } from '@/types/tasks'
 
 type TaskFilter = {
-  view: 'my' | 'all' | 'department' | 'dossier'
+  view: 'my' | 'all' | 'department' | 'dossier' | 'document'
   assigneeId?: string
   departmentId?: string
   dossierId?: string
+  documentId?: string
 }
 
 export function useTasks(filter: TaskFilter) {
@@ -40,6 +42,10 @@ export function useTasks(filter: TaskFilter) {
           if (!filter.dossierId) { setLoading(false); return }
           q = queryDossierTasks(filter.dossierId)
           break
+        case 'document':
+          if (!filter.documentId) { setLoading(false); return }
+          q = queryDocumentTasks(filter.documentId)
+          break
         case 'all':
         default:
           q = queryAllActiveTasks()
@@ -57,7 +63,7 @@ export function useTasks(filter: TaskFilter) {
     }).catch(() => setLoading(false))
 
     return () => { if (unsub) unsub() }
-  }, [filter.view, filter.assigneeId, filter.departmentId, filter.dossierId])
+  }, [filter.view, filter.assigneeId, filter.departmentId, filter.dossierId, filter.documentId])
 
   return { tasks, loading }
 }

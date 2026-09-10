@@ -68,6 +68,16 @@ export function queryDossierTasks(dossierId: string): Query<DocumentData> {
   )
 }
 
+/** Tasks linked to a specific document */
+export function queryDocumentTasks(documentId: string): Query<DocumentData> {
+  return query(
+    collection(db(), TASKS),
+    where('documentIds', 'array-contains', documentId),
+    where('deletedAt', '==', null),
+    orderBy('createdAt', 'desc')
+  )
+}
+
 /** Subtasks of a parent task */
 export function querySubtasks(parentTaskId: string): Query<DocumentData> {
   return query(

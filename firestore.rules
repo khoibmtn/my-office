@@ -1,0 +1,86 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Documents & Attachments
+    match /documents/{docId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // Dossiers (Hồ sơ)
+    match /dossiers/{dossierId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // Staff Members
+    match /staff/{staffId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
+    // Departments (Khoa / Phòng ban)
+    match /departments/{deptId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
+    // Tasks (Công việc)
+    match /tasks/{taskId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // Task Comments (Trao đổi công việc)
+    match /taskComments/{commentId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // Task Activities (Nhật ký công việc)
+    match /taskActivities/{activityId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // Task Series (Chuỗi công việc định kỳ)
+    match /taskSeries/{seriesId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // Task Templates (Mẫu quy trình)
+    match /taskTemplates/{templateId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // User Notifications (Thông báo)
+    match /notifications/{notifId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // Notification Outbox (Chỉ server-side ghi/đọc)
+    match /notificationEvents/{eventId} {
+      allow read, write: if false;
+    }
+
+    // Task Stats (Bộ đếm thống kê Dashboard)
+    match /taskStats/{statsId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // Reminders (Nhắc nhở hạn việc)
+    match /reminders/{reminderId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // Tags (Nhãn dán)
+    match /tags/{tagId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // Settings (Cài đặt hệ thống)
+    match /settings/{settingId} {
+      allow read, write: if isAuthenticated();
+    }
+  }
+}
