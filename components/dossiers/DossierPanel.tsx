@@ -1,10 +1,11 @@
 'use client'
 
 import React, { useState, useEffect, useRef, useMemo } from 'react'
+import Link from 'next/link'
 import {
   X, CheckSquare, Plus, Trash2, FileText, Loader2, StickyNote,
   MessageSquare, Send, CornerDownLeft, User, Share2, Pencil,
-  ChevronUp, ChevronDown, Check
+  ChevronUp, ChevronDown, Check, ExternalLink, Sparkles, RefreshCw
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import type { Dossier, DossierChecklistItem, DossierComment } from '@/types'
@@ -12,6 +13,10 @@ import { updateDossier, addDossierComment, deleteDossierComment } from '@/lib/do
 import { useRole } from '@/hooks/useRole'
 import { useDocuments } from '@/hooks/useDocuments'
 import { useDossiers } from '@/hooks/useDossiers'
+import { useTasks } from '@/hooks/useTasks'
+import { createTask, updateTaskStatus, deleteTask as deleteTaskEngine } from '@/lib/tasks/mutations'
+import { migrateSingleDossierChecklist } from '@/lib/tasks/migration'
+import type { Task } from '@/types/tasks'
 
 interface DossierPanelProps {
   dossier: Dossier
@@ -96,11 +101,17 @@ export function DossierPanel({ dossier, onClose, canEdit, onShare }: DossierPane
   const [notes, setNotes] = useState(dossier.notes || '')
   const [savingNotes, setSavingNotes] = useState(false)
 
-  // Section 3: Checklist
+  // Section 3: Tasks & Checklist (Task Engine integration with dual-read support)
+  const { tasks: dossierTasks, loading: tasksLoading } = useTasks({ view: 'dossier', dossierId: dossier.id })
+  const [migrating, setMigrating] = useState(false)
+  const [taskSubmitting, setTaskSubmitting] = useState(false)
   const [checklist, setChecklist] = useState<DossierChecklistItem[]>(dossier.checklist || [])
   const [newTaskTitle, setNewTaskTitle] = useState('')
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null)
   const [editingTaskTitle, setEditingTaskTitle] = useState('')
+
+  const hasTasks = dossierTasks.length > 0
+  const hasLegacyChecklist = checklist.length > 0
 
   // Section 4: Comments (Chat)
   const [comments, setComments] = useState<DossierComment[]>(dossier.comments || [])
@@ -290,9 +301,64 @@ export function DossierPanel({ dossier, onClose, canEdit, onShare }: DossierPane
     }
   }
 
+  const handleToggleTaskEngine = async (task: Task) => {
+    if (!canEditChecklist) return
+    const nextStatus = task.status === 'completed' ? 'pending' : 'completed'
+    await updateTaskStatus(task.id, nextStatus, staffId || 'unknown', staffName || (isAdmin ? 'Admin' : 'Thành viên'))
+  }
+
+  const handleAddDossierTask = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!canEditChecklist || !newTaskTitle.trim() || taskSubmitting) return
+    setTaskSubmitting(true)
+    try {
+      if (hasTasks || !hasLegacyChecklist) {
+        await createTask(
+          {
+            title: newTaskTitle.trim(),
+            dossierIds: [dossier.id],
+          },
+          staffId || 'unknown',
+          staffName || (isAdmin ? 'Admin' : 'Thành viên')
+        )
+      } else {
+        handleAddTask(e)
+      }
+      setNewTaskTitle('')
+    } catch (err) {
+      console.error('Create dossier task failed:', err)
+    } finally {
+      setTaskSubmitting(false)
+    }
+  }
+
+  const handleDeleteTaskEngine = async (taskId: string) => {
+    if (!canEditChecklist) return
+    await deleteTaskEngine(taskId, staffId || 'unknown')
+  }
+
+  const handleMigrateChecklist = async () => {
+    if (migrating) return
+    setMigrating(true)
+    try {
+      await migrateSingleDossierChecklist(
+        dossier.id,
+        checklist,
+        dossier.ownerId,
+        staffId || 'unknown'
+      )
+    } catch (err) {
+      console.error('Migrate checklist error:', err)
+    } finally {
+      setMigrating(false)
+    }
+  }
+
   // Calculate progress
-  const total = checklist.length
-  const completed = checklist.filter(t => t.completed).length
+  const total = hasTasks ? dossierTasks.length : checklist.length
+  const completed = hasTasks
+    ? dossierTasks.filter(t => t.status === 'completed').length
+    : checklist.filter(t => t.completed).length
   const percent = total > 0 ? Math.round((completed / total) * 100) : 0
 
   return (
@@ -375,14 +441,25 @@ export function DossierPanel({ dossier, onClose, canEdit, onShare }: DossierPane
           </div>
         </div>
 
-        {/* Frame 3: Checklist Progress (Emerald Theme) */}
+        {/* Frame 3: Tasks & Checklist (Emerald Theme - Task Engine Integrated) */}
         <div className="rounded-xl border border-emerald-200 bg-emerald-50/40 overflow-hidden shadow-2xs">
           <div className="px-3.5 py-2 bg-emerald-100/90 border-b border-emerald-200 flex items-center justify-between">
             <label className="flex items-center gap-1.5 text-xs font-bold text-emerald-950 uppercase tracking-wider">
               <CheckSquare className="w-3.5 h-3.5 text-emerald-700" />
-              <span>Checklist Tiến độ ({completed}/{total})</span>
+              <span>Công việc & Tiến độ ({completed}/{total})</span>
             </label>
-            <span className="text-xs font-bold text-emerald-800 bg-emerald-200/60 px-1.5 py-0.5 rounded">{percent}%</span>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-emerald-800 bg-emerald-200/60 px-1.5 py-0.5 rounded">{percent}%</span>
+              {hasTasks && (
+                <Link
+                  href="/tasks"
+                  className="text-[11px] text-emerald-700 hover:text-emerald-900 font-medium flex items-center gap-0.5"
+                  title="Mở không gian công việc"
+                >
+                  Bảng việc <ExternalLink className="w-2.5 h-2.5" />
+                </Link>
+              )}
+            </div>
           </div>
 
           <div className="p-3">
@@ -394,11 +471,94 @@ export function DossierPanel({ dossier, onClose, canEdit, onShare }: DossierPane
               />
             </div>
 
-            {/* Checklist Items List */}
+            {/* Migration Banner if legacy checklist exists and not migrated yet */}
+            {!hasTasks && hasLegacyChecklist && (
+              <div className="mb-3 p-2.5 rounded-lg bg-amber-50 border border-amber-200 text-xs">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-1.5 text-amber-800 font-medium">
+                    <RefreshCw className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                    <span>Checklist cũ ({checklist.length} mục)</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleMigrateChecklist}
+                    disabled={migrating}
+                    className="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[11px] font-semibold flex items-center gap-1 transition-colors disabled:opacity-60 shrink-0 cursor-pointer"
+                  >
+                    {migrating ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
+                    Đồng bộ sang Task
+                  </button>
+                </div>
+                <p className="text-[11px] text-amber-700 mt-1">
+                  Nhấn &quot;Đồng bộ sang Task&quot; để tích hợp đầy đủ lịch, thông báo và Kanban.
+                </p>
+              </div>
+            )}
+
+            {/* Tasks / Checklist List */}
             <div className="space-y-1.5 mb-3">
-              {checklist.length === 0 ? (
-                <p className="text-xs text-slate-400 italic text-center py-2">Chưa có công việc nào trong checklist</p>
+              {hasTasks ? (
+                // Task Engine tasks
+                dossierTasks.map((task) => {
+                  const isDone = task.status === 'completed'
+                  return (
+                    <div
+                      key={task.id}
+                      className={`group/task flex items-start gap-2 p-2 rounded-lg border transition-all ${
+                        isDone
+                          ? 'bg-emerald-100/50 border-emerald-200'
+                          : 'bg-white border-emerald-200/70 hover:border-emerald-300 shadow-2xs'
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isDone}
+                        onChange={() => handleToggleTaskEngine(task)}
+                        disabled={!canEditChecklist}
+                        className="mt-0.5 w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer disabled:cursor-not-allowed shrink-0"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <Link
+                            href={`/tasks/${task.id}`}
+                            className={`text-xs leading-tight hover:text-blue-600 truncate ${
+                              isDone ? 'line-through text-slate-400' : 'text-slate-800 font-medium'
+                            }`}
+                            title={task.title}
+                          >
+                            {task.title}
+                          </Link>
+                          <Link
+                            href={`/tasks/${task.id}`}
+                            className="text-slate-400 hover:text-blue-600 shrink-0 opacity-0 group-hover/task:opacity-100 transition-opacity"
+                            title="Mở chi tiết công việc"
+                          >
+                            <ExternalLink className="w-3 h-3" />
+                          </Link>
+                        </div>
+                        {task.assigneeName && (
+                          <span className="text-[10px] text-slate-500 mt-0.5 block">
+                            Giao cho: {task.assigneeName}
+                          </span>
+                        )}
+                      </div>
+                      {canEditChecklist && (
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteTaskEngine(task.id)}
+                          className="p-1 text-slate-400 hover:text-red-600 opacity-0 group-hover/task:opacity-100 transition-opacity"
+                          title="Xóa công việc"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  )
+                })
+              ) : checklist.length === 0 ? (
+                <p className="text-xs text-slate-400 italic text-center py-2">Chưa có công việc nào trong hồ sơ</p>
               ) : (
+                // Legacy checklist fallback
                 checklist.map((item, idx) => (
                   <div
                     key={item.id}
@@ -409,7 +569,6 @@ export function DossierPanel({ dossier, onClose, canEdit, onShare }: DossierPane
                     }`}
                   >
                     {editingTaskId === item.id ? (
-                      // Inline edit mode
                       <div className="flex items-center gap-1.5 flex-1 min-w-0">
                         <input
                           type="text"
@@ -446,7 +605,6 @@ export function DossierPanel({ dossier, onClose, canEdit, onShare }: DossierPane
                         </button>
                       </div>
                     ) : (
-                      // Normal display mode
                       <>
                         <input
                           type="checkbox"
@@ -466,10 +624,8 @@ export function DossierPanel({ dossier, onClose, canEdit, onShare }: DossierPane
                           )}
                         </div>
 
-                        {/* Action buttons (Move Up, Move Down, Edit, Delete) */}
                         {canEditChecklist && (
                           <div className="flex items-center gap-0.5 opacity-70 group-hover/task:opacity-100 transition-opacity shrink-0">
-                            {/* Move Up */}
                             <button
                               type="button"
                               onClick={() => handleMoveTask(idx, 'up')}
@@ -479,8 +635,6 @@ export function DossierPanel({ dossier, onClose, canEdit, onShare }: DossierPane
                             >
                               <ChevronUp className="w-3.5 h-3.5" />
                             </button>
-
-                            {/* Move Down */}
                             <button
                               type="button"
                               onClick={() => handleMoveTask(idx, 'down')}
@@ -490,8 +644,6 @@ export function DossierPanel({ dossier, onClose, canEdit, onShare }: DossierPane
                             >
                               <ChevronDown className="w-3.5 h-3.5" />
                             </button>
-
-                            {/* Edit */}
                             <button
                               type="button"
                               onClick={() => handleStartEditTask(item)}
@@ -500,8 +652,6 @@ export function DossierPanel({ dossier, onClose, canEdit, onShare }: DossierPane
                             >
                               <Pencil className="w-3.5 h-3.5" />
                             </button>
-
-                            {/* Delete */}
                             <button
                               type="button"
                               onClick={() => handleDeleteTask(item.id)}
@@ -521,16 +671,22 @@ export function DossierPanel({ dossier, onClose, canEdit, onShare }: DossierPane
 
             {/* Add new task input */}
             {canEditChecklist && (
-              <form onSubmit={handleAddTask} className="flex gap-1.5">
+              <form onSubmit={handleAddDossierTask} className="flex gap-1.5">
                 <input
                   type="text"
                   value={newTaskTitle}
                   onChange={e => setNewTaskTitle(e.target.value)}
-                  placeholder="+ Thêm công việc mới..."
-                  className="flex-1 px-2.5 py-1.5 border border-emerald-200 rounded-lg text-xs bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 text-slate-800 placeholder:text-slate-400"
+                  placeholder="+ Thêm công việc mới vào hồ sơ..."
+                  disabled={taskSubmitting}
+                  className="flex-1 px-2.5 py-1.5 border border-emerald-200 rounded-lg text-xs bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 text-slate-800 placeholder:text-slate-400 disabled:opacity-60"
                 />
-                <Button type="submit" size="sm" className="h-8 px-2.5 text-xs bg-emerald-600 hover:bg-emerald-700 text-white" disabled={!newTaskTitle.trim()}>
-                  <Plus className="w-3.5 h-3.5" />
+                <Button
+                  type="submit"
+                  size="sm"
+                  className="h-8 px-2.5 text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
+                  disabled={!newTaskTitle.trim() || taskSubmitting}
+                >
+                  {taskSubmitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
                 </Button>
               </form>
             )}
