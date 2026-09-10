@@ -21,7 +21,6 @@ const TASKS_COLLECTION = 'tasks'
 export function queryActiveSeries() {
   return query(
     collection(db(), SERIES_COLLECTION),
-    where('status', '==', 'active'),
     orderBy('createdAt', 'desc')
   )
 }
@@ -29,9 +28,7 @@ export function queryActiveSeries() {
 export function querySeriesByDepartment(departmentId: string) {
   return query(
     collection(db(), SERIES_COLLECTION),
-    where('defaultDepartmentId', '==', departmentId),
-    where('status', '==', 'active'),
-    orderBy('createdAt', 'desc')
+    where('defaultDepartmentId', '==', departmentId)
   )
 }
 

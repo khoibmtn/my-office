@@ -306,6 +306,7 @@ export interface CreateTaskInput {
   startDate?: Timestamp
   dueDate?: Timestamp
   assigneeId?: string
+  assigneeName?: string | null
   collaboratorIds?: string[]
   followerIds?: string[]
   departmentId?: string
@@ -324,6 +325,7 @@ export interface UpdateTaskInput {
   startDate?: Timestamp | null
   dueDate?: Timestamp | null
   assigneeId?: string | null
+  assigneeName?: string | null
   collaboratorIds?: string[]
   followerIds?: string[]
   departmentId?: string | null

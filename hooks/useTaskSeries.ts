@@ -19,10 +19,12 @@ export function useTaskSeries(opts: UseTaskSeriesOptions = {}) {
       : queryActiveSeries()
 
     const unsubscribe = onSnapshot(q, (snap) => {
-      const items = snap.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-      })) as TaskSeries[]
+      const items = snap.docs
+        .map(doc => ({
+          id: doc.id,
+          ...doc.data(),
+        }))
+        .filter((s: any) => !s.deletedAt) as TaskSeries[]
       setSeriesList(items)
       setLoading(false)
     }, (err) => {

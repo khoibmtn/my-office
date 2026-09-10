@@ -61,11 +61,13 @@ export function TaskForm({ actorId, actorName, onClose, dossierId, documentId }:
 
     setSaving(true)
     try {
+      const chosenStaff = activeStaff.find(s => s.id === assigneeId || (s as any).staffId === assigneeId)
       const input: any = {
         title: title.trim(),
         description: description.trim() || undefined,
         priority,
         assigneeId: assigneeId || undefined,
+        assigneeName: chosenStaff?.shortName || chosenStaff?.fullName || undefined,
         departmentId: departmentId || undefined,
         tagIds: selectedTagIds.length > 0 ? selectedTagIds : undefined,
         dossierIds: dossierId ? [dossierId] : undefined,

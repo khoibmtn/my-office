@@ -28,6 +28,11 @@ export function useNotifications(userId?: string | null) {
           id: d.id,
           ...d.data(),
         })) as Notification[]
+        items.sort((a: any, b: any) => {
+          const timeA = a.createdAt?.toMillis?.() || (a.createdAt?.seconds ? a.createdAt.seconds * 1000 : 0)
+          const timeB = b.createdAt?.toMillis?.() || (b.createdAt?.seconds ? b.createdAt.seconds * 1000 : 0)
+          return timeB - timeA
+        })
         setNotifications(items)
         setLoading(false)
       },

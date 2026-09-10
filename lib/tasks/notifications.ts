@@ -20,9 +20,7 @@ const NOTIFICATIONS_COLLECTION = 'notifications'
 export function queryUserNotifications(recipientId: string): Query<DocumentData> {
   return query(
     collection(db(), NOTIFICATIONS_COLLECTION),
-    where('recipientId', '==', recipientId),
-    orderBy('createdAt', 'desc'),
-    limit(50)
+    where('recipientId', '==', recipientId)
   )
 }
 

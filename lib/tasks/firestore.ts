@@ -26,35 +26,27 @@ export async function getTask(taskId: string): Promise<Task | null> {
 
 // ===== Query Builders =====
 
-/** My Tasks: assigned to me, not closed, ordered by priority then due date */
+/** My Tasks: assigned to me */
 export function queryMyTasks(assigneeId: string): Query<DocumentData> {
   return query(
     collection(db(), TASKS),
-    where('assigneeId', '==', assigneeId),
-    where('isClosed', '==', false),
-    where('deletedAt', '==', null),
-    orderBy('dueDate', 'asc')
+    where('assigneeId', '==', assigneeId)
   )
 }
 
-/** Tasks by department, not closed */
+/** Tasks by department */
 export function queryDepartmentTasks(departmentId: string): Query<DocumentData> {
   return query(
     collection(db(), TASKS),
-    where('departmentId', '==', departmentId),
-    where('isClosed', '==', false),
-    where('deletedAt', '==', null),
-    orderBy('dueDate', 'asc')
+    where('departmentId', '==', departmentId)
   )
 }
 
-/** All active tasks (admin view), not closed */
+/** All tasks */
 export function queryAllActiveTasks(): Query<DocumentData> {
   return query(
     collection(db(), TASKS),
-    where('isClosed', '==', false),
-    where('deletedAt', '==', null),
-    orderBy('updatedAt', 'desc')
+    orderBy('createdAt', 'desc')
   )
 }
 
@@ -62,9 +54,7 @@ export function queryAllActiveTasks(): Query<DocumentData> {
 export function queryDossierTasks(dossierId: string): Query<DocumentData> {
   return query(
     collection(db(), TASKS),
-    where('dossierIds', 'array-contains', dossierId),
-    where('deletedAt', '==', null),
-    orderBy('createdAt', 'desc')
+    where('dossierIds', 'array-contains', dossierId)
   )
 }
 
@@ -72,9 +62,7 @@ export function queryDossierTasks(dossierId: string): Query<DocumentData> {
 export function queryDocumentTasks(documentId: string): Query<DocumentData> {
   return query(
     collection(db(), TASKS),
-    where('documentIds', 'array-contains', documentId),
-    where('deletedAt', '==', null),
-    orderBy('createdAt', 'desc')
+    where('documentIds', 'array-contains', documentId)
   )
 }
 
@@ -82,54 +70,36 @@ export function queryDocumentTasks(documentId: string): Query<DocumentData> {
 export function querySubtasks(parentTaskId: string): Query<DocumentData> {
   return query(
     collection(db(), TASKS),
-    where('parentTaskId', '==', parentTaskId),
-    where('deletedAt', '==', null),
-    orderBy('createdAt', 'asc')
+    where('parentTaskId', '==', parentTaskId)
   )
 }
 
-/** Overdue tasks: past due, not closed */
+/** Overdue tasks */
 export function queryOverdueTasks(assigneeId?: string): Query<DocumentData> {
-  const now = new Date()
-  const constraints = [
-    where('isClosed', '==', false),
-    where('deletedAt', '==', null),
-    where('dueDate', '<', now),
-    orderBy('dueDate', 'asc'),
-  ]
   if (assigneeId) {
-    constraints.unshift(where('assigneeId', '==', assigneeId))
+    return query(collection(db(), TASKS), where('assigneeId', '==', assigneeId))
   }
-  return query(collection(db(), TASKS), ...constraints)
+  return query(collection(db(), TASKS), orderBy('createdAt', 'desc'))
 }
 
 /** Tasks created by a specific user */
 export function queryCreatedByTasks(createdBy: string): Query<DocumentData> {
   return query(
     collection(db(), TASKS),
-    where('createdBy', '==', createdBy),
-    where('deletedAt', '==', null),
-    orderBy('createdAt', 'desc')
+    where('createdBy', '==', createdBy)
   )
 }
 
-/** Completed tasks in a date range */
+/** Completed tasks */
 export function queryCompletedTasks(
-  since: Date,
+  since?: Date,
   assigneeId?: string,
   maxResults: number = 50
 ): Query<DocumentData> {
-  const constraints = [
-    where('status', '==', 'completed'),
-    where('completedAt', '>=', since),
-    where('deletedAt', '==', null),
-    orderBy('completedAt', 'desc'),
-    limit(maxResults),
-  ]
   if (assigneeId) {
-    constraints.unshift(where('assigneeId', '==', assigneeId))
+    return query(collection(db(), TASKS), where('assigneeId', '==', assigneeId))
   }
-  return query(collection(db(), TASKS), ...constraints)
+  return query(collection(db(), TASKS), where('status', '==', 'completed'))
 }
 
 // ===== Comments & Activities =====
@@ -137,18 +107,14 @@ export function queryCompletedTasks(
 export function queryTaskComments(taskId: string): Query<DocumentData> {
   return query(
     collection(db(), TASK_COMMENTS),
-    where('taskId', '==', taskId),
-    where('deletedAt', '==', null),
-    orderBy('createdAt', 'asc')
+    where('taskId', '==', taskId)
   )
 }
 
 export function queryTaskActivities(taskId: string, maxResults: number = 50): Query<DocumentData> {
   return query(
     collection(db(), TASK_ACTIVITIES),
-    where('taskId', '==', taskId),
-    orderBy('createdAt', 'desc'),
-    limit(maxResults)
+    where('taskId', '==', taskId)
   )
 }
 
@@ -162,7 +128,10 @@ export function subscribeToQuery(
   return onSnapshot(
     q,
     (snap) => {
-      onData(snap.docs.map(d => ({ id: d.id, ...d.data() })))
+      let items = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+      // Exclude soft-deleted
+      items = items.filter((item: any) => !item.deletedAt)
+      onData(items)
     },
     (err) => {
       console.error('[tasks/firestore] snapshot error:', err)

@@ -58,7 +58,7 @@ export async function createTask(
     visibleFrom: null,
     createdBy: actorId,
     assigneeId: input.assigneeId ?? null,
-    assigneeName: null, // Will be denormalized by CF
+    assigneeName: input.assigneeName ?? null,
     collaboratorIds: input.collaboratorIds ?? [],
     followerIds: input.followerIds ?? [],
     departmentId: input.departmentId ?? null,

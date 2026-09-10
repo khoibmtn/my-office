@@ -13,7 +13,7 @@ import {
 import type { Task } from '@/types/tasks'
 
 type TaskFilter = {
-  view: 'my' | 'all' | 'department' | 'dossier' | 'document'
+  view: 'my' | 'all' | 'created' | 'department' | 'dossier' | 'document'
   assigneeId?: string
   departmentId?: string
   dossierId?: string
@@ -28,37 +28,52 @@ export function useTasks(filter: TaskFilter) {
     let unsub: (() => void) | null = null
 
     ensureAuth().then(() => {
-      let q
-      switch (filter.view) {
-        case 'my':
-          if (!filter.assigneeId) { setLoading(false); return }
-          q = queryMyTasks(filter.assigneeId)
-          break
-        case 'department':
-          if (!filter.departmentId) { setLoading(false); return }
-          q = queryDepartmentTasks(filter.departmentId)
-          break
-        case 'dossier':
-          if (!filter.dossierId) { setLoading(false); return }
-          q = queryDossierTasks(filter.dossierId)
-          break
-        case 'document':
-          if (!filter.documentId) { setLoading(false); return }
-          q = queryDocumentTasks(filter.documentId)
-          break
-        case 'all':
-        default:
-          q = queryAllActiveTasks()
-          break
-      }
-
       unsub = subscribeToQuery(
-        q,
+        queryAllActiveTasks(),
         (items) => {
-          setTasks(items as Task[])
+          let list = items as Task[]
+
+          switch (filter.view) {
+            case 'my':
+              if (filter.assigneeId) {
+                list = list.filter(t =>
+                  t.assigneeId === filter.assigneeId ||
+                  t.collaboratorIds?.includes(filter.assigneeId!)
+                )
+              }
+              break
+            case 'created':
+              if (filter.assigneeId) {
+                list = list.filter(t => t.createdBy === filter.assigneeId)
+              }
+              break
+            case 'department':
+              if (filter.departmentId) {
+                list = list.filter(t => t.departmentId === filter.departmentId)
+              }
+              break
+            case 'dossier':
+              if (filter.dossierId) {
+                list = list.filter(t => t.dossierIds?.includes(filter.dossierId!))
+              }
+              break
+            case 'document':
+              if (filter.documentId) {
+                list = list.filter(t => t.documentIds?.includes(filter.documentId!))
+              }
+              break
+            case 'all':
+            default:
+              break
+          }
+
+          setTasks(list)
           setLoading(false)
         },
-        () => setLoading(false)
+        (err) => {
+          console.error('[useTasks] subscription error:', err)
+          setLoading(false)
+        }
       )
     }).catch(() => setLoading(false))
 
