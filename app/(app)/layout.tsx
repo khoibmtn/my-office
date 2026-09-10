@@ -3,7 +3,7 @@
 import React, { useEffect, useState, useMemo, useCallback, useRef, Suspense } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
-import { Loader2, FileText, LogIn, LogOut, Settings, Menu, X, User, Folder, ChevronDown, ChevronRight, CheckSquare, LayoutDashboard, Kanban, CalendarDays } from 'lucide-react'
+import { Loader2, FileText, LogIn, LogOut, Settings, Menu, X, User, Folder, ChevronDown, ChevronRight, CheckSquare, LayoutDashboard, Kanban, CalendarDays, RefreshCw } from 'lucide-react'
 import { useAuth, AuthProvider } from '@/hooks/useAuth'
 import { useRole } from '@/hooks/useRole'
 import { usePermissions } from '@/hooks/usePermissions'
@@ -84,6 +84,7 @@ function InnerAppLayout({ children }: { children: React.ReactNode }) {
       items.push({ href: '/tasks', icon: CheckSquare, label: 'Công việc' })
       items.push({ href: '/tasks/kanban', icon: Kanban, label: 'Kanban' })
       items.push({ href: '/tasks/calendar', icon: CalendarDays, label: 'Lịch' })
+      items.push({ href: '/tasks/recurring', icon: RefreshCw, label: 'Định kỳ' })
       items.push({ href: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' })
     }
     if (perms.canAccessSettings) {
