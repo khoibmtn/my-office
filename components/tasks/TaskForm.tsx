@@ -8,8 +8,9 @@ import { Button } from '@/components/ui/button'
 import { useStaff } from '@/hooks/useStaff'
 import { useDepartments } from '@/hooks/useDepartments'
 import { useTags } from '@/hooks/useTags'
+import { useTaskTemplates } from '@/hooks/useTaskTemplates'
 import { createTask } from '@/lib/tasks/mutations'
-import type { TaskPriority } from '@/types/tasks'
+import type { TaskPriority, TaskTemplate } from '@/types/tasks'
 import { TASK_PRIORITY_LABELS } from '@/lib/tasks/constants'
 
 interface TaskFormProps {
@@ -27,7 +28,9 @@ export function TaskForm({ actorId, actorName, onClose, dossierId, documentId }:
   const { staff: staffList } = useStaff()
   const { departments } = useDepartments()
   const { tags } = useTags()
+  const { templates } = useTaskTemplates()
 
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null)
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [priority, setPriority] = useState<TaskPriority>('normal')
@@ -38,6 +41,19 @@ export function TaskForm({ actorId, actorName, onClose, dossierId, documentId }:
   const [saving, setSaving] = useState(false)
 
   const activeStaff = useMemo(() => staffList.filter(s => s.isActive), [staffList])
+
+  const handleSelectTemplate = (tpl: TaskTemplate) => {
+    if (selectedTemplateId === tpl.id) {
+      setSelectedTemplateId(null)
+      return
+    }
+    setSelectedTemplateId(tpl.id)
+    setTitle(tpl.name)
+    if (tpl.description) setDescription(tpl.description)
+    if (tpl.defaults?.priority) setPriority(tpl.defaults.priority)
+    if (tpl.defaults?.departmentId) setDepartmentId(tpl.defaults.departmentId)
+    if (tpl.defaults?.tagIds?.length) setSelectedTagIds(tpl.defaults.tagIds)
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -61,6 +77,22 @@ export function TaskForm({ actorId, actorName, onClose, dossierId, documentId }:
       }
 
       const taskId = await createTask(input, actorId, actorName)
+
+      // If template had steps, create them as subtasks
+      const activeTpl = templates.find(t => t.id === selectedTemplateId)
+      if (activeTpl && activeTpl.steps?.length) {
+        for (const st of activeTpl.steps) {
+          await createTask({
+            title: st.title,
+            description: st.description || undefined,
+            parentTaskId: taskId,
+            priority,
+            dossierIds: dossierId ? [dossierId] : undefined,
+            documentIds: documentId ? [documentId] : undefined,
+          }, actorId, actorName)
+        }
+      }
+
       router.push(`/tasks/${taskId}`)
       onClose?.()
     } catch (err) {
@@ -87,6 +119,31 @@ export function TaskForm({ actorId, actorName, onClose, dossierId, documentId }:
           </button>
         )}
       </div>
+
+      {/* Template picker */}
+      {templates.length > 0 && (
+        <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200/80">
+          <label className="block text-[11px] font-semibold text-slate-700 mb-1.5">
+            📋 Mẫu quy trình (tự động điền &amp; sinh việc con):
+          </label>
+          <div className="flex flex-wrap gap-1.5">
+            {templates.map((tpl) => (
+              <button
+                key={tpl.id}
+                type="button"
+                onClick={() => handleSelectTemplate(tpl)}
+                className={`px-2 py-1 rounded-md text-xs font-medium transition-all ${
+                  selectedTemplateId === tpl.id
+                    ? 'bg-blue-600 text-white shadow-xs'
+                    : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100'
+                }`}
+              >
+                {tpl.name} ({tpl.steps?.length || 0} bước)
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Title */}
       <div>
