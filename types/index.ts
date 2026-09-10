@@ -21,6 +21,9 @@ export interface StaffMember {
   title: string           // Chức danh: "Chuyên viên"
   position: string        // Chức vụ: "Phó trưởng phòng"
   isActive: boolean
+  primaryDepartmentId?: string | null   // Phòng ban chính
+  departmentIds?: string[]              // Tất cả phòng ban (kiêm nhiệm)
+  managerId?: string | null             // Quản lý trực tiếp (staffId)
   createdAt: Timestamp
   updatedAt: Timestamp
 }
