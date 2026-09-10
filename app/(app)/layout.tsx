@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button'
 import { resetSession } from '@/lib/firebase'
 import { TagSidebarPanel } from '@/components/tags/TagSidebarPanel'
 import { DossierNavItem } from '@/components/dossiers/DossierTreeNav'
+import { NotificationBell } from '@/components/notifications/NotificationBell'
 
 function InnerAppLayout({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth()
@@ -136,15 +137,18 @@ function InnerAppLayout({ children }: { children: React.ReactNode }) {
         >
           <div className="w-1 h-full bg-transparent group-hover/handle:bg-blue-500/50 group-active/handle:bg-blue-600 transition-colors mx-auto" />
         </div>
-        {/* Top: Brand */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200 shrink-0">
+        {/* Top: Brand & Notification */}
+        <div className="flex items-center justify-between px-5 py-3 border-b border-slate-200 shrink-0">
           <span className="text-lg font-semibold text-slate-900">Văn bản</span>
-          <button
-            onClick={() => setSidebarOpen(false)}
-            className="lg:hidden p-1 rounded hover:bg-slate-100 transition-colors"
-          >
-            <X className="w-5 h-5 text-slate-500" />
-          </button>
+          <div className="flex items-center gap-1">
+            {!isGuest && <NotificationBell userId={user?.uid || null} />}
+            <button
+              onClick={() => setSidebarOpen(false)}
+              className="lg:hidden p-1 rounded hover:bg-slate-100 transition-colors"
+            >
+              <X className="w-5 h-5 text-slate-500" />
+            </button>
+          </div>
         </div>
 
         {/* Middle: Nav — takes remaining space */}
@@ -270,6 +274,11 @@ function InnerAppLayout({ children }: { children: React.ReactNode }) {
             <span className="font-semibold text-slate-900">Văn bản</span>
           </div>
           <div className="flex-1" />
+          {!isGuest && (
+            <div className="mr-2">
+              <NotificationBell userId={user?.uid || null} />
+            </div>
+          )}
           {perms.canAddDocument && (
             <Button
               size="sm"

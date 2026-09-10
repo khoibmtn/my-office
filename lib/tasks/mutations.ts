@@ -17,6 +17,7 @@ import {
 } from 'firebase/firestore'
 import { db } from '../firebase'
 import { computeIsClosed } from './validation'
+import { queueNotification } from './notifications'
 import type {
   CreateTaskInput, UpdateTaskInput, TaskStatus, TaskPriority,
 } from '@/types/tasks'
@@ -94,6 +95,20 @@ export async function createTask(
     metadata: { title: input.title },
     createdAt: now,
   })
+
+  // Notification for assignee
+  if (input.assigneeId && input.assigneeId !== actorId) {
+    queueNotification(batch, {
+      recipientId: input.assigneeId,
+      category: 'TASK_ASSIGNED',
+      entityType: 'task',
+      entityId: taskRef.id,
+      title: 'Công việc mới được giao',
+      body: `${actorName} đã giao cho bạn: "${input.title}"`,
+      actorId,
+      actorName,
+    })
+  }
 
   await batch.commit()
   return taskRef.id
@@ -224,6 +239,22 @@ export async function addTaskComment(
     metadata: { commentId: commentRef.id, preview: content.slice(0, 100) },
     createdAt: serverTimestamp(),
   })
+
+  // Notifications for mentioned users
+  for (const recipientId of mentions) {
+    if (recipientId !== actorId) {
+      queueNotification(batch, {
+        recipientId,
+        category: 'MENTIONED',
+        entityType: 'task',
+        entityId: taskId,
+        title: `${actorName} đã nhắc đến bạn`,
+        body: content.slice(0, 100),
+        actorId,
+        actorName,
+      })
+    }
+  }
 
   // Update task's updatedAt
   batch.update(doc(db(), TASKS, taskId), { updatedAt: serverTimestamp() })
