@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import {
   RefreshCw, Plus, Pause, Play, Square, Calendar,
   Clock, User, Loader2, Sparkles, ChevronDown, ChevronRight,
