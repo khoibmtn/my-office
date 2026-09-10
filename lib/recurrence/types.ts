@@ -33,6 +33,9 @@ export interface RecurrenceRule {
    */
   bySetPos?: number
 
+  /** Weekend adjustment policy */
+  weekendPolicy?: 'exact' | 'shift_friday' | 'shift_monday'
+
   /** Start date of the series (anchor for interval calculation) */
   anchorDate: Date
 

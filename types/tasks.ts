@@ -92,6 +92,8 @@ export interface Task {
   // Recurrence (only when type = "occurrence")
   seriesId: string | null
   occurrenceKey: string | null             // Unique: "seriesId:YYYY-MM-DD" — used as document ID
+  isDetached?: boolean                     // true if edited/detached as a single occurrence
+  previousTaskId?: string | null           // previous occurrence task ID for continuity & review
 
   // Template
   templateId: string | null                // Created from which template (direct or via Series)
@@ -108,6 +110,9 @@ export interface Task {
   migratedFromChecklistId: string | null   // Migration traceability
 }
 
+export type RecurrenceType = 'calendar' | 'after_completion'
+export type WeekendPolicy = 'exact' | 'shift_friday' | 'shift_monday'
+
 /**
  * TaskSeries — Definition/Rule for recurring tasks.
  * Not a task itself — it's the blueprint that generates Task occurrences.
@@ -116,6 +121,10 @@ export interface TaskSeries {
   id: string
   title: string
   description: string | null
+
+  // Recurrence Type & Mechanism
+  recurrenceType?: RecurrenceType      // 'calendar' (default) | 'after_completion'
+  completionOffsetDays?: number        // if after_completion: N days after completion
 
   // Recurrence Rule
   frequency: 'daily' | 'weekly' | 'monthly' | 'yearly'
@@ -126,6 +135,7 @@ export interface TaskSeries {
   bySetPos: number | null              // 1=first, -1=last (e.g. byWeekday:[5], bySetPos:-1 = last Friday)
   anchorDate: Timestamp                // Anchor for interval calculation
   timezone: string                     // "Asia/Ho_Chi_Minh"
+  weekendPolicy?: WeekendPolicy        // 'exact' | 'shift_friday' | 'shift_monday'
 
   // Schedule (relationship between occurrence date and deadline)
   occurrenceTime: string | null        // "08:00" — time of day for occurrence
@@ -154,8 +164,9 @@ export interface TaskSeries {
   defaultTagIds: string[]
   defaultSubtasks: SubtaskTemplate[]
 
-  // Template
+  // Template & History
   templateId: string | null
+  previousSeriesId?: string | null     // If split from an earlier series
 
   // Audit
   createdBy: string
