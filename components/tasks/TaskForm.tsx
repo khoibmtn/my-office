@@ -3,12 +3,13 @@
 import React, { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { Timestamp } from 'firebase/firestore'
-import { X, Loader2, UserCheck, Users, Building, Building2, FileText, Folder } from 'lucide-react'
+import { X, Loader2, UserCheck, Users, Building, Building2, FileText, Folder, Link2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useStaff } from '@/hooks/useStaff'
 import { useDepartments } from '@/hooks/useDepartments'
 import { useTags } from '@/hooks/useTags'
 import { useTaskTemplates } from '@/hooks/useTaskTemplates'
+import { useTasks } from '@/hooks/useTasks'
 import { CoAssigneePicker } from '@/components/documents/CoAssigneePicker'
 import { CoDepartmentPicker } from '@/components/tasks/CoDepartmentPicker'
 import { useDocuments } from '@/hooks/useDocuments'
@@ -48,7 +49,10 @@ export function TaskForm({ actorId, actorName, onClose, dossierId, documentId }:
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([])
   const [selectedDocIds, setSelectedDocIds] = useState<string[]>(documentId ? [documentId] : [])
   const [selectedDossierIds, setSelectedDossierIds] = useState<string[]>(dossierId ? [dossierId] : [])
+  const [dependsOnTaskIds, setDependsOnTaskIds] = useState<string[]>([])
   const [saving, setSaving] = useState(false)
+
+  const { tasks: existingTasks } = useTasks({ view: 'all' })
 
   const activeStaff = useMemo(() => staffList.filter(s => s.isActive), [staffList])
 
@@ -84,6 +88,18 @@ export function TaskForm({ actorId, actorName, onClose, dossierId, documentId }:
         tagIds: selectedTagIds.length > 0 ? selectedTagIds : undefined,
         dossierIds: selectedDossierIds.length > 0 ? selectedDossierIds : undefined,
         documentIds: selectedDocIds.length > 0 ? selectedDocIds : undefined,
+      }
+
+      if (dependsOnTaskIds.length > 0) {
+        input.dependsOnTaskIds = dependsOnTaskIds
+        const uncompletedDeps = existingTasks.filter(
+          t => dependsOnTaskIds.includes(t.id) && t.status !== 'completed'
+        )
+        if (uncompletedDeps.length > 0) {
+          input.status = 'blocked'
+          input.blockedReason = 'dependency'
+          input.blockedByTaskIds = uncompletedDeps.map(t => t.id)
+        }
       }
 
       if (dueDate) {
@@ -368,6 +384,50 @@ export function TaskForm({ actorId, actorName, onClose, dossierId, documentId }:
                   <Folder className="w-3 h-3" />
                   {d?.name || id.slice(-6)}
                   <button type="button" onClick={() => setSelectedDossierIds(selectedDossierIds.filter(i => i !== id))} className="ml-0.5 hover:text-red-500">
+                    <X className="w-3 h-3" />
+                  </button>
+                </span>
+              )
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Prerequisite / Dependency Tasks */}
+      <div>
+        <label className="block text-xs font-medium text-slate-600 mb-1 flex items-center gap-1">
+          <Link2 className="w-3.5 h-3.5 text-indigo-500" />
+          Công việc tiên quyết (Phụ thuộc)
+          <span className="text-[11px] text-slate-400 font-normal">(Việc này sẽ bị chặn cho đến khi việc tiên quyết hoàn thành)</span>
+        </label>
+        {existingTasks.length > 0 ? (
+          <select
+            onChange={e => {
+              const v = e.target.value
+              if (v && !dependsOnTaskIds.includes(v)) setDependsOnTaskIds([...dependsOnTaskIds, v])
+              e.target.value = ''
+            }}
+            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white"
+          >
+            <option value="">+ Chọn công việc tiên quyết...</option>
+            {existingTasks.filter(t => !dependsOnTaskIds.includes(t.id)).map(t => (
+              <option key={t.id} value={t.id}>
+                {t.title} {t.status === 'completed' ? '— [Đã xong]' : '— [Chưa xong]'}
+              </option>
+            ))}
+          </select>
+        ) : (
+          <p className="text-xs text-slate-400 italic">Chưa có công việc nào khác</p>
+        )}
+        {dependsOnTaskIds.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 mt-1.5">
+            {dependsOnTaskIds.map(id => {
+              const t = existingTasks.find(item => item.id === id)
+              return (
+                <span key={id} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium bg-indigo-50 text-indigo-700 border border-indigo-200">
+                  <Link2 className="w-3 h-3" />
+                  {t?.title || id.slice(-6)}
+                  <button type="button" onClick={() => setDependsOnTaskIds(dependsOnTaskIds.filter(i => i !== id))} className="ml-0.5 hover:text-red-500">
                     <X className="w-3 h-3" />
                   </button>
                 </span>

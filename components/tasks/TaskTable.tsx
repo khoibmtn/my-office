@@ -1,12 +1,13 @@
 'use client'
 
-import React from 'react'
+import React, { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Calendar, User } from 'lucide-react'
 import type { Task } from '@/types/tasks'
 import { useStaff } from '@/hooks/useStaff'
 import { TaskStatusBadge } from './TaskStatusBadge'
 import { TaskPriorityBadge } from './TaskPriorityBadge'
+import { TaskBulkActions } from './TaskBulkActions'
 import { computeDerivedStates } from '@/lib/tasks/progress'
 
 interface TaskTableProps {
@@ -33,6 +34,7 @@ function daysUntil(timestamp: any): string {
 export function TaskTable({ tasks, emptyMessage = 'Không có công việc nào' }: TaskTableProps) {
   const router = useRouter()
   const { getStaffName } = useStaff()
+  const [selectedIds, setSelectedIds] = useState<string[]>([])
 
   if (tasks.length === 0) {
     return (
@@ -43,11 +45,42 @@ export function TaskTable({ tasks, emptyMessage = 'Không có công việc nào'
     )
   }
 
+  const allSelected = tasks.length > 0 && selectedIds.length === tasks.length
+  const isIndeterminate = selectedIds.length > 0 && selectedIds.length < tasks.length
+
+  const handleToggleSelectAll = () => {
+    if (allSelected) {
+      setSelectedIds([])
+    } else {
+      setSelectedIds(tasks.map(t => t.id))
+    }
+  }
+
+  const handleToggleSelectRow = (e: React.MouseEvent, id: string) => {
+    e.stopPropagation()
+    if (selectedIds.includes(id)) {
+      setSelectedIds(selectedIds.filter(i => i !== id))
+    } else {
+      setSelectedIds([...selectedIds, id])
+    }
+  }
+
   return (
-    <div className="overflow-x-auto">
+    <div className="overflow-x-auto relative">
       <table className="w-full text-sm">
         <thead>
-          <tr className="border-b border-slate-200 text-left">
+          <tr className="border-b border-slate-200 text-left bg-slate-50/50">
+            <th className="py-2.5 px-3 w-10 text-center">
+              <input
+                type="checkbox"
+                checked={allSelected}
+                ref={el => {
+                  if (el) el.indeterminate = isIndeterminate
+                }}
+                onChange={handleToggleSelectAll}
+                className="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500 cursor-pointer"
+              />
+            </th>
             <th className="py-2.5 px-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Công việc</th>
             <th className="py-2.5 px-3 text-xs font-semibold text-slate-500 uppercase tracking-wider w-32">Trạng thái</th>
             <th className="py-2.5 px-3 text-xs font-semibold text-slate-500 uppercase tracking-wider w-24">Ưu tiên</th>
@@ -67,12 +100,26 @@ export function TaskTable({ tasks, emptyMessage = 'Không có công việc nào'
 
             const assigneeDisplayName = task.assigneeName || (task.assigneeId ? getStaffName(task.assigneeId) : null)
 
+            const isSelected = selectedIds.includes(task.id)
+
             return (
               <tr
                 key={task.id}
                 onClick={() => router.push(`/tasks/${task.id}`)}
-                className="border-b border-slate-100 hover:bg-slate-50 cursor-pointer transition-colors group"
+                className={`border-b border-slate-100 cursor-pointer transition-colors group ${
+                  isSelected ? 'bg-blue-50/60 hover:bg-blue-50/80' : 'hover:bg-slate-50'
+                }`}
               >
+                {/* Select Checkbox */}
+                <td className="py-3 px-3 text-center" onClick={(e) => e.stopPropagation()}>
+                  <input
+                    type="checkbox"
+                    checked={isSelected}
+                    onChange={(e) => handleToggleSelectRow(e as any, task.id)}
+                    className="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500 cursor-pointer"
+                  />
+                </td>
+
                 {/* Title */}
                 <td className="py-3 px-3">
                   <div className="font-medium text-slate-900 group-hover:text-blue-600 transition-colors line-clamp-1">
@@ -147,6 +194,12 @@ export function TaskTable({ tasks, emptyMessage = 'Không có công việc nào'
           })}
         </tbody>
       </table>
+
+      {/* Floating Bulk Actions Bar */}
+      <TaskBulkActions
+        selectedIds={selectedIds}
+        onClearSelection={() => setSelectedIds([])}
+      />
     </div>
   )
 }

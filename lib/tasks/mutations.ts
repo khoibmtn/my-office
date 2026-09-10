@@ -13,11 +13,12 @@
 
 import {
   collection, doc, addDoc, updateDoc, serverTimestamp,
-  writeBatch, Timestamp,
+  writeBatch, Timestamp, arrayUnion,
 } from 'firebase/firestore'
 import { db } from '../firebase'
 import { computeIsClosed } from './validation'
 import { queueNotification } from './notifications'
+import { resolveBlockedDependencies } from './dependencies'
 import type {
   CreateTaskInput, UpdateTaskInput, TaskStatus, TaskPriority,
 } from '@/types/tasks'
@@ -213,6 +214,12 @@ export async function updateTaskStatus(
   })
 
   await batch.commit()
+
+  if (newStatus === 'completed') {
+    resolveBlockedDependencies(taskId, actorId, actorName).catch(err => {
+      console.error('Failed to resolve blocked dependencies:', err)
+    })
+  }
 }
 
 export async function updateSubtaskTitle(
@@ -292,3 +299,111 @@ export async function deleteTask(
     updatedAt: serverTimestamp(),
   })
 }
+
+export interface BulkTaskUpdates {
+  assigneeId?: string | null
+  assigneeName?: string | null
+  departmentId?: string | null
+  priority?: TaskPriority
+  status?: TaskStatus
+  dueDate?: any // Timestamp or Date or null
+  addDossierId?: string
+}
+
+export async function bulkUpdateTasks(
+  taskIds: string[],
+  updates: BulkTaskUpdates,
+  actorId: string,
+  actorName: string
+): Promise<void> {
+  if (!taskIds.length) return
+
+  // Chunk in batches of 200 tasks (400 ops max per batch, below Firestore 500 limit)
+  const CHUNK_SIZE = 200
+  for (let i = 0; i < taskIds.length; i += CHUNK_SIZE) {
+    const chunk = taskIds.slice(i, i + CHUNK_SIZE)
+    const batch = writeBatch(db())
+
+    for (const taskId of chunk) {
+      const taskRef = doc(db(), TASKS, taskId)
+      const data: Record<string, any> = {
+        updatedAt: serverTimestamp(),
+      }
+
+      if (updates.assigneeId !== undefined) {
+        data.assigneeId = updates.assigneeId
+        data.assigneeName = updates.assigneeName ?? null
+      }
+      if (updates.departmentId !== undefined) {
+        data.departmentId = updates.departmentId
+      }
+      if (updates.priority !== undefined) {
+        data.priority = updates.priority
+      }
+      if (updates.status !== undefined) {
+        data.status = updates.status
+        data.isClosed = updates.status === 'completed' || updates.status === 'cancelled'
+        if (updates.status === 'completed') {
+          data.completedAt = serverTimestamp()
+          data.progress = 100
+        }
+      }
+      if (updates.dueDate !== undefined) {
+        data.dueDate = updates.dueDate
+      }
+      if (updates.addDossierId) {
+        data.dossierIds = arrayUnion(updates.addDossierId)
+      }
+
+      batch.update(taskRef, data)
+
+      // Activity log
+      const activityRef = doc(collection(db(), TASK_ACTIVITIES))
+      batch.set(activityRef, {
+        taskId,
+        actorId,
+        actorName,
+        eventType: 'STATUS_CHANGED',
+        metadata: { bulk: true, ...updates },
+        createdAt: serverTimestamp(),
+      })
+    }
+
+    await batch.commit()
+  }
+}
+
+export async function bulkDeleteTasks(
+  taskIds: string[],
+  actorId: string,
+  actorName: string
+): Promise<void> {
+  if (!taskIds.length) return
+
+  const CHUNK_SIZE = 200
+  for (let i = 0; i < taskIds.length; i += CHUNK_SIZE) {
+    const chunk = taskIds.slice(i, i + CHUNK_SIZE)
+    const batch = writeBatch(db())
+
+    for (const taskId of chunk) {
+      const taskRef = doc(db(), TASKS, taskId)
+      batch.update(taskRef, {
+        deletedAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      })
+
+      const activityRef = doc(collection(db(), TASK_ACTIVITIES))
+      batch.set(activityRef, {
+        taskId,
+        actorId,
+        actorName,
+        eventType: 'DELETED',
+        metadata: { bulk: true },
+        createdAt: serverTimestamp(),
+      })
+    }
+
+    await batch.commit()
+  }
+}
+

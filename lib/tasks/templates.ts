@@ -64,6 +64,39 @@ export const DEFAULT_TEMPLATES: Omit<TaskTemplate, 'id' | 'createdAt' | 'updated
       { order: 4, title: 'Theo dõi tiến độ khắc phục tồn tại', description: null, defaultAssigneeRole: null, estimatedMinutes: 30, dependsOnStepOrder: 3 },
     ],
   },
+  {
+    name: 'Kiểm tra an toàn phẫu thuật (Surgical Safety Checklist)',
+    description: 'Bảng kiểm an toàn phẫu thuật theo chuẩn WHO (Sign In, Time Out, Sign Out)',
+    category: 'Ngoại khoa & GMHS',
+    defaults: {
+      priority: 'urgent',
+      departmentId: null,
+      tagIds: [],
+    },
+    createdBy: 'system',
+    steps: [
+      { order: 1, title: 'Sign In (Trước khi gây mê): Xác nhận danh tính NB, vị trí phẫu thuật, cam kết, kiểm tra máy mê & dị ứng', description: null, defaultAssigneeRole: 'Bác sĩ GMHS / Điều dưỡng', estimatedMinutes: 10, dependsOnStepOrder: null },
+      { order: 2, title: 'Time Out (Trước khi rạch da): Toàn kíp dừng lại xác nhận tên người bệnh, phẫu thuật viên, dự kiến thời gian & kháng sinh dự phòng', description: null, defaultAssigneeRole: 'Kíp mổ', estimatedMinutes: 5, dependsOnStepOrder: 1 },
+      { order: 3, title: 'Sign Out (Trước khi rời phòng mổ): Đếm gạc & dụng cụ, dán nhãn bệnh phẩm, ghi nhận sự cố & kế hoạch hồi tỉnh', description: null, defaultAssigneeRole: 'Điều dưỡng dụng cụ', estimatedMinutes: 10, dependsOnStepOrder: 2 },
+    ],
+  },
+  {
+    name: 'Báo cáo sự cố y khoa & hành động khắc phục',
+    description: 'Quy trình tiếp nhận, xác minh, đánh giá mức độ và xử lý sự cố y khoa theo Thông tư 43/BYT',
+    category: 'Quản lý chất lượng',
+    defaults: {
+      priority: 'high',
+      departmentId: null,
+      tagIds: [],
+    },
+    createdBy: 'system',
+    steps: [
+      { order: 1, title: 'Tiếp nhận phiếu báo cáo sự cố & ghi nhận thông tin ban đầu', description: null, defaultAssigneeRole: 'Tổ QLCL', estimatedMinutes: 20, dependsOnStepOrder: null },
+      { order: 2, title: 'Xác minh hiện trường, phỏng vấn nhân chứng & thu thập hồ sơ bệnh án', description: null, defaultAssigneeRole: 'Chuyên viên QLCL', estimatedMinutes: 60, dependsOnStepOrder: 1 },
+      { order: 3, title: 'Họp hội đồng chuyên môn phân tích nguyên nhân gốc rễ (RCA)', description: null, defaultAssigneeRole: 'Hội đồng chuyên môn', estimatedMinutes: 90, dependsOnStepOrder: 2 },
+      { order: 4, title: 'Ban hành kết luận, biện pháp khắc phục & báo cáo Ban Giám đốc', description: null, defaultAssigneeRole: 'Trưởng phòng KHNV', estimatedMinutes: 45, dependsOnStepOrder: 3 },
+    ],
+  },
 ]
 
 export function queryActiveTemplates(): Query<DocumentData> {

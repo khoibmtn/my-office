@@ -1,13 +1,13 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
   ArrowLeft, CheckCircle2, Ban, XCircle, Trash2,
   MoreHorizontal, Play, RefreshCw, Calendar, User,
   Loader2, FileText, Folder, Edit3, History,
-  Building, Building2, Users,
+  Building, Building2, Users, AlertTriangle, Link2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useStaff } from '@/hooks/useStaff'
@@ -24,6 +24,7 @@ import { isValidTransition } from '@/lib/tasks/validation'
 import { canEditTask, canChangeStatus, canDeleteTask, canAddComment, canAddSubtask } from '@/lib/tasks/permissions'
 import { updateTaskStatus, deleteTask } from '@/lib/tasks/mutations'
 import { deleteRecurringTaskScoped, generateNextCompletionOccurrence, type RecurrenceMutationScope } from '@/lib/tasks/series'
+import { getTasksByIds } from '@/lib/tasks/dependencies'
 import type { Task, TaskComment, TaskActivity, TaskStatus } from '@/types/tasks'
 import { TASK_STATUS_LABELS } from '@/lib/tasks/constants'
 
@@ -56,6 +57,15 @@ export function TaskDetail({
   const [showActions, setShowActions] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
   const [showDeleteScopeModal, setShowDeleteScopeModal] = useState(false)
+  const [depTasks, setDepTasks] = useState<Task[]>([])
+
+  useEffect(() => {
+    if (task.dependsOnTaskIds?.length) {
+      getTasksByIds(task.dependsOnTaskIds).then(setDepTasks).catch(console.error)
+    } else {
+      setDepTasks([])
+    }
+  }, [task.dependsOnTaskIds])
 
   const userCtx = { id: actorId, role: actorRole, departmentIds: actorDepartmentIds }
   const taskCtx = {
@@ -226,6 +236,59 @@ export function TaskDetail({
       <div className="flex-1 flex overflow-hidden">
         {/* Left: Info panel */}
         <div className="flex-1 overflow-y-auto p-4 space-y-5 border-r border-slate-100">
+          {/* Dependency Alert Banner (when blocked) */}
+          {task.status === 'blocked' && task.blockedReason === 'dependency' && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded-xl flex items-start gap-2.5 shadow-2xs">
+              <AlertTriangle className="w-4 h-4 text-red-600 mt-0.5 shrink-0" />
+              <div className="text-xs">
+                <p className="font-bold text-red-800">
+                  Công việc đang bị chặn bởi các công việc tiên quyết chưa hoàn thành:
+                </p>
+                <div className="flex flex-wrap gap-1.5 mt-1.5">
+                  {depTasks.map(dt => (
+                    <Link
+                      key={dt.id}
+                      href={`/tasks/${dt.id}`}
+                      className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-medium border transition-colors ${
+                        dt.status === 'completed'
+                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                          : 'bg-red-100 text-red-800 border-red-300 hover:bg-red-200'
+                      }`}
+                    >
+                      <span className="truncate max-w-[200px]">{dt.title}</span>
+                      <TaskStatusBadge status={dt.status} size="sm" />
+                    </Link>
+                  ))}
+                </div>
+                <p className="text-[10px] text-red-600 mt-1 italic">
+                  * Hệ thống sẽ tự động mở khóa công việc này ngay khi tất cả công việc phụ thuộc trên được hoàn thành.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Dependency List (when not blocked) */}
+          {task.status !== 'blocked' && depTasks.length > 0 && (
+            <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl">
+              <p className="text-xs font-semibold text-slate-700 flex items-center gap-1.5 mb-1.5">
+                <Link2 className="w-3.5 h-3.5 text-indigo-500" />
+                Công việc tiên quyết ({depTasks.length}):
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {depTasks.map(dt => (
+                  <Link
+                    key={dt.id}
+                    href={`/tasks/${dt.id}`}
+                    className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-medium bg-white text-slate-700 border border-slate-200 hover:border-blue-300 hover:text-blue-600 transition-colors"
+                  >
+                    <span className="truncate max-w-[200px]">{dt.title}</span>
+                    <TaskStatusBadge status={dt.status} size="sm" />
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Description */}
           {task.description && (
             <div>

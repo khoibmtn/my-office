@@ -1,7 +1,12 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { X, Copy, Check, ExternalLink, FileText, Paperclip, Download, FileSpreadsheet, FileImage, FileArchive, File as FileGeneric, Send } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import {
+  X, Copy, Check, ExternalLink, FileText, Paperclip, Download,
+  FileSpreadsheet, FileImage, FileArchive, File as FileGeneric, Send,
+  CheckSquare, Plus, User as UserIcon,
+} from 'lucide-react'
 import { doc as firestoreDoc, getDoc } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { getDocument, updateDocument } from '@/lib/firestore'
@@ -10,6 +15,9 @@ import { useAuth } from '@/hooks/useAuth'
 import { usePermissions } from '@/hooks/usePermissions'
 import { useRole } from '@/hooks/useRole'
 import { useStaff } from '@/hooks/useStaff'
+import { useTasks } from '@/hooks/useTasks'
+import { TaskForm } from '@/components/tasks/TaskForm'
+import { TaskStatusBadge } from '@/components/tasks/TaskStatusBadge'
 import { QuickDossierTagPicker } from './QuickDossierTagPicker'
 import { CoAssigneePicker } from './CoAssigneePicker'
 import type { Document } from '@/types'
@@ -67,9 +75,10 @@ interface DocumentModalProps {
 }
 
 export function DocumentModal({ docId, onClose }: DocumentModalProps) {
+  const router = useRouter()
   const { user } = useAuth()
   const perms = usePermissions()
-  const { staffId: currentStaffId, isGuest } = useRole()
+  const { staffId: currentStaffId, staffName, isGuest } = useRole()
   const { staff, getStaffName } = useStaff()
   const [doc, setDoc] = useState<Document | null>(null)
   const [loading, setLoading] = useState(true)
@@ -77,6 +86,9 @@ export function DocumentModal({ docId, onClose }: DocumentModalProps) {
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const [copiedAll, setCopiedAll] = useState(false)
   const [staffList, setStaffList] = useState<{name: string}[]>([])
+  const [showTaskForm, setShowTaskForm] = useState(false)
+
+  const { tasks: linkedTasks } = useTasks({ view: 'document', documentId: docId || '' })
 
   useEffect(() => {
     getDoc(firestoreDoc(db(), 'settings', 'general')).then(snap => {
@@ -428,6 +440,55 @@ export function DocumentModal({ docId, onClose }: DocumentModalProps) {
                   onUpdate={(fields) => setDoc(prev => prev ? { ...prev, ...fields } : prev)}
                   readOnly={isGuest || !perms.canEditDocument}
                 />
+
+                {/* Linked Tasks Section */}
+                <div className="mt-3 pt-3 border-t border-slate-200">
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="flex items-center gap-1.5 text-xs font-bold text-slate-800 uppercase tracking-wider">
+                      <CheckSquare className="w-3.5 h-3.5 text-blue-600" />
+                      <span>Công việc liên quan ({linkedTasks.length})</span>
+                    </label>
+                    {!isGuest && (
+                      <button
+                        type="button"
+                        onClick={() => setShowTaskForm(true)}
+                        className="inline-flex items-center gap-1 text-[11px] font-semibold text-blue-600 hover:text-blue-700 hover:bg-blue-50 px-2 py-0.5 rounded-md transition-colors"
+                      >
+                        <Plus className="w-3 h-3" />
+                        Giao việc từ văn bản
+                      </button>
+                    )}
+                  </div>
+
+                  {linkedTasks.length > 0 ? (
+                    <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
+                      {linkedTasks.map(task => (
+                        <div
+                          key={task.id}
+                          onClick={() => {
+                            onClose()
+                            router.push(`/tasks/${task.id}`)
+                          }}
+                          className="flex items-center justify-between p-2 rounded-lg bg-slate-50 hover:bg-blue-50/60 border border-slate-200/80 cursor-pointer transition-colors group"
+                        >
+                          <div className="min-w-0 flex-1 pr-2">
+                            <p className="text-xs font-medium text-slate-800 group-hover:text-blue-600 truncate">
+                              {task.title}
+                            </p>
+                            {task.assigneeName && (
+                              <span className="text-[10px] text-slate-500 flex items-center gap-1 mt-0.5">
+                                <UserIcon className="w-2.5 h-2.5" /> {task.assigneeName}
+                              </span>
+                            )}
+                          </div>
+                          <TaskStatusBadge status={task.status} />
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-slate-400 italic">Chưa có công việc nào gắn với văn bản này</p>
+                  )}
+                </div>
               </div>
 
               {/* File list */}
@@ -744,9 +805,21 @@ export function DocumentModal({ docId, onClose }: DocumentModalProps) {
           align-items: center;
           justify-content: center;
           color: #94a3b8;
-          font-size: 14px;
-        }
       `}</style>
+
+      {/* Create Task Modal */}
+      {showTaskForm && doc && (
+        <div className="fixed inset-0 z-60 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-200 p-6">
+            <TaskForm
+              actorId={currentStaffId || 'unknown'}
+              actorName={staffName || 'Admin'}
+              documentId={doc.id}
+              onClose={() => setShowTaskForm(false)}
+            />
+          </div>
+        </div>
+      )}
     </div>
   )
 }
