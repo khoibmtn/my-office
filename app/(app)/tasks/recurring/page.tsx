@@ -168,34 +168,67 @@ export default function RecurringPage() {
                       <span className={`text-[11px] px-2.5 py-0.5 rounded-full font-semibold ${STATUS_COLORS[series.status]}`}>
                         {series.status === 'active' ? 'Đang hoạt động' : series.status === 'paused' ? 'Tạm dừng' : 'Đã kết thúc'}
                       </span>
+                      {series.recurrenceType === 'after_completion' ? (
+                        <span className="text-[11px] bg-purple-50 text-purple-700 font-semibold px-2 py-0.5 rounded-md border border-purple-200 flex items-center gap-1">
+                          <CheckCircle2 className="w-3 h-3 text-purple-600" />
+                          Lặp sau hoàn thành (+{series.completionOffsetDays || 1} ngày)
+                        </span>
+                      ) : (
+                        <span className="text-[11px] bg-blue-50 text-blue-700 font-semibold px-2 py-0.5 rounded-md border border-blue-200 flex items-center gap-1">
+                          <Calendar className="w-3 h-3 text-blue-600" />
+                          Theo lịch cố định
+                        </span>
+                      )}
                       {series.occurrenceTime && (
                         <span className="text-[11px] bg-slate-100 text-slate-700 font-medium px-2 py-0.5 rounded-md flex items-center gap-1">
                           <Clock className="w-3 h-3 text-slate-400" />
                           {series.occurrenceTime}
                         </span>
                       )}
+                      {series.defaultSubtasks && series.defaultSubtasks.length > 0 && (
+                        <span className="text-[11px] bg-emerald-50 text-emerald-700 font-semibold px-2 py-0.5 rounded-md border border-emerald-200 flex items-center gap-1">
+                          <ListTodo className="w-3 h-3 text-emerald-600" />
+                          {series.defaultSubtasks.length} việc con
+                        </span>
+                      )}
                     </div>
 
                     {/* Recurrence rules summary */}
                     <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-slate-600 mt-2">
-                      <span className="flex items-center gap-1 font-medium text-blue-700 bg-blue-50/80 px-2 py-0.5 rounded border border-blue-100">
-                        <RefreshCw className="w-3 h-3" />
-                        {FREQ_LABELS[series.frequency || 'weekly']}
-                        {series.interval > 1 && ` (${series.interval} ${series.frequency === 'daily' ? 'ngày' : series.frequency === 'weekly' ? 'tuần' : series.frequency === 'monthly' ? 'tháng' : 'năm'}/lần)`}
-                      </span>
-
-                      {series.byWeekday && series.byWeekday.length > 0 && (
-                        <span className="text-slate-700">
-                          Thứ: <strong>{series.byWeekday.map(wd => {
-                            const labels: Record<number, string> = { 1: 'T2', 2: 'T3', 3: 'T4', 4: 'T5', 5: 'T6', 6: 'T7', 7: 'CN' }
-                            return labels[wd]
-                          }).join(', ')}</strong>
+                      {series.recurrenceType !== 'after_completion' && (
+                        <span className="flex items-center gap-1 font-medium text-blue-700 bg-blue-50/80 px-2 py-0.5 rounded border border-blue-100">
+                          <RefreshCw className="w-3 h-3" />
+                          {FREQ_LABELS[series.frequency || 'weekly']}
+                          {series.interval > 1 && ` (${series.interval} ${series.frequency === 'daily' ? 'ngày' : series.frequency === 'weekly' ? 'tuần' : series.frequency === 'monthly' ? 'tháng' : 'năm'}/lần)`}
                         </span>
                       )}
 
-                      {series.byMonthDay && series.byMonthDay.length > 0 && (
-                        <span className="text-slate-700">
-                          Ngày trong tháng: <strong>{series.byMonthDay.includes(-1) ? 'Ngày cuối tháng' : series.byMonthDay.join(', ')}</strong>
+                      {series.bySetPos !== null && series.bySetPos !== undefined ? (
+                        <span className="font-semibold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-200">
+                          RFC 5545: Thứ {series.byWeekday?.map(wd => ({ 1: 'Hai', 2: 'Ba', 3: 'Tư', 4: 'Năm', 5: 'Sáu', 6: 'Bảy', 7: 'CN' }[wd] || wd)).join(', ')} {series.bySetPos === 1 ? 'đầu tiên' : series.bySetPos === -1 ? 'cuối cùng' : `thứ ${series.bySetPos}`} của tháng
+                        </span>
+                      ) : (
+                        <>
+                          {series.byWeekday && series.byWeekday.length > 0 && (
+                            <span className="text-slate-700">
+                              Thứ: <strong>{series.byWeekday.map(wd => {
+                                const labels: Record<number, string> = { 1: 'T2', 2: 'T3', 3: 'T4', 4: 'T5', 5: 'T6', 6: 'T7', 7: 'CN' }
+                                return labels[wd]
+                              }).join(', ')}</strong>
+                            </span>
+                          )}
+
+                          {series.byMonthDay && series.byMonthDay.length > 0 && (
+                            <span className="text-slate-700">
+                              Ngày trong tháng: <strong>{series.byMonthDay.includes(-1) ? 'Ngày cuối tháng' : series.byMonthDay.join(', ')}</strong>
+                            </span>
+                          )}
+                        </>
+                      )}
+
+                      {series.weekendPolicy && series.weekendPolicy !== 'exact' && (
+                        <span className="text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200 font-medium">
+                          {series.weekendPolicy === 'shift_friday' ? 'Lùi về Thứ 6 nếu trùng cuối tuần' : 'Dời sang Thứ 2 nếu trùng cuối tuần'}
                         </span>
                       )}
 
