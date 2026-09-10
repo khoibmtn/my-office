@@ -2,11 +2,15 @@
 
 import React, { useState, useMemo } from "react"
 import { Timestamp } from "firebase/firestore"
-import { X, Loader2, Save } from "lucide-react"
+import { X, Loader2, Save, UserCheck, Users, Building, Building2, FileText, Folder } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useStaff } from "@/hooks/useStaff"
 import { useDepartments } from "@/hooks/useDepartments"
 import { useTags } from "@/hooks/useTags"
+import { useDocuments } from "@/hooks/useDocuments"
+import { useDossiers } from "@/hooks/useDossiers"
+import { CoAssigneePicker } from "@/components/documents/CoAssigneePicker"
+import { CoDepartmentPicker } from "@/components/tasks/CoDepartmentPicker"
 import { updateTask } from "@/lib/tasks/mutations"
 import { updateRecurringTaskScoped, type RecurrenceMutationScope } from "@/lib/tasks/series"
 import { RecurringScopeModal } from "./RecurringScopeModal"
@@ -25,6 +29,8 @@ export function TaskEditModal({ task, actorId, actorName, onClose, onSuccess }: 
   const { staff: staffList } = useStaff()
   const { departments } = useDepartments()
   const { tags } = useTags()
+  const { documents } = useDocuments()
+  const { dossiers } = useDossiers()
 
   const [title, setTitle] = useState(task.title || "")
   const [description, setDescription] = useState(task.description || "")
@@ -35,8 +41,12 @@ export function TaskEditModal({ task, actorId, actorName, onClose, onSuccess }: 
     return d.toISOString().split("T")[0]
   })
   const [assigneeId, setAssigneeId] = useState(task.assigneeId || "")
+  const [collaboratorIds, setCollaboratorIds] = useState<string[]>(task.collaboratorIds || [])
   const [departmentId, setDepartmentId] = useState(task.departmentId || "")
+  const [cooperatingDepartmentIds, setCooperatingDepartmentIds] = useState<string[]>(task.cooperatingDepartmentIds || [])
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>(task.tagIds || [])
+  const [selectedDocIds, setSelectedDocIds] = useState<string[]>(task.documentIds || [])
+  const [selectedDossierIds, setSelectedDossierIds] = useState<string[]>(task.dossierIds || [])
   const [saving, setSaving] = useState(false)
   const [showScopeModal, setShowScopeModal] = useState(false)
   const [pendingFields, setPendingFields] = useState<any>(null)
@@ -51,8 +61,12 @@ export function TaskEditModal({ task, actorId, actorName, onClose, onSuccess }: 
       priority,
       assigneeId: assigneeId || null,
       assigneeName: chosenStaff ? (chosenStaff.shortName || chosenStaff.fullName) : null,
+      collaboratorIds,
       departmentId: departmentId || null,
+      cooperatingDepartmentIds,
       tagIds: selectedTagIds,
+      documentIds: selectedDocIds,
+      dossierIds: selectedDossierIds,
     }
 
     if (dueDate) {
@@ -168,36 +182,163 @@ export function TaskEditModal({ task, actorId, actorName, onClose, onSuccess }: 
             </div>
           </div>
 
-          {/* Assignee + Department */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Người xử lý</label>
-              <select
-                value={assigneeId}
-                onChange={(e) => setAssigneeId(e.target.value)}
-                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white"
-              >
-                <option value="">Chưa giao</option>
-                {activeStaff.map(s => (
-                  <option key={s.id} value={s.id}>{s.shortName} — {s.title}</option>
-                ))}
-              </select>
-            </div>
-            {departments.length > 0 && (
+          {/* Assignment & Department: Giao chính & Phối hợp (Parity with Documents) */}
+          <div className="p-3 bg-slate-50/80 rounded-xl border border-slate-200/80 space-y-3">
+            {/* Staff Assignment */}
+            <div className="space-y-2">
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Phòng ban</label>
+                <label className="block text-xs font-semibold text-slate-700 mb-1 flex items-center gap-1">
+                  <UserCheck className="w-3.5 h-3.5 text-blue-500" />
+                  Người xử lý chính
+                </label>
                 <select
-                  value={departmentId}
-                  onChange={(e) => setDepartmentId(e.target.value)}
+                  value={assigneeId}
+                  onChange={(e) => {
+                    const newId = e.target.value
+                    setAssigneeId(newId)
+                    if (newId && collaboratorIds.includes(newId)) {
+                      setCollaboratorIds(collaboratorIds.filter(id => id !== newId))
+                    }
+                  }}
                   className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white"
                 >
-                  <option value="">Chung</option>
-                  {departments.map(d => (
-                    <option key={d.id} value={d.id}>{d.name}</option>
+                  <option value="">Chưa giao</option>
+                  {activeStaff.map(s => (
+                    <option key={s.id} value={s.id}>{s.shortName} — {s.title}</option>
                   ))}
                 </select>
               </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1 flex items-center gap-1">
+                  <Users className="w-3.5 h-3.5 text-blue-500" />
+                  Người phối hợp <span className="text-[11px] text-slate-400 font-normal">(Nhiều người, cùng theo dõi và xử lý)</span>
+                </label>
+                <CoAssigneePicker
+                  allStaff={staffList}
+                  mainAssigneeId={assigneeId}
+                  value={collaboratorIds}
+                  onChange={setCollaboratorIds}
+                  placeholder="Tìm và gắp người phối hợp..."
+                />
+              </div>
+            </div>
+
+            {/* Department Assignment */}
+            {departments.length > 0 && (
+              <div className="space-y-2 pt-2 border-t border-slate-200/60">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1 flex items-center gap-1">
+                    <Building className="w-3.5 h-3.5 text-indigo-500" />
+                    Đơn vị chủ trì
+                  </label>
+                  <select
+                    value={departmentId}
+                    onChange={(e) => {
+                      const newDept = e.target.value
+                      setDepartmentId(newDept)
+                      if (newDept && cooperatingDepartmentIds.includes(newDept)) {
+                        setCooperatingDepartmentIds(cooperatingDepartmentIds.filter(id => id !== newDept))
+                      }
+                    }}
+                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white"
+                  >
+                    <option value="">Không chọn phòng ban</option>
+                    {departments.map(d => (
+                      <option key={d.id} value={d.id}>{d.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1 flex items-center gap-1">
+                    <Building2 className="w-3.5 h-3.5 text-indigo-500" />
+                    Đơn vị phối hợp <span className="text-[11px] text-slate-400 font-normal">(Nhiều phòng ban cùng tham gia)</span>
+                  </label>
+                  <CoDepartmentPicker
+                    departments={departments}
+                    mainDepartmentId={departmentId}
+                    value={cooperatingDepartmentIds}
+                    onChange={setCooperatingDepartmentIds}
+                    placeholder="Tìm và chọn các đơn vị phối hợp..."
+                  />
+                </div>
+              </div>
             )}
+          </div>
+
+          {/* Document & Dossier links */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-slate-600 mb-1 flex items-center gap-1">
+                <FileText className="w-3.5 h-3.5 text-blue-500" />
+                Văn bản liên quan
+              </label>
+              <select
+                onChange={e => {
+                  const v = e.target.value
+                  if (v && !selectedDocIds.includes(v)) setSelectedDocIds([...selectedDocIds, v])
+                  e.target.value = ''
+                }}
+                className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs outline-none bg-white"
+              >
+                <option value="">+ Chọn văn bản...</option>
+                {documents.filter(d => !selectedDocIds.includes(d.id)).map(d => (
+                  <option key={d.id} value={d.id}>{d.title || d.docNumber || d.id}</option>
+                ))}
+              </select>
+              {selectedDocIds.length > 0 && (
+                <div className="flex flex-wrap gap-1 mt-1">
+                  {selectedDocIds.map(id => {
+                    const d = documents.find(doc => doc.id === id)
+                    return (
+                      <span key={id} className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-50 text-blue-700 border border-blue-200">
+                        <FileText className="w-2.5 h-2.5" />
+                        {d?.title || id.slice(-6)}
+                        <button type="button" onClick={() => setSelectedDocIds(selectedDocIds.filter(i => i !== id))} className="hover:text-red-500">
+                          <X className="w-2.5 h-2.5" />
+                        </button>
+                      </span>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-slate-600 mb-1 flex items-center gap-1">
+                <Folder className="w-3.5 h-3.5 text-amber-500" />
+                Hồ sơ liên quan
+              </label>
+              <select
+                onChange={e => {
+                  const v = e.target.value
+                  if (v && !selectedDossierIds.includes(v)) setSelectedDossierIds([...selectedDossierIds, v])
+                  e.target.value = ''
+                }}
+                className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs outline-none bg-white"
+              >
+                <option value="">+ Chọn hồ sơ...</option>
+                {dossiers.filter(d => !selectedDossierIds.includes(d.id)).map(d => (
+                  <option key={d.id} value={d.id}>{d?.name}</option>
+                ))}
+              </select>
+              {selectedDossierIds.length > 0 && (
+                <div className="flex flex-wrap gap-1 mt-1">
+                  {selectedDossierIds.map(id => {
+                    const d = dossiers.find(dos => dos.id === id)
+                    return (
+                      <span key={id} className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-50 text-amber-700 border border-amber-200">
+                        <Folder className="w-2.5 h-2.5" />
+                        {d?.name || id.slice(-6)}
+                        <button type="button" onClick={() => setSelectedDossierIds(selectedDossierIds.filter(i => i !== id))} className="hover:text-red-500">
+                          <X className="w-2.5 h-2.5" />
+                        </button>
+                      </span>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Action buttons */}

@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
-import { Plus, ListChecks, LayoutGrid, Loader2 } from 'lucide-react'
+import { Plus, ListChecks, LayoutGrid, Calendar, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useTasks } from '@/hooks/useTasks'
 import { useRole } from '@/hooks/useRole'
@@ -12,6 +12,8 @@ import { useTaskStats } from '@/hooks/useTaskStats'
 import { TaskTable } from '@/components/tasks/TaskTable'
 import { TaskFilters, DEFAULT_FILTERS, type TaskFilterValues } from '@/components/tasks/TaskFilters'
 import { TaskForm } from '@/components/tasks/TaskForm'
+import { KanbanBoard } from '@/components/tasks/KanbanBoard'
+import { TaskCalendar } from '@/components/tasks/TaskCalendar'
 import { TASK_STATUS_LABELS } from '@/lib/tasks/constants'
 
 export default function TasksPage() {
@@ -22,6 +24,7 @@ export default function TasksPage() {
   const [activeTab, setActiveTab] = useState<'all' | 'my' | 'created' | 'unassigned'>('all')
   const [filters, setFilters] = useState<TaskFilterValues>(DEFAULT_FILTERS)
   const [showForm, setShowForm] = useState(false)
+  const [viewMode, setViewMode] = useState<'list' | 'kanban' | 'calendar'>('list')
 
   const { tasks: allTasks, loading } = useTasks({ view: 'all' })
 
@@ -113,6 +116,34 @@ export default function TasksPage() {
         </div>
 
         <div className="flex items-center gap-2">
+          {/* View mode toggle */}
+          <div className="inline-flex bg-slate-100 p-0.5 rounded-lg border border-slate-200">
+            <button
+              onClick={() => setViewMode('list')}
+              className={`px-2.5 py-1 rounded-md text-xs font-medium transition-all flex items-center gap-1 ${
+                viewMode === 'list' ? 'bg-white text-blue-700 shadow-xs' : 'text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              <ListChecks className="w-3.5 h-3.5" /> Danh sách
+            </button>
+            <button
+              onClick={() => setViewMode('kanban')}
+              className={`px-2.5 py-1 rounded-md text-xs font-medium transition-all flex items-center gap-1 ${
+                viewMode === 'kanban' ? 'bg-white text-blue-700 shadow-xs' : 'text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              <LayoutGrid className="w-3.5 h-3.5" /> Kanban
+            </button>
+            <button
+              onClick={() => setViewMode('calendar')}
+              className={`px-2.5 py-1 rounded-md text-xs font-medium transition-all flex items-center gap-1 ${
+                viewMode === 'calendar' ? 'bg-white text-blue-700 shadow-xs' : 'text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              <Calendar className="w-3.5 h-3.5" /> Lịch
+            </button>
+          </div>
+
           <Button size="sm" onClick={() => setShowForm(true)} className="bg-blue-600 hover:bg-blue-700 text-white">
             <Plus className="w-4 h-4 mr-1" />
             Tạo mới
@@ -171,19 +202,33 @@ export default function TasksPage() {
         departments={departments}
       />
 
-      {/* Task list */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-2xs">
-        <TaskTable
+      {/* Task views */}
+      {viewMode === 'list' && (
+        <div className="bg-white rounded-xl border border-slate-200 shadow-2xs">
+          <TaskTable
+            tasks={filteredTasks}
+            emptyMessage={
+              activeTab === 'my'
+                ? 'Không có công việc nào được giao cho bạn'
+                : activeTab === 'created'
+                ? 'Bạn chưa giao công việc nào'
+                : 'Chưa có công việc nào trong hệ thống'
+            }
+          />
+        </div>
+      )}
+
+      {viewMode === 'kanban' && (
+        <KanbanBoard
           tasks={filteredTasks}
-          emptyMessage={
-            activeTab === 'my'
-              ? 'Không có công việc nào được giao cho bạn'
-              : activeTab === 'created'
-              ? 'Bạn chưa giao công việc nào'
-              : 'Chưa có công việc nào trong hệ thống'
-          }
+          actorId={staffId || 'unknown'}
+          actorName={staffName || 'Unknown'}
         />
-      </div>
+      )}
+
+      {viewMode === 'calendar' && (
+        <TaskCalendar tasks={filteredTasks} />
+      )}
 
       {/* Create form modal */}
       {showForm && (

@@ -4,9 +4,9 @@ import React, { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
-  RefreshCw, Plus, Pause, Play, Square, Calendar,
+  RefreshCw, Plus, Pause, Play, Calendar,
   Clock, User, Loader2, Sparkles, ChevronDown, ChevronRight,
-  ArrowUpRight, CheckCircle2, ListTodo, AlertCircle
+  ArrowUpRight, CheckCircle2, ListTodo, AlertCircle, Edit3, StopCircle
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useRole } from '@/hooks/useRole'
@@ -46,6 +46,8 @@ export default function RecurringPage() {
   const { getStaffName } = useStaff()
 
   const [showForm, setShowForm] = useState(false)
+  const [editingSeries, setEditingSeries] = useState<TaskSeries | null>(null)
+  const [seriesToEnd, setSeriesToEnd] = useState<TaskSeries | null>(null)
   const [actionLoading, setActionLoading] = useState<string | null>(null)
   const [generatingSeriesId, setGeneratingSeriesId] = useState<string | null>(null)
   const [expandedSeries, setExpandedSeries] = useState<Record<string, boolean>>({})
@@ -93,18 +95,41 @@ export default function RecurringPage() {
 
   const handlePause = async (id: string) => {
     setActionLoading(id)
-    try { await pauseTaskSeries(id) } finally { setActionLoading(null) }
+    try {
+      await pauseTaskSeries(id)
+    } catch (err: any) {
+      console.error('Pause error:', err)
+      alert(err?.message || 'Không thể tạm dừng chuỗi')
+    } finally {
+      setActionLoading(null)
+    }
   }
 
   const handleResume = async (id: string) => {
     setActionLoading(id)
-    try { await resumeTaskSeries(id) } finally { setActionLoading(null) }
+    try {
+      await resumeTaskSeries(id)
+    } catch (err: any) {
+      console.error('Resume error:', err)
+      alert(err?.message || 'Không thể kích hoạt lại chuỗi')
+    } finally {
+      setActionLoading(null)
+    }
   }
 
-  const handleEnd = async (id: string) => {
-    if (!confirm('Kết thúc chuỗi định kỳ này?')) return
+  const confirmEnd = async () => {
+    if (!seriesToEnd) return
+    const id = seriesToEnd.id
     setActionLoading(id)
-    try { await endTaskSeries(id) } finally { setActionLoading(null) }
+    try {
+      await endTaskSeries(id)
+      setSeriesToEnd(null)
+    } catch (err: any) {
+      console.error('End series error:', err)
+      alert(err?.message || 'Không thể kết thúc chuỗi định kỳ')
+    } finally {
+      setActionLoading(null)
+    }
   }
 
   if (seriesLoading || tasksLoading) {
@@ -252,6 +277,18 @@ export default function RecurringPage() {
 
                   {/* Actions & Trigger Button */}
                   <div className="flex items-center gap-2 self-start shrink-0 flex-wrap">
+                    {/* Edit Series button */}
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setEditingSeries(series)}
+                      className="h-8 px-2.5 text-xs text-slate-700 hover:text-blue-600 hover:bg-blue-50 border-slate-200 font-medium"
+                      title="Chỉnh sửa cấu hình chuỗi công việc định kỳ này"
+                    >
+                      <Edit3 className="w-3.5 h-3.5 mr-1 text-slate-500" />
+                      Sửa chuỗi
+                    </Button>
+
                     {/* Instant Occurrence Generator Button */}
                     <Button
                       size="sm"
@@ -278,7 +315,7 @@ export default function RecurringPage() {
                             <button
                               onClick={() => handlePause(series.id)}
                               className="p-1.5 rounded-lg hover:bg-amber-50 text-slate-500 hover:text-amber-600 transition-colors"
-                              title="Tạm dừng chuỗi"
+                              title="Tạm dừng chuỗi định kỳ"
                             >
                               <Pause className="w-4 h-4" />
                             </button>
@@ -287,18 +324,18 @@ export default function RecurringPage() {
                             <button
                               onClick={() => handleResume(series.id)}
                               className="p-1.5 rounded-lg hover:bg-emerald-50 text-slate-500 hover:text-emerald-600 transition-colors"
-                              title="Kích hoạt lại chuỗi"
+                              title="Kích hoạt lại chuỗi định kỳ"
                             >
                               <Play className="w-4 h-4" />
                             </button>
                           )}
                           {series.status !== 'ended' && (
                             <button
-                              onClick={() => handleEnd(series.id)}
-                              className="p-1.5 rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-500 transition-colors"
-                              title="Kết thúc chuỗi"
+                              onClick={() => setSeriesToEnd(series)}
+                              className="p-1.5 rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-600 transition-colors"
+                              title="Kết thúc chuỗi (Dừng tự động sinh)"
                             >
-                              <Square className="w-3.5 h-3.5" />
+                              <StopCircle className="w-4 h-4" />
                             </button>
                           )}
                         </>
@@ -412,12 +449,61 @@ export default function RecurringPage() {
       {/* Create form modal */}
       {showForm && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setShowForm(false)}>
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto p-6" onClick={e => e.stopPropagation()}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6" onClick={e => e.stopPropagation()}>
             <SeriesForm
               actorId={staffId || 'unknown'}
               actorName={staffName || 'Unknown'}
               onClose={() => setShowForm(false)}
             />
+          </div>
+        </div>
+      )}
+
+      {/* Edit form modal */}
+      {editingSeries && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setEditingSeries(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6" onClick={e => e.stopPropagation()}>
+            <SeriesForm
+              series={editingSeries}
+              actorId={staffId || 'unknown'}
+              actorName={staffName || 'Unknown'}
+              onClose={() => setEditingSeries(null)}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* End series confirmation modal */}
+      {seriesToEnd && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setSeriesToEnd(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-4 animate-in fade-in zoom-in-95 duration-150" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center shrink-0 text-red-600">
+                <AlertCircle className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-slate-900">Kết thúc chuỗi định kỳ?</h3>
+                <p className="text-xs text-slate-500 font-medium truncate max-w-[280px]">{seriesToEnd.title}</p>
+              </div>
+            </div>
+            <p className="text-xs text-slate-600 leading-relaxed bg-slate-50 p-3 rounded-xl border border-slate-200/80">
+              Hệ thống sẽ <strong>dừng hoàn toàn việc tự động sinh</strong> các kỳ công việc tiếp theo của chuỗi này. Các công việc và dữ liệu đã sinh trước đó vẫn được lưu trữ nguyên vẹn.
+            </p>
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+              <Button type="button" variant="outline" size="sm" onClick={() => setSeriesToEnd(null)} disabled={actionLoading === seriesToEnd.id}>
+                Hủy bỏ
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                onClick={confirmEnd}
+                disabled={actionLoading === seriesToEnd.id}
+                className="bg-red-600 hover:bg-red-700 text-white font-semibold"
+              >
+                {actionLoading === seriesToEnd.id ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" /> : <StopCircle className="w-3.5 h-3.5 mr-1" />}
+                Xác nhận kết thúc
+              </Button>
+            </div>
           </div>
         </div>
       )}

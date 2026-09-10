@@ -64,7 +64,7 @@ const DEFAULT_GUEST: RolePermissions = {
 }
 
 export function usePermissions(): RolePermissions & { loading: boolean } {
-  const { role, isAdmin, staffId } = useRole()
+  const { role, isAdmin, isGuest, staffId } = useRole()
   const [perms, setPerms] = useState<{ staff: RolePermissions; guest: RolePermissions }>({
     staff: DEFAULT_STAFF,
     guest: DEFAULT_GUEST,
@@ -98,7 +98,7 @@ export function usePermissions(): RolePermissions & { loading: boolean } {
     return { ...ADMIN_PERMISSIONS, loading: false }
   }
 
-  const rolePerms = role === 'staff' ? perms.staff : perms.guest
+  const rolePerms = isGuest ? perms.guest : perms.staff
 
   return { ...rolePerms, loading, staffId } as RolePermissions & { loading: boolean; staffId?: string | null }
 }

@@ -273,6 +273,51 @@ export default function DashboardPage() {
         <div className="space-y-6">
           <TaskDashboard stats={globalStats} />
 
+          {/* Department Breakdown Cards */}
+          {departments.length > 0 && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              {departments.map(dept => {
+                const deptTasks = topLevelTasks.filter(t => t.departmentId === dept.id)
+                const total = deptTasks.length
+                const active = deptTasks.filter(t => !t.isClosed).length
+                const completed = deptTasks.filter(t => t.status === 'completed').length
+                const overdue = deptTasks.filter(t => {
+                  if (t.isClosed || !t.dueDate) return false
+                  const due = (t.dueDate as any).toMillis ? (t.dueDate as any).toMillis() : (t.dueDate as any).seconds * 1000
+                  return due < now
+                }).length
+                const rate = total > 0 ? Math.round((completed / total) * 100) : 0
+
+                return (
+                  <div key={dept.id} className="bg-white rounded-xl border border-slate-200 p-4 hover:shadow-md transition-shadow">
+                    <div className="flex items-center justify-between mb-2">
+                      <h3 className="text-sm font-bold text-slate-800 truncate">{dept.name}</h3>
+                      {overdue > 0 && (
+                        <span className="text-[10px] font-bold text-red-600 bg-red-50 px-1.5 py-0.5 rounded-full border border-red-200">
+                          {overdue} quá hạn
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-4 text-xs text-slate-500 mb-2">
+                      <span>Tổng: <b className="text-slate-800">{total}</b></span>
+                      <span>Đang làm: <b className="text-blue-600">{active}</b></span>
+                      <span>Xong: <b className="text-emerald-600">{completed}</b></span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                        <div
+                          className={`h-full rounded-full transition-all ${rate >= 80 ? 'bg-emerald-500' : rate >= 50 ? 'bg-blue-500' : 'bg-amber-500'}`}
+                          style={{ width: `${rate}%` }}
+                        />
+                      </div>
+                      <span className="text-[11px] font-bold text-slate-600">{rate}%</span>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+
           {/* Department filter bar for workload */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs">
             <div>

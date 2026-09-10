@@ -11,13 +11,17 @@ interface StaffSession {
   staffDocId: string
   shortName: string
   fullName: string
+  organizationRole?: UserRole
 }
 
 interface RoleInfo {
   role: UserRole
   isAdmin: boolean
-  isStaff: boolean
+  isStaff: boolean       // true for any non-guest, non-admin role (backward compat)
   isGuest: boolean
+  isTruongPhong: boolean
+  isPhoPhong: boolean
+  isGiaoViec: boolean
   staffId: string | null
   staffDocId: string | null
   staffName: string | null
@@ -64,15 +68,22 @@ export function useRole(): RoleInfo {
     if (!user.isAnonymous && user.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase()) {
       role = 'admin'
     } else if (session) {
-      role = 'staff'
+      // Use organizationRole from session if available, fallback to nhan_vien
+      role = session.organizationRole || 'nhan_vien'
     }
   }
+
+  // Backward compat: isStaff = true for any logged-in non-admin
+  const isStaff = role !== 'guest' && role !== 'admin'
 
   return {
     role,
     isAdmin: role === 'admin',
-    isStaff: role === 'staff',
+    isStaff,
     isGuest: role === 'guest',
+    isTruongPhong: role === 'truong_phong',
+    isPhoPhong: role === 'pho_phong',
+    isGiaoViec: role === 'giao_viec',
     staffId: session?.staffId || (role === 'admin' ? 'admin' : null),
     staffDocId: session?.staffDocId || null,
     staffName: session?.shortName || (role === 'admin' ? 'Admin' : null),
@@ -81,3 +92,4 @@ export function useRole(): RoleInfo {
     logout,
   }
 }
+

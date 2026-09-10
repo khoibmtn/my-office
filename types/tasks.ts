@@ -161,6 +161,7 @@ export interface TaskSeries {
   defaultDossierIds: string[]
   defaultDocumentIds: string[]
   defaultDepartmentId: string | null
+  defaultCooperatingDepartmentIds?: string[]
   defaultTagIds: string[]
   defaultSubtasks: SubtaskTemplate[]
 

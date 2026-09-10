@@ -10,7 +10,27 @@ export type DocumentStatus =
 
 export type DriveUploadStatus = 'uploading' | 'upload_failed' | 'pending'
 
-export type UserRole = 'admin' | 'staff' | 'guest'
+export type UserRole = 'admin' | 'truong_phong' | 'pho_phong' | 'nhan_vien' | 'giao_viec' | 'guest'
+
+// Backward compat mapping: old 'staff' → 'nhan_vien'
+export function normalizeRole(role: string | undefined): UserRole {
+  if (role === 'staff') return 'nhan_vien'
+  if (role === 'manager' || role === 'truong_phong') return 'truong_phong'
+  if (role === 'asigner' || role === 'giao_viec') return 'giao_viec'
+  if (role === 'admin') return 'admin'
+  if (role === 'pho_phong') return 'pho_phong'
+  if (role === 'guest') return 'guest'
+  return 'nhan_vien' // default
+}
+
+export const ROLE_LABELS: Record<UserRole, string> = {
+  admin: 'Quản trị viên',
+  truong_phong: 'Trưởng khoa/phòng',
+  pho_phong: 'Phó khoa/phòng',
+  nhan_vien: 'Nhân viên',
+  giao_viec: 'Giao việc',
+  guest: 'Khách',
+}
 
 export interface StaffMember {
   id: string              // auto-generated (nanoid 8 chars)
@@ -18,12 +38,25 @@ export interface StaffMember {
   shortName: string       // "Giang" (hiển thị trên bảng)
   nickname: string        // "giang" (đăng nhập, unique, lowercase)
   passwordHash: string    // SHA-256 hash
-  title: string           // Chức danh: "Chuyên viên"
-  position: string        // Chức vụ: "Phó trưởng phòng"
+  title: string           // Chức danh: "Chuyên viên", "BSCKII"
+  position: string        // Chức vụ: "Phó trưởng phòng", "Trưởng khoa"
   isActive: boolean
+
+  // Organization
+  organizationRole?: UserRole           // Vai trò tổ chức chính (default: 'nhan_vien')
   primaryDepartmentId?: string | null   // Phòng ban chính
   departmentIds?: string[]              // Tất cả phòng ban (kiêm nhiệm)
+  departmentRoles?: Record<string, UserRole>  // Override role cho phòng kiêm nhiệm
   managerId?: string | null             // Quản lý trực tiếp (staffId)
+
+  // Contact & Profile
+  phone?: string                        // Số điện thoại liên lạc
+  email?: string                        // Email nội bộ
+  avatar?: string                       // URL avatar
+  joinDate?: Timestamp                  // Ngày vào đơn vị
+  specialties?: string[]                // Chuyên môn
+
+  // Audit
   createdAt: Timestamp
   updatedAt: Timestamp
 }

@@ -111,6 +111,15 @@ export async function updateStaff(
     title: string
     position: string
     isActive: boolean
+    organizationRole: string
+    primaryDepartmentId: string | null
+    departmentIds: string[]
+    departmentRoles: Record<string, string>
+    managerId: string | null
+    phone: string
+    email: string
+    avatar: string
+    specialties: string[]
   }>
 ): Promise<void> {
   // If nickname is being changed, check uniqueness
@@ -138,6 +147,41 @@ export async function changeStaffPassword(docId: string, newPassword: string): P
 
 export async function deleteStaff(docId: string): Promise<void> {
   await deleteDoc(doc(db(), STAFF_COLLECTION, docId))
+}
+
+// ============================================================
+// Organization Management
+// ============================================================
+
+export async function updateStaffRole(
+  docId: string,
+  role: string
+): Promise<void> {
+  await updateDoc(doc(db(), STAFF_COLLECTION, docId), {
+    organizationRole: role,
+    updatedAt: serverTimestamp(),
+  })
+}
+
+export async function updateStaffDepartments(
+  docId: string,
+  primaryDeptId: string | null,
+  departmentIds: string[]
+): Promise<void> {
+  await updateDoc(doc(db(), STAFF_COLLECTION, docId), {
+    primaryDepartmentId: primaryDeptId,
+    departmentIds,
+    updatedAt: serverTimestamp(),
+  })
+}
+
+export async function getStaffByDepartment(deptId: string): Promise<StaffMember[]> {
+  const q = query(
+    collection(db(), STAFF_COLLECTION),
+    where('departmentIds', 'array-contains', deptId)
+  )
+  const snap = await getDocs(q)
+  return snap.docs.map(d => ({ ...d.data(), id: d.id } as StaffMember))
 }
 
 // ============================================================

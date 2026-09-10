@@ -429,7 +429,7 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
   const staffList = useMemo(() => staff.filter(s => s.isActive), [staff])
   const settings = useSettings()
   const perms = usePermissions()
-  const { role, staffId: currentStaffId, isGuest } = useRole()
+  const { role, staffId: currentStaffId, isGuest, isStaff } = useRole()
   const { dossiers } = useDossiers()
   const { tags: allTags } = useTags()
 
@@ -582,7 +582,7 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
   // Auto-filter to staff's own documents when they log in
   const staffFilterApplied = useRef(false)
   useEffect(() => {
-    if (role === 'staff' && currentStaffId && !staffFilterApplied.current) {
+    if (isStaff && currentStaffId && !staffFilterApplied.current) {
       staffFilterApplied.current = true
       const savedStaff = localStorage.getItem('myoffice_docTable_staffBadgeFilter')
       if (savedStaff === null) {

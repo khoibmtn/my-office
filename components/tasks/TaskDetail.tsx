@@ -7,9 +7,11 @@ import {
   ArrowLeft, CheckCircle2, Ban, XCircle, Trash2,
   MoreHorizontal, Play, RefreshCw, Calendar, User,
   Loader2, FileText, Folder, Edit3, History,
+  Building, Building2, Users,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useStaff } from '@/hooks/useStaff'
+import { useDepartments } from '@/hooks/useDepartments'
 import { TaskStatusBadge } from './TaskStatusBadge'
 import { TaskPriorityBadge } from './TaskPriorityBadge'
 import { TaskCommentThread } from './TaskCommentThread'
@@ -48,6 +50,8 @@ export function TaskDetail({
 }: TaskDetailProps) {
   const router = useRouter()
   const { getStaffName } = useStaff()
+  const { departments } = useDepartments()
+  const getDepartmentName = (id: string) => departments.find(d => d.id === id)?.name || id
   const [actionLoading, setActionLoading] = useState(false)
   const [showActions, setShowActions] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
@@ -230,12 +234,12 @@ export function TaskDetail({
             </div>
           )}
 
-          {/* Meta fields */}
+          {/* Meta fields: Giao chính & Phối hợp */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-0.5">
-              <span className="text-[10px] font-semibold text-slate-400 uppercase">Người xử lý</span>
-              <div className="flex items-center gap-1.5 text-sm text-slate-700 font-medium">
-                <User className="w-3.5 h-3.5 text-blue-500" />
+              <span className="text-[10px] font-semibold text-slate-400 uppercase">Người xử lý chính</span>
+              <div className="flex items-center gap-1.5 text-sm text-slate-800 font-semibold">
+                <User className="w-3.5 h-3.5 text-blue-600" />
                 {task.assigneeName || (task.assigneeId ? getStaffName(task.assigneeId) : null) || 'Chưa giao'}
               </div>
             </div>
@@ -246,7 +250,66 @@ export function TaskDetail({
                 {formatDate(task.dueDate)}
               </div>
             </div>
-            <div className="space-y-0.5">
+
+            {/* Người phối hợp */}
+            <div className="space-y-1 col-span-2">
+              <span className="text-[10px] font-semibold text-slate-400 uppercase flex items-center gap-1">
+                <Users className="w-3 h-3 text-blue-500" />
+                Người phối hợp
+              </span>
+              {task.collaboratorIds && task.collaboratorIds.length > 0 ? (
+                <div className="flex flex-wrap gap-1.5 pt-0.5">
+                  {task.collaboratorIds.map(id => (
+                    <span
+                      key={id}
+                      className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200 shadow-2xs"
+                    >
+                      <User className="w-3 h-3 text-blue-500" />
+                      <span>{getStaffName(id)}</span>
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-xs text-slate-400 italic">Chưa có người phối hợp</div>
+              )}
+            </div>
+
+            {/* Đơn vị chủ trì & Đơn vị phối hợp */}
+            {(task.departmentId || (task.cooperatingDepartmentIds && task.cooperatingDepartmentIds.length > 0)) && (
+              <div className="grid grid-cols-2 gap-3 col-span-2 pt-2 border-t border-slate-100">
+                <div className="space-y-0.5">
+                  <span className="text-[10px] font-semibold text-slate-400 uppercase flex items-center gap-1">
+                    <Building className="w-3 h-3 text-indigo-500" />
+                    Đơn vị chủ trì
+                  </span>
+                  <div className="text-xs text-slate-800 font-medium">
+                    {task.departmentId ? getDepartmentName(task.departmentId) : 'Chưa phân đơn vị'}
+                  </div>
+                </div>
+                <div className="space-y-0.5">
+                  <span className="text-[10px] font-semibold text-slate-400 uppercase flex items-center gap-1">
+                    <Building2 className="w-3 h-3 text-indigo-500" />
+                    Đơn vị phối hợp
+                  </span>
+                  {task.cooperatingDepartmentIds && task.cooperatingDepartmentIds.length > 0 ? (
+                    <div className="flex flex-wrap gap-1 pt-0.5">
+                      {task.cooperatingDepartmentIds.map(id => (
+                        <span
+                          key={id}
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium bg-indigo-50 text-indigo-700 border border-indigo-200"
+                        >
+                          <span>{getDepartmentName(id)}</span>
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-xs text-slate-400 italic">Không có</div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            <div className="space-y-0.5 pt-2 border-t border-slate-100">
               <span className="text-[10px] font-semibold text-slate-400 uppercase">Tiến độ</span>
               <div className="flex items-center gap-2">
                 <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
@@ -261,28 +324,40 @@ export function TaskDetail({
                 <span className="text-xs text-slate-500">{task.progress}%</span>
               </div>
             </div>
-            <div className="space-y-0.5">
+            <div className="space-y-0.5 pt-2 border-t border-slate-100">
               <span className="text-[10px] font-semibold text-slate-400 uppercase">Ngày tạo</span>
               <div className="text-sm text-slate-700">{formatDate(task.createdAt)}</div>
             </div>
           </div>
 
-          {/* Relations */}
+          {/* Relations: Documents & Dossiers */}
           {(task.dossierIds.length > 0 || task.documentIds.length > 0) && (
             <div>
-              <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Liên kết</h3>
-              <div className="space-y-1">
-                {task.dossierIds.map(id => (
-                  <div key={id} className="flex items-center gap-1.5 text-xs text-blue-600 hover:underline cursor-pointer"
-                    onClick={() => router.push(`/dossiers?id=${id}`)}>
-                    <Folder className="w-3 h-3" /> Hồ sơ: {id}
-                  </div>
-                ))}
+              <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Văn bản & Hồ sơ liên quan</h3>
+              <div className="space-y-1.5">
                 {task.documentIds.map(id => (
-                  <div key={id} className="flex items-center gap-1.5 text-xs text-blue-600 hover:underline cursor-pointer"
-                    onClick={() => router.push(`/documents?docId=${id}`)}>
-                    <FileText className="w-3 h-3" /> Văn bản: {id}
-                  </div>
+                  <button
+                    key={id}
+                    onClick={() => router.push(`/documents?docId=${id}`)}
+                    className="flex items-center gap-2 w-full text-left px-3 py-2 rounded-lg bg-blue-50/50 border border-blue-100 hover:bg-blue-100/70 transition-colors group"
+                  >
+                    <FileText className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+                    <span className="text-xs text-blue-700 font-medium truncate group-hover:underline">
+                      Văn bản #{id.slice(-6)}
+                    </span>
+                  </button>
+                ))}
+                {task.dossierIds.map(id => (
+                  <button
+                    key={id}
+                    onClick={() => router.push(`/dossiers?id=${id}`)}
+                    className="flex items-center gap-2 w-full text-left px-3 py-2 rounded-lg bg-amber-50/50 border border-amber-100 hover:bg-amber-100/70 transition-colors group"
+                  >
+                    <Folder className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                    <span className="text-xs text-amber-700 font-medium truncate group-hover:underline">
+                      Hồ sơ #{id.slice(-6)}
+                    </span>
+                  </button>
                 ))}
               </div>
             </div>

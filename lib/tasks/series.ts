@@ -131,7 +131,7 @@ function addOccurrenceToBatch(
     followerIds: series.defaultFollowerIds || [],
 
     departmentId: series.defaultDepartmentId || null,
-    cooperatingDepartmentIds: [],
+    cooperatingDepartmentIds: series.defaultCooperatingDepartmentIds || [],
     assigneeDepartmentId: series.defaultDepartmentId || null,
 
     blockedReason: null,
