@@ -5,14 +5,16 @@ import { useRouter } from 'next/navigation'
 import {
   ArrowLeft, CheckCircle2, Ban, XCircle, Trash2,
   MoreHorizontal, Play, RefreshCw, Calendar, User,
-  Loader2, FileText, Folder,
+  Loader2, FileText, Folder, Edit3,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { useStaff } from '@/hooks/useStaff'
 import { TaskStatusBadge } from './TaskStatusBadge'
 import { TaskPriorityBadge } from './TaskPriorityBadge'
 import { TaskCommentThread } from './TaskCommentThread'
 import { TaskActivityFeed } from './TaskActivityFeed'
 import { SubtaskList } from './SubtaskList'
+import { TaskEditModal } from './TaskEditModal'
 import { computeDerivedStates } from '@/lib/tasks/progress'
 import { isValidTransition } from '@/lib/tasks/validation'
 import { canEditTask, canChangeStatus, canDeleteTask, canAddComment, canAddSubtask } from '@/lib/tasks/permissions'
@@ -42,8 +44,10 @@ export function TaskDetail({
   actorId, actorName, actorRole, actorDepartmentIds,
 }: TaskDetailProps) {
   const router = useRouter()
+  const { getStaffName } = useStaff()
   const [actionLoading, setActionLoading] = useState(false)
   const [showActions, setShowActions] = useState(false)
+  const [showEditModal, setShowEditModal] = useState(false)
 
   const userCtx = { id: actorId, role: actorRole, departmentIds: actorDepartmentIds }
   const taskCtx = {
@@ -122,11 +126,24 @@ export function TaskDetail({
           <div className="flex-1 min-w-0">
             <h1 className="text-lg font-semibold text-slate-900 truncate">{task.title}</h1>
           </div>
-          {_canDelete && (
-            <button onClick={handleDelete} className="p-1.5 rounded-lg hover:bg-red-50 transition-colors" title="Xóa">
-              <Trash2 className="w-4 h-4 text-slate-400 hover:text-red-500" />
-            </button>
-          )}
+          <div className="flex items-center gap-1.5">
+            {_canEdit && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setShowEditModal(true)}
+                className="h-8 px-2.5 text-xs font-medium text-slate-700 hover:text-blue-600 hover:border-blue-300 shadow-2xs"
+              >
+                <Edit3 className="w-3.5 h-3.5 mr-1" />
+                Chỉnh sửa
+              </Button>
+            )}
+            {_canDelete && (
+              <button onClick={handleDelete} className="p-1.5 rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-500 transition-colors" title="Xóa">
+                <Trash2 className="w-4 h-4" />
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Status + Actions */}
@@ -141,7 +158,7 @@ export function TaskDetail({
                   key={t.status}
                   onClick={() => handleStatusChange(t.status)}
                   disabled={actionLoading}
-                  className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${t.color}`}
+                  className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium transition-colors shadow-2xs ${t.color}`}
                 >
                   {actionLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <t.icon className="w-3 h-3" />}
                   {t.label}
@@ -168,9 +185,9 @@ export function TaskDetail({
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-0.5">
               <span className="text-[10px] font-semibold text-slate-400 uppercase">Người xử lý</span>
-              <div className="flex items-center gap-1.5 text-sm text-slate-700">
+              <div className="flex items-center gap-1.5 text-sm text-slate-700 font-medium">
                 <User className="w-3.5 h-3.5 text-blue-500" />
-                {task.assigneeName || 'Chưa giao'}
+                {task.assigneeName || (task.assigneeId ? getStaffName(task.assigneeId) : null) || 'Chưa giao'}
               </div>
             </div>
             <div className="space-y-0.5">
@@ -255,6 +272,16 @@ export function TaskDetail({
           />
         </div>
       </div>
+
+      {/* Edit Modal */}
+      {showEditModal && (
+        <TaskEditModal
+          task={task}
+          actorId={actorId}
+          actorName={actorName}
+          onClose={() => setShowEditModal(false)}
+        />
+      )}
     </div>
   )
 }

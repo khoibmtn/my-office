@@ -134,20 +134,23 @@ export async function updateTask(
   const trackedFields = ['title', 'priority', 'dueDate', 'assigneeId'] as const
   for (const field of trackedFields) {
     if (field in fields) {
-      const activityRef = doc(collection(db(), TASK_ACTIVITIES))
-      const eventType =
-        field === 'priority' ? 'PRIORITY_CHANGED' :
-        field === 'dueDate' ? 'DEADLINE_CHANGED' :
-        field === 'assigneeId' ? 'REASSIGNED' :
-        'STATUS_CHANGED'
-      batch.set(activityRef, {
-        taskId,
-        actorId,
-        actorName,
-        eventType,
-        metadata: { field, value: (fields as any)[field] },
-        createdAt: serverTimestamp(),
-      })
+      const val = (fields as any)[field]
+      if (val !== undefined) {
+        const activityRef = doc(collection(db(), TASK_ACTIVITIES))
+        const eventType =
+          field === 'priority' ? 'PRIORITY_CHANGED' :
+          field === 'dueDate' ? 'DEADLINE_CHANGED' :
+          field === 'assigneeId' ? 'REASSIGNED' :
+          'STATUS_CHANGED'
+        batch.set(activityRef, {
+          taskId,
+          actorId,
+          actorName,
+          eventType,
+          metadata: { field, value: val ?? null },
+          createdAt: serverTimestamp(),
+        })
+      }
     }
   }
 
@@ -195,16 +198,32 @@ export async function updateTaskStatus(
     newStatus === 'blocked' ? 'BLOCKED' :
     (newStatus === 'pending' ? 'REOPENED' : 'STATUS_CHANGED')
 
+  const metadata: Record<string, any> = { newStatus }
+  if (blockedNote) {
+    metadata.blockedNote = blockedNote
+  }
+
   batch.set(activityRef, {
     taskId,
     actorId,
     actorName,
     eventType,
-    metadata: { newStatus, blockedNote },
+    metadata,
     createdAt: serverTimestamp(),
   })
 
   await batch.commit()
+}
+
+export async function updateSubtaskTitle(
+  subtaskId: string,
+  newTitle: string
+): Promise<void> {
+  const ref = doc(db(), TASKS, subtaskId)
+  await updateDoc(ref, {
+    title: newTitle.trim(),
+    updatedAt: serverTimestamp(),
+  })
 }
 
 export async function addTaskComment(

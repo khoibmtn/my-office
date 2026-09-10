@@ -19,7 +19,7 @@ export default function TasksPage() {
   const { staff: staffList } = useStaff()
   const { departments } = useDepartments()
 
-  const [activeTab, setActiveTab] = useState<'all' | 'my' | 'created'>('all')
+  const [activeTab, setActiveTab] = useState<'all' | 'my' | 'created' | 'unassigned'>('all')
   const [filters, setFilters] = useState<TaskFilterValues>(DEFAULT_FILTERS)
   const [showForm, setShowForm] = useState(false)
 
@@ -34,12 +34,15 @@ export default function TasksPage() {
       if (activeTab === 'my') {
         return (
           t.assigneeId === staffId ||
-          t.collaboratorIds?.includes(staffId || '') ||
-          (isAdmin && !t.assigneeId)
+          t.collaboratorIds?.includes(staffId || '')
         )
       }
       if (activeTab === 'created') {
-        return t.createdBy === staffId || (isAdmin && t.createdBy === 'admin')
+        // Only tasks created by me AND actually assigned to someone
+        return (t.createdBy === staffId || (isAdmin && t.createdBy === 'admin')) && !!t.assigneeId
+      }
+      if (activeTab === 'unassigned') {
+        return !t.assigneeId
       }
       return true
     })
@@ -69,10 +72,10 @@ export default function TasksPage() {
       all: topLevel.length,
       my: topLevel.filter(t =>
         t.assigneeId === staffId ||
-        t.collaboratorIds?.includes(staffId || '') ||
-        (isAdmin && !t.assigneeId)
+        t.collaboratorIds?.includes(staffId || '')
       ).length,
-      created: topLevel.filter(t => t.createdBy === staffId || (isAdmin && t.createdBy === 'admin')).length,
+      created: topLevel.filter(t => (t.createdBy === staffId || (isAdmin && t.createdBy === 'admin')) && !!t.assigneeId).length,
+      unassigned: topLevel.filter(t => !t.assigneeId).length,
     }
   }, [allTasks, staffId, isAdmin])
 
@@ -118,16 +121,17 @@ export default function TasksPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex items-center gap-1 border-b border-slate-200 pb-1">
+      <div className="flex items-center gap-1 border-b border-slate-200 pb-1 overflow-x-auto">
         {[
           { key: 'all', label: 'Tất cả công việc', count: tabCounts.all },
           { key: 'my', label: 'Công việc của tôi', count: tabCounts.my },
           { key: 'created', label: 'Tôi đã giao', count: tabCounts.created },
+          { key: 'unassigned', label: 'Chưa giao', count: tabCounts.unassigned },
         ].map(tab => (
           <button
             key={tab.key}
             onClick={() => setActiveTab(tab.key as any)}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 ${
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 whitespace-nowrap ${
               activeTab === tab.key
                 ? 'bg-blue-600 text-white shadow-xs'
                 : 'text-slate-600 hover:bg-slate-100'

@@ -1,11 +1,11 @@
 'use client'
 
 import React, { useState, useMemo } from 'react'
-import { Calendar, Clock, RefreshCw, Save, X } from 'lucide-react'
+import { Calendar, Clock, RefreshCw, Save, X, Sparkles } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useStaff } from '@/hooks/useStaff'
 import { useDepartments } from '@/hooks/useDepartments'
-import { createTaskSeries } from '@/lib/tasks/series'
+import { createTaskSeries, triggerSeriesGenerationNow } from '@/lib/tasks/series'
 import { Timestamp } from 'firebase/firestore'
 import { TASK_PRIORITY_LABELS } from '@/lib/tasks/constants'
 import type { TaskPriority } from '@/types/tasks'
@@ -37,7 +37,22 @@ export function SeriesForm({ actorId, actorName, onClose }: SeriesFormProps) {
   const [frequency, setFrequency] = useState<'daily' | 'weekly' | 'monthly' | 'yearly'>('weekly')
   const [interval, setInterval] = useState(1)
   const [byWeekday, setByWeekday] = useState<number[]>([1]) // Monday default
-  const [byMonthDay, setByMonthDay] = useState<number[]>([1])
+  
+  // Time selection (hour / minute)
+  const [occurrenceTime, setOccurrenceTime] = useState('08:00')
+
+  // Monthly date range options (e.g. days 1-5 or single day)
+  const [monthlyMode, setMonthlyMode] = useState<'single' | 'range'>('single')
+  const [singleMonthDay, setSingleMonthDay] = useState<number>(1)
+  const [monthDayStart, setMonthDayStart] = useState<number>(1)
+  const [monthDayEnd, setMonthDayEnd] = useState<number>(5)
+
+  // Yearly month range options (e.g. months 1-3 or single month)
+  const [yearlyMode, setYearlyMode] = useState<'single' | 'range'>('single')
+  const [singleMonth, setSingleMonth] = useState<number>(1)
+  const [monthStart, setMonthStart] = useState<number>(1)
+  const [monthEnd, setMonthEnd] = useState<number>(3)
+
   const [assigneeId, setAssigneeId] = useState('')
   const [departmentId, setDepartmentId] = useState('')
   const [priority, setPriority] = useState<TaskPriority>('normal')
@@ -45,6 +60,7 @@ export function SeriesForm({ actorId, actorName, onClose }: SeriesFormProps) {
   const [leadDays, setLeadDays] = useState(3)
   const [dueOffsetMinutes, setDueOffsetMinutes] = useState(0)
   const [startDate, setStartDate] = useState(new Date().toISOString().slice(0, 10))
+  const [autoGenerateNow, setAutoGenerateNow] = useState(true)
 
   const activeStaff = useMemo(() => staffList.filter(s => s.isActive), [staffList])
 
@@ -54,24 +70,52 @@ export function SeriesForm({ actorId, actorName, onClose }: SeriesFormProps) {
     )
   }
 
+  // Calculate resolved month days
+  const resolvedMonthDays = useMemo(() => {
+    if (frequency !== 'monthly' && frequency !== 'yearly') return null
+    if (monthlyMode === 'single') {
+      return [singleMonthDay]
+    } else {
+      const s = Math.min(monthDayStart, monthDayEnd)
+      const e = Math.max(monthDayStart, monthDayEnd)
+      const days: number[] = []
+      for (let d = s; d <= e; d++) days.push(d)
+      return days
+    }
+  }, [frequency, monthlyMode, singleMonthDay, monthDayStart, monthDayEnd])
+
+  // Calculate resolved months for yearly
+  const resolvedMonths = useMemo(() => {
+    if (frequency !== 'yearly') return null
+    if (yearlyMode === 'single') {
+      return [singleMonth]
+    } else {
+      const s = Math.min(monthStart, monthEnd)
+      const e = Math.max(monthStart, monthEnd)
+      const months: number[] = []
+      for (let m = s; m <= e; m++) months.push(m)
+      return months
+    }
+  }, [frequency, yearlyMode, singleMonth, monthStart, monthEnd])
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!title.trim()) return
 
     setLoading(true)
     try {
-      await createTaskSeries({
+      const seriesId = await createTaskSeries({
         title,
         description: description || null,
         frequency,
         interval,
         byWeekday: frequency === 'weekly' ? byWeekday : null,
-        byMonthDay: (frequency === 'monthly' || frequency === 'yearly') ? byMonthDay : null,
-        byMonth: null,
+        byMonthDay: resolvedMonthDays,
+        byMonth: resolvedMonths,
         bySetPos: null,
         anchorDate: Timestamp.fromDate(new Date(startDate)),
         timezone: 'Asia/Ho_Chi_Minh',
-        occurrenceTime: '08:00',
+        occurrenceTime: occurrenceTime || '08:00',
         dueOffsetMinutes,
         leadDays,
         status: 'active',
@@ -92,6 +136,15 @@ export function SeriesForm({ actorId, actorName, onClose }: SeriesFormProps) {
         templateId: null,
         createdBy: actorId,
       }, actorId)
+
+      // Instantly generate first occurrence if requested
+      if (autoGenerateNow) {
+        try {
+          await triggerSeriesGenerationNow(seriesId)
+        } catch (genErr) {
+          console.warn('Initial occurrence generation hint:', genErr)
+        }
+      }
 
       onClose()
     } catch (err) {
@@ -120,35 +173,51 @@ export function SeriesForm({ actorId, actorName, onClose }: SeriesFormProps) {
           value={title}
           onChange={e => setTitle(e.target.value)}
           className="w-full mt-1 px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          placeholder="VD: Báo cáo tuần, Kiểm tra an toàn..."
+          placeholder="VD: Báo cáo tuần, Đối soát dữ liệu, Kiểm tra hồ sơ..."
           required
         />
       </div>
 
-      {/* Frequency */}
-      <div>
-        <label className="text-xs font-medium text-slate-600">Tần suất</label>
-        <div className="grid grid-cols-4 gap-1.5 mt-1">
-          {(['daily', 'weekly', 'monthly', 'yearly'] as const).map(f => (
-            <button
-              key={f}
-              type="button"
-              onClick={() => setFrequency(f)}
-              className={`px-2 py-1.5 text-xs rounded-lg border transition-colors ${
-                frequency === f
-                  ? 'bg-blue-50 border-blue-300 text-blue-700 font-medium'
-                  : 'border-slate-200 text-slate-600 hover:bg-slate-50'
-              }`}
-            >
-              {FREQUENCY_LABELS[f]}
-            </button>
-          ))}
+      {/* Frequency & Time */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div>
+          <label className="text-xs font-medium text-slate-600">Tần suất</label>
+          <div className="grid grid-cols-4 gap-1 mt-1">
+            {(['daily', 'weekly', 'monthly', 'yearly'] as const).map(f => (
+              <button
+                key={f}
+                type="button"
+                onClick={() => setFrequency(f)}
+                className={`px-2 py-1.5 text-xs rounded-lg border transition-colors ${
+                  frequency === f
+                    ? 'bg-blue-50 border-blue-300 text-blue-700 font-medium'
+                    : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                }`}
+              >
+                {FREQUENCY_LABELS[f]}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Time of day */}
+        <div>
+          <label className="text-xs font-medium text-slate-600 flex items-center gap-1">
+            <Clock className="w-3.5 h-3.5 text-slate-500" />
+            Giờ / Phút thực hiện
+          </label>
+          <input
+            type="time"
+            value={occurrenceTime}
+            onChange={e => setOccurrenceTime(e.target.value)}
+            className="w-full mt-1 px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
+          />
         </div>
       </div>
 
       {/* Interval */}
       <div className="flex items-center gap-2">
-        <label className="text-xs font-medium text-slate-600 whitespace-nowrap">Mỗi</label>
+        <label className="text-xs font-medium text-slate-600 whitespace-nowrap">Chu kỳ: Mỗi</label>
         <input
           type="number"
           min={1}
@@ -185,20 +254,139 @@ export function SeriesForm({ actorId, actorName, onClose }: SeriesFormProps) {
         </div>
       )}
 
-      {/* Monthly: Day of month */}
-      {(frequency === 'monthly' || frequency === 'yearly') && (
-        <div className="flex items-center gap-2">
-          <label className="text-xs font-medium text-slate-600 whitespace-nowrap">Ngày</label>
-          <select
-            value={byMonthDay[0]}
-            onChange={e => setByMonthDay([parseInt(e.target.value)])}
-            className="px-2 py-1.5 border border-slate-200 rounded-lg text-sm"
-          >
-            {Array.from({ length: 31 }, (_, i) => i + 1).map(d => (
-              <option key={d} value={d}>{d}</option>
-            ))}
-            <option value={-1}>Ngày cuối tháng</option>
-          </select>
+      {/* Monthly: Day of month or Range of days */}
+      {frequency === 'monthly' && (
+        <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/80 space-y-2.5">
+          <div className="flex items-center gap-4 text-xs">
+            <label className="flex items-center gap-1.5 cursor-pointer font-medium text-slate-700">
+              <input
+                type="radio"
+                name="monthlyMode"
+                checked={monthlyMode === 'single'}
+                onChange={() => setMonthlyMode('single')}
+                className="text-blue-600"
+              />
+              Ngày cụ thể
+            </label>
+            <label className="flex items-center gap-1.5 cursor-pointer font-medium text-slate-700">
+              <input
+                type="radio"
+                name="monthlyMode"
+                checked={monthlyMode === 'range'}
+                onChange={() => setMonthlyMode('range')}
+                className="text-blue-600"
+              />
+              Khoảng ngày (VD: ngày 1 - 5)
+            </label>
+          </div>
+
+          {monthlyMode === 'single' ? (
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-slate-600">Vào ngày:</span>
+              <select
+                value={singleMonthDay}
+                onChange={e => setSingleMonthDay(parseInt(e.target.value))}
+                className="px-2.5 py-1.5 border border-slate-200 bg-white rounded-lg text-sm"
+              >
+                {Array.from({ length: 31 }, (_, i) => i + 1).map(d => (
+                  <option key={d} value={d}>Ngày {d}</option>
+                ))}
+                <option value={-1}>Ngày cuối cùng của tháng</option>
+              </select>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xs text-slate-600">Từ ngày:</span>
+              <select
+                value={monthDayStart}
+                onChange={e => setMonthDayStart(parseInt(e.target.value))}
+                className="px-2.5 py-1.5 border border-slate-200 bg-white rounded-lg text-sm"
+              >
+                {Array.from({ length: 31 }, (_, i) => i + 1).map(d => (
+                  <option key={d} value={d}>Ngày {d}</option>
+                ))}
+              </select>
+              <span className="text-xs text-slate-600">đến ngày:</span>
+              <select
+                value={monthDayEnd}
+                onChange={e => setMonthDayEnd(parseInt(e.target.value))}
+                className="px-2.5 py-1.5 border border-slate-200 bg-white rounded-lg text-sm"
+              >
+                {Array.from({ length: 31 }, (_, i) => i + 1).map(d => (
+                  <option key={d} value={d}>Ngày {d}</option>
+                ))}
+              </select>
+              <span className="text-xs text-blue-600 font-medium ml-1">
+                (Mỗi tháng sinh từ ngày {Math.min(monthDayStart, monthDayEnd)} đến {Math.max(monthDayStart, monthDayEnd)})
+              </span>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Yearly: Month range or Single month */}
+      {frequency === 'yearly' && (
+        <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/80 space-y-2.5">
+          <div className="flex items-center gap-4 text-xs">
+            <label className="flex items-center gap-1.5 cursor-pointer font-medium text-slate-700">
+              <input
+                type="radio"
+                name="yearlyMode"
+                checked={yearlyMode === 'single'}
+                onChange={() => setYearlyMode('single')}
+                className="text-blue-600"
+              />
+              Tháng cố định
+            </label>
+            <label className="flex items-center gap-1.5 cursor-pointer font-medium text-slate-700">
+              <input
+                type="radio"
+                name="yearlyMode"
+                checked={yearlyMode === 'range'}
+                onChange={() => setYearlyMode('range')}
+                className="text-blue-600"
+              />
+              Khoảng tháng (VD: tháng 1 - 3)
+            </label>
+          </div>
+
+          {yearlyMode === 'single' ? (
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-slate-600">Vào tháng:</span>
+              <select
+                value={singleMonth}
+                onChange={e => setSingleMonth(parseInt(e.target.value))}
+                className="px-2.5 py-1.5 border border-slate-200 bg-white rounded-lg text-sm"
+              >
+                {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
+                  <option key={m} value={m}>Tháng {m}</option>
+                ))}
+              </select>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xs text-slate-600">Từ tháng:</span>
+              <select
+                value={monthStart}
+                onChange={e => setMonthStart(parseInt(e.target.value))}
+                className="px-2.5 py-1.5 border border-slate-200 bg-white rounded-lg text-sm"
+              >
+                {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
+                  <option key={m} value={m}>Tháng {m}</option>
+                ))}
+              </select>
+              <span className="text-xs text-slate-600">đến tháng:</span>
+              <select
+                value={monthEnd}
+                onChange={e => setMonthEnd(parseInt(e.target.value))}
+                className="px-2.5 py-1.5 border border-slate-200 bg-white rounded-lg text-sm"
+              >
+                {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
+                  <option key={m} value={m}>Tháng {m}</option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
       )}
 
@@ -284,10 +472,24 @@ export function SeriesForm({ actorId, actorName, onClose }: SeriesFormProps) {
         />
       </div>
 
+      {/* Auto generate now checkbox */}
+      <div className="bg-blue-50/60 border border-blue-200/70 rounded-xl p-3 flex items-center justify-between">
+        <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-blue-900">
+          <input
+            type="checkbox"
+            checked={autoGenerateNow}
+            onChange={e => setAutoGenerateNow(e.target.checked)}
+            className="w-4 h-4 rounded text-blue-600 border-blue-300 focus:ring-blue-500"
+          />
+          <Sparkles className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+          <span>Tự động sinh ngay công việc cho kỳ hiện tại để xử lý ngay</span>
+        </label>
+      </div>
+
       {/* Actions */}
       <div className="flex justify-end gap-2 pt-2">
         <Button type="button" variant="outline" size="sm" onClick={onClose}>Hủy</Button>
-        <Button type="submit" size="sm" disabled={loading || !title.trim()}>
+        <Button type="submit" size="sm" disabled={loading || !title.trim()} className="bg-blue-600 hover:bg-blue-700 text-white">
           {loading ? <Clock className="w-3.5 h-3.5 animate-spin mr-1" /> : <Save className="w-3.5 h-3.5 mr-1" />}
           Tạo định kỳ
         </Button>

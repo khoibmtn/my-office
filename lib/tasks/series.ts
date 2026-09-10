@@ -32,6 +32,13 @@ export function querySeriesByDepartment(departmentId: string) {
   )
 }
 
+export function queryTasksBySeries(seriesId: string) {
+  return query(
+    collection(db(), TASKS_COLLECTION),
+    where('seriesId', '==', seriesId)
+  )
+}
+
 // ===== Mutations =====
 
 export async function createTaskSeries(
@@ -227,4 +234,23 @@ export async function generateSeriesOccurrences(
   }
 
   return created
+}
+
+/**
+ * Manually trigger occurrence generation for a series immediately.
+ * Ensures the task for the current period/window is generated and exists in Firestore.
+ */
+export async function triggerSeriesGenerationNow(seriesId: string): Promise<number> {
+  const seriesRef = doc(db(), SERIES_COLLECTION, seriesId)
+  const snap = await getDoc(seriesRef)
+  if (!snap.exists()) {
+    throw new Error('Không tìm thấy chuỗi định kỳ')
+  }
+
+  const series = { id: snap.id, ...snap.data() } as TaskSeries
+  const now = new Date()
+  const windowEnd = new Date(now.getTime() + (series.rollingWindowDays || 14) * 86400000)
+
+  // Ensure windowStart encompasses now so current occurrence is generated
+  return await generateSeriesOccurrences(series, windowEnd)
 }
