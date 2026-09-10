@@ -138,6 +138,61 @@ function getMonday(d: Date): Date {
   return monday
 }
 
+/**
+ * Resolve the day of month matching an ordinal weekday (bySetPos).
+ * e.g. first Monday (byWeekday: 1, bySetPos: 1), last Friday (byWeekday: 5, bySetPos: -1).
+ * month is 1-indexed (1..12).
+ */
+export function resolveBySetPos(
+  year: number,
+  month: number,
+  targetWeekday: number,
+  setPos: number
+): number {
+  const daysInMonth = resolveLastDay(year, month)
+  const matchingDays: number[] = []
+
+  for (let day = 1; day <= daysInMonth; day++) {
+    const d = new Date(year, month - 1, day)
+    const jsDay = d.getDay()
+    const isoDay = jsDay === 0 ? 7 : jsDay
+    if (isoDay === targetWeekday) {
+      matchingDays.push(day)
+    }
+  }
+
+  if (matchingDays.length === 0) return 1
+  if (setPos > 0) {
+    const idx = Math.min(setPos - 1, matchingDays.length - 1)
+    return matchingDays[idx]
+  } else {
+    const idx = Math.max(0, matchingDays.length + setPos)
+    return matchingDays[idx]
+  }
+}
+
+/**
+ * Apply weekend adjustment policy (shift to Friday or Monday if on Saturday/Sunday).
+ */
+export function applyWeekendPolicy(
+  date: Date,
+  policy?: 'exact' | 'shift_friday' | 'shift_monday'
+): Date {
+  if (!policy || policy === 'exact') return date
+  const day = date.getDay() // 0 = Sun, 6 = Sat
+  if (day !== 0 && day !== 6) return date
+
+  const adjusted = new Date(date)
+  if (policy === 'shift_friday') {
+    const offset = day === 6 ? -1 : -2
+    adjusted.setDate(adjusted.getDate() + offset)
+  } else if (policy === 'shift_monday') {
+    const offset = day === 6 ? 2 : 1
+    adjusted.setDate(adjusted.getDate() + offset)
+  }
+  return adjusted
+}
+
 // ===== Monthly =====
 
 function generateMonthly(
@@ -165,16 +220,31 @@ function generateMonthly(
   }
 
   while (results.length < MAX_OCCURRENCES) {
-    for (const day of monthDays) {
-      const resolvedDay = day === -1
-        ? resolveLastDay(year, month + 1) // month+1 because resolveLastDay expects 1-indexed
-        : Math.min(day, resolveLastDay(year, month + 1))
+    // Check if bySetPos with byWeekday is specified
+    if (rule.bySetPos !== undefined && rule.byWeekday && rule.byWeekday.length > 0) {
+      for (const wd of rule.byWeekday) {
+        const resolvedDay = resolveBySetPos(year, month + 1, wd, rule.bySetPos)
+        let date = new Date(year, month, resolvedDay)
+        date = applyWeekendPolicy(date, rule.weekendPolicy)
 
-      const date = new Date(year, month, resolvedDay)
+        if (date > windowEnd) return results
+        if (date >= windowStart && date >= anchor) {
+          results.push(date)
+        }
+      }
+    } else {
+      for (const day of monthDays) {
+        const resolvedDay = day === -1
+          ? resolveLastDay(year, month + 1)
+          : Math.min(day, resolveLastDay(year, month + 1))
 
-      if (date > windowEnd) return results
-      if (date >= windowStart && date >= anchor) {
-        results.push(date)
+        let date = new Date(year, month, resolvedDay)
+        date = applyWeekendPolicy(date, rule.weekendPolicy)
+
+        if (date > windowEnd) return results
+        if (date >= windowStart && date >= anchor) {
+          results.push(date)
+        }
       }
     }
 
@@ -215,16 +285,30 @@ function generateYearly(
 
   while (results.length < MAX_OCCURRENCES) {
     for (const m of months) {
-      for (const d of days) {
-        const resolvedDay = d === -1
-          ? resolveLastDay(year, m)
-          : Math.min(d, resolveLastDay(year, m))
+      if (rule.bySetPos !== undefined && rule.byWeekday && rule.byWeekday.length > 0) {
+        for (const wd of rule.byWeekday) {
+          const resolvedDay = resolveBySetPos(year, m, wd, rule.bySetPos)
+          let date = new Date(year, m - 1, resolvedDay)
+          date = applyWeekendPolicy(date, rule.weekendPolicy)
 
-        const date = new Date(year, m - 1, resolvedDay) // m is 1-indexed
+          if (date > windowEnd) return results
+          if (date >= windowStart && date >= anchor) {
+            results.push(date)
+          }
+        }
+      } else {
+        for (const d of days) {
+          const resolvedDay = d === -1
+            ? resolveLastDay(year, m)
+            : Math.min(d, resolveLastDay(year, m))
 
-        if (date > windowEnd) return results
-        if (date >= windowStart && date >= anchor) {
-          results.push(date)
+          let date = new Date(year, m - 1, resolvedDay)
+          date = applyWeekendPolicy(date, rule.weekendPolicy)
+
+          if (date > windowEnd) return results
+          if (date >= windowStart && date >= anchor) {
+            results.push(date)
+          }
         }
       }
     }
