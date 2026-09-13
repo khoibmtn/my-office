@@ -10,7 +10,7 @@ import { useDepartments } from '@/hooks/useDepartments'
 import { useDossiers } from '@/hooks/useDossiers'
 import { useRole } from '@/hooks/useRole'
 import { bulkUpdateTasks, bulkDeleteTasks, type BulkTaskUpdates } from '@/lib/tasks/mutations'
-import { TASK_STATUS_LABELS, TASK_PRIORITY_LABELS } from '@/lib/tasks/constants'
+import { TASK_STATUS_LABELS, TASK_PRIORITY_LABELS, TASK_PRIORITY_DOTS } from '@/lib/tasks/constants'
 import type { TaskPriority, TaskStatus } from '@/types/tasks'
 
 interface TaskBulkActionsProps {
@@ -271,7 +271,10 @@ export function TaskBulkActions({
                     onClick={() => handleApplyUpdate({ priority: p })}
                     className="px-2.5 py-1.5 text-xs text-left font-medium border border-slate-200 rounded-lg hover:bg-slate-50 flex items-center justify-between"
                   >
-                    <span>{TASK_PRIORITY_LABELS[p]}</span>
+                    <span className="flex items-center gap-1.5">
+                      <span>{TASK_PRIORITY_DOTS[p]}</span>
+                      <span>{TASK_PRIORITY_LABELS[p]}</span>
+                    </span>
                   </button>
                 ))}
               </div>

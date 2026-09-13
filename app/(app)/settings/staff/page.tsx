@@ -182,7 +182,7 @@ export default function StaffPage() {
       <div className="flex items-center justify-between mb-5">
         <div>
           <h1 className="text-xl font-bold text-gray-900">Quản lý Nhân sự</h1>
-          <p className="text-sm text-gray-500 mt-1">{staff.filter(s => s.isActive).length} nhân viên đang hoạt động</p>
+          <p className="text-sm text-gray-500 mt-1">{staff.filter(s => s.isActive).length + 1} nhân viên đang hoạt động (bao gồm Admin)</p>
         </div>
         {isAdmin && (
           <Button onClick={handleOpenCreate} size="sm" className="gap-1.5">
@@ -364,6 +364,30 @@ export default function StaffPage() {
             </tr>
           </thead>
           <tbody>
+            {/* Admin Account Row — always shown at top */}
+            <tr className="bg-gradient-to-r from-red-50/60 to-orange-50/40 border-b border-red-100">
+              <td className="px-4 py-2.5">
+                <div className="flex items-center gap-1.5">
+                  <Shield className="w-4 h-4 text-red-500" />
+                  <span className="font-medium text-gray-900">Admin</span>
+                </div>
+                <div className="text-xs text-gray-400">khoibm.tn@gmail.com</div>
+              </td>
+              <td className="px-4 py-2.5 text-gray-600">
+                <div>Quản trị viên hệ thống</div>
+              </td>
+              <td className="px-4 py-2.5">
+                <span className="text-xs text-gray-400">Tất cả phòng ban</span>
+              </td>
+              <td className="px-4 py-2.5">
+                <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-700 border border-red-200">
+                  🛡️ Quản trị viên
+                </span>
+              </td>
+              <td className="px-4 py-2.5 text-right">
+                <span className="text-xs text-gray-400 italic">Quyền tối cao — không thể tắt</span>
+              </td>
+            </tr>
             {filteredStaff.map((s, idx) => {
               const role = s.organizationRole || 'nhan_vien'
               const primaryDept = s.primaryDepartmentId ? deptMap[s.primaryDepartmentId] : null

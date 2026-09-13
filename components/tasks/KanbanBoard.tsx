@@ -284,6 +284,7 @@ export function KanbanBoard({ tasks, actorId, actorName }: KanbanBoardProps) {
                     onDragStart={(e) => handleDragStart(e, task.id)}
                     onDragEnd={handleDragEnd}
                     onClick={() => router.push(`/tasks/${task.id}`)}
+                    onMouseEnter={() => router.prefetch(`/tasks/${task.id}`)}
                     className={`bg-white rounded-xl border border-slate-200 p-3.5 cursor-grab active:cursor-grabbing hover:shadow-md hover:border-blue-300 transition-all group relative ${
                       isDragging ? 'opacity-40 scale-95 ring-2 ring-blue-400' : 'shadow-2xs'
                     }`}

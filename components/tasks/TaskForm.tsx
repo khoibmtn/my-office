@@ -16,7 +16,7 @@ import { useDocuments } from '@/hooks/useDocuments'
 import { useDossiers } from '@/hooks/useDossiers'
 import { createTask } from '@/lib/tasks/mutations'
 import type { TaskPriority, TaskTemplate } from '@/types/tasks'
-import { TASK_PRIORITY_LABELS } from '@/lib/tasks/constants'
+import { TASK_PRIORITY_LABELS, TASK_PRIORITY_DOTS } from '@/lib/tasks/constants'
 
 interface TaskFormProps {
   actorId: string
@@ -211,7 +211,7 @@ export function TaskForm({ actorId, actorName, onClose, dossierId, documentId }:
             className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
           >
             {Object.entries(TASK_PRIORITY_LABELS).map(([key, label]) => (
-              <option key={key} value={key}>{label}</option>
+              <option key={key} value={key}>{TASK_PRIORITY_DOTS[key as TaskPriority]} {label}</option>
             ))}
           </select>
         </div>

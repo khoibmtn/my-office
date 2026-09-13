@@ -32,14 +32,14 @@ interface TaskStatusBadgeProps {
   size?: 'sm' | 'md'
 }
 
-export function TaskStatusBadge({ status, derivedStates = [], size = 'sm' }: TaskStatusBadgeProps) {
+export const TaskStatusBadge = React.memo(function TaskStatusBadge({ status, derivedStates = [], size = 'sm' }: TaskStatusBadgeProps) {
   const colors = TASK_STATUS_COLORS[status]
   const Icon = STATUS_ICONS[status]
   const label = TASK_STATUS_LABELS[status]
   const isSmall = size === 'sm'
 
   return (
-    <div className="flex items-center gap-1.5 flex-wrap">
+    <div className="flex items-center gap-1.5 flex-nowrap">
       <span className={`inline-flex items-center gap-1 rounded-full border font-medium ${colors.bg} ${colors.text} ${colors.border} ${isSmall ? 'px-2 py-0.5 text-[11px]' : 'px-2.5 py-1 text-xs'}`}>
         <Icon className={isSmall ? 'w-3 h-3' : 'w-3.5 h-3.5'} />
         {label}
@@ -60,4 +60,4 @@ export function TaskStatusBadge({ status, derivedStates = [], size = 'sm' }: Tas
       })}
     </div>
   )
-}
+})

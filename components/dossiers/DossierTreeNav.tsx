@@ -160,9 +160,7 @@ export function DossierNavItem({ active }: DossierNavItemProps) {
 
   const handleRowClick = () => {
     router.push('/dossiers')
-    if (!isOpen) {
-      setIsOpen(true)
-    }
+    setIsOpen(prev => !prev)
   }
 
   const handleToggleTreeOpen = (e: React.MouseEvent) => {

@@ -420,7 +420,9 @@ function Pagination({
 
 // === Main Component ===
 
-export function DocumentTable({ documents }: { documents: Document[] }) {
+export function DocumentTable({ documents, storagePrefix = 'myoffice_docTable', defaultFilterStatus = 'pending' }: { documents: Document[]; storagePrefix?: string; defaultFilterStatus?: string }) {
+  // Helper to build localStorage keys scoped by storagePrefix
+  const lsKey = (suffix: string) => `${storagePrefix}_${suffix}`
   const router = useRouter()
   const searchParams = useSearchParams()
   const urlTagId = searchParams.get('tagId')
@@ -442,14 +444,14 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
   const [copyModalContent, setCopyModalContent] = useState<string | null>(null)
   const [filterStatus, setFilterStatus] = useState<string>(() => {
     if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('myoffice_docTable_filterStatus')
+      const saved = localStorage.getItem(lsKey('filterStatus'))
       if (saved && ['all', 'pending', 'completed'].includes(saved)) return saved
     }
-    return 'pending'
+    return defaultFilterStatus
   })
   const [badgeFilters, setBadgeFilters] = useState<string[]>(() => {
     if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('myoffice_docTable_badgeFilters')
+      const saved = localStorage.getItem(lsKey('badgeFilters'))
       if (saved) {
         try {
           const parsed = JSON.parse(saved)
@@ -461,7 +463,7 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
   })
   const [priorityBadgeFilters, setPriorityBadgeFilters] = useState<string[]>(() => {
     if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('myoffice_docTable_priorityBadges')
+      const saved = localStorage.getItem(lsKey('priorityBadges'))
       if (saved) {
         try {
           const parsed = JSON.parse(saved)
@@ -473,7 +475,7 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
   })
   const [staffBadgeFilter, setStaffBadgeFilter] = useState<string | null>(() => {
     if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('myoffice_docTable_staffBadgeFilter')
+      const saved = localStorage.getItem(lsKey('staffBadgeFilter'))
       if (saved !== null) return saved ? saved : null
     }
     return null
@@ -584,7 +586,7 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
   useEffect(() => {
     if (isStaff && currentStaffId && !staffFilterApplied.current) {
       staffFilterApplied.current = true
-      const savedStaff = localStorage.getItem('myoffice_docTable_staffBadgeFilter')
+      const savedStaff = localStorage.getItem(lsKey('staffBadgeFilter'))
       if (savedStaff === null) {
         setStaffBadgeFilter(currentStaffId)
       }
@@ -593,26 +595,26 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
   const [searchQuery, setSearchQuery] = useState('')
   const [timePeriod, setTimePeriod] = useState<string>(() => {
     if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('myoffice_docTable_timePeriod')
+      const saved = localStorage.getItem(lsKey('timePeriod'))
       if (saved && ['today', 'week', 'last_month', 'custom'].includes(saved)) return saved
     }
     return 'today'
   })
   const [customFrom, setCustomFrom] = useState<string>(() => {
     if (typeof window !== 'undefined') {
-      return localStorage.getItem('myoffice_docTable_customFrom') || ''
+      return localStorage.getItem(lsKey('customFrom')) || ''
     }
     return ''
   })
   const [customTo, setCustomTo] = useState<string>(() => {
     if (typeof window !== 'undefined') {
-      return localStorage.getItem('myoffice_docTable_customTo') || ''
+      return localStorage.getItem(lsKey('customTo')) || ''
     }
     return ''
   })
   const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' } | null>(() => {
     if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('myoffice_docTable_sortConfig')
+      const saved = localStorage.getItem(lsKey('sortConfig'))
       if (saved) {
         try {
           const parsed = JSON.parse(saved)
@@ -627,7 +629,7 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize, setPageSize] = useState<number>(() => {
     if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('myoffice_docTable_pageSize')
+      const saved = localStorage.getItem(lsKey('pageSize'))
       if (saved) {
         const parsed = parseInt(saved, 10)
         if ([10, 20, 50, 100].includes(parsed)) return parsed
@@ -648,51 +650,51 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
 
   useEffect(() => {
     if (!isHydrated.current) return
-    localStorage.setItem('myoffice_docTable_filterStatus', filterStatus)
+    localStorage.setItem(lsKey('filterStatus'), filterStatus)
   }, [filterStatus])
 
   useEffect(() => {
     if (!isHydrated.current) return
-    localStorage.setItem('myoffice_docTable_timePeriod', timePeriod)
+    localStorage.setItem(lsKey('timePeriod'), timePeriod)
   }, [timePeriod])
 
   useEffect(() => {
     if (!isHydrated.current) return
-    localStorage.setItem('myoffice_docTable_customFrom', customFrom)
+    localStorage.setItem(lsKey('customFrom'), customFrom)
   }, [customFrom])
 
   useEffect(() => {
     if (!isHydrated.current) return
-    localStorage.setItem('myoffice_docTable_customTo', customTo)
+    localStorage.setItem(lsKey('customTo'), customTo)
   }, [customTo])
 
   useEffect(() => {
     if (!isHydrated.current) return
-    localStorage.setItem('myoffice_docTable_priorityBadges', JSON.stringify(priorityBadgeFilters))
+    localStorage.setItem(lsKey('priorityBadges'), JSON.stringify(priorityBadgeFilters))
   }, [priorityBadgeFilters])
 
   useEffect(() => {
     if (!isHydrated.current) return
-    localStorage.setItem('myoffice_docTable_badgeFilters', JSON.stringify(badgeFilters))
+    localStorage.setItem(lsKey('badgeFilters'), JSON.stringify(badgeFilters))
   }, [badgeFilters])
 
   useEffect(() => {
     if (!isHydrated.current) return
-    localStorage.setItem('myoffice_docTable_staffBadgeFilter', staffBadgeFilter || '')
+    localStorage.setItem(lsKey('staffBadgeFilter'), staffBadgeFilter || '')
   }, [staffBadgeFilter])
 
   useEffect(() => {
     if (!isHydrated.current) return
     if (sortConfig) {
-      localStorage.setItem('myoffice_docTable_sortConfig', JSON.stringify(sortConfig))
+      localStorage.setItem(lsKey('sortConfig'), JSON.stringify(sortConfig))
     } else {
-      localStorage.removeItem('myoffice_docTable_sortConfig')
+      localStorage.removeItem(lsKey('sortConfig'))
     }
   }, [sortConfig])
 
   useEffect(() => {
     // Restore page size
-    const savedSize = localStorage.getItem('myoffice_docTable_pageSize')
+    const savedSize = localStorage.getItem(lsKey('pageSize'))
     if (savedSize) {
       const parsed = parseInt(savedSize, 10)
       if ([10, 20, 50, 100].includes(parsed)) setPageSize(parsed)
@@ -715,7 +717,7 @@ export function DocumentTable({ documents }: { documents: Document[] }) {
     setPageSize(size)
     setCurrentPage(1)
     if (typeof window !== 'undefined') {
-      localStorage.setItem('myoffice_docTable_pageSize', String(size))
+      localStorage.setItem(lsKey('pageSize'), String(size))
     }
   }, [])
 

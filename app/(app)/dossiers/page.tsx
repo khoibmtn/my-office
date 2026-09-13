@@ -8,6 +8,7 @@ import { useDocuments } from '@/hooks/useDocuments'
 import { useStaff } from '@/hooks/useStaff'
 import { usePermissions } from '@/hooks/usePermissions'
 import { useRole } from '@/hooks/useRole'
+import { useOrganization } from '@/hooks/useOrganization'
 import { useDossierUnread } from '@/hooks/useDossierUnread'
 import { toggleArchiveDossier } from '@/lib/dossiers'
 import { DossierBreadcrumb } from '@/components/dossiers/DossierBreadcrumb'
@@ -30,6 +31,7 @@ function DossiersContent() {
   const { staff } = useStaff()
   const perms = usePermissions()
   const { isGuest, staffId, staffName, isAdmin } = useRole()
+  const { hasPermission, currentStaff } = useOrganization()
   const { markAsRead } = useDossierUnread(dossiers)
 
   // Navigation path state
@@ -421,21 +423,19 @@ function DossiersContent() {
                   perms={{
                     ...perms,
                     canCreateDossier: false,
-                    canEditDossier: false,
-                    canDeleteDossier: false,
                     canTransferDossier: false,
                   }}
                 />
               ) : (
                 <div className="flex-1 bg-white rounded-xl border border-slate-200 shadow-sm p-3 sm:p-4 min-h-[300px] min-w-0 max-w-full overflow-x-auto">
-                  <DocumentTable documents={currentDocs} />
+                  <DocumentTable documents={currentDocs} storagePrefix="myoffice_dossierTable" defaultFilterStatus="all" />
                 </div>
               )}
             </div>
           ) : (
             /* Specific Active Dossier View: Show Documents Table */
             <div className="flex-1 bg-white rounded-xl border border-slate-200 shadow-sm p-3 sm:p-4 min-h-[300px] min-w-0 max-w-full overflow-x-auto">
-              <DocumentTable documents={currentDocs} />
+              <DocumentTable documents={currentDocs} storagePrefix="myoffice_dossierTable" defaultFilterStatus="all" />
             </div>
           )}
         </main>
@@ -445,7 +445,21 @@ function DossiersContent() {
           <DossierPanel
             dossier={activeFolder}
             onClose={() => setPanelOpen(false)}
-            canEdit={!!perms.canEditDossier}
+            canEdit={(() => {
+              if (isAdmin) return true
+              if (hasPermission('dossier:edit_all')) {
+                // Scope: chỉ trong phạm vi khoa
+                const myDepts = currentStaff?.departmentIds || (currentStaff?.primaryDepartmentId ? [currentStaff.primaryDepartmentId] : [])
+                const owner = staff.find(s => s.id === activeFolder?.ownerId)
+                const ownerDepts = owner?.departmentIds || (owner?.primaryDepartmentId ? [owner.primaryDepartmentId] : [])
+                const inDept = ownerDepts.some(d => myDepts.includes(d))
+                return inDept || activeFolder?.createdBy === staffId || activeFolder?.ownerId === staffId
+              }
+              if (hasPermission('dossier:edit_own')) {
+                return activeFolder?.createdBy === staffId || activeFolder?.ownerId === staffId
+              }
+              return false
+            })()}
             onShare={() => setShareTarget(activeFolder)}
           />
         )}

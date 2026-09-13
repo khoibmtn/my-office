@@ -49,24 +49,73 @@ export function canViewTask(user: StaffContext, task: TaskContext): boolean {
 
 /**
  * Can this user edit task fields (title, description, priority, deadline)?
- * Allowed: admin, creator, assignee.
- * NOT allowed: collaborator (read + comment only), follower (view only).
+ *
+ * Permission matrix flags:
+ *   - task:edit_all  → can edit ANY task (creator, assignee, or others')
+ *   - task:edit_own  → can only edit tasks created by self (or assigned to self)
+ *
+ * Admin: always allowed.
  */
-export function canEditTask(user: StaffContext, task: TaskContext): boolean {
+export function canEditTask(
+  user: StaffContext,
+  task: TaskContext,
+  matrixPerms?: Partial<Record<string, boolean>>
+): boolean {
   if (user.role === 'admin') return true
-  return task.createdBy === user.id || task.assigneeId === user.id
+
+  const isOwner = task.createdBy === user.id
+  const isAssignee = task.assigneeId === user.id
+
+  // If matrix permissions are provided, use them
+  if (matrixPerms) {
+    if (matrixPerms['task:edit_all']) {
+      // Scope: chỉ trong phạm vi khoa (trừ admin đã return ở trên)
+      const inDepartment = task.departmentId != null && user.departmentIds.includes(task.departmentId)
+      const inCooperating = task.cooperatingDepartmentIds.some(d => user.departmentIds.includes(d))
+      return inDepartment || inCooperating || isOwner || isAssignee
+    }
+    if (matrixPerms['task:edit_own']) return isOwner || isAssignee
+    return false
+  }
+
+  // Fallback: creator + assignee can edit
+  return isOwner || isAssignee
 }
 
 // ===== Delete =====
 
 /**
  * Can this user delete (soft) this task?
- * Allowed: admin, creator.
- * NOT allowed: assignee, collaborator, follower.
+ *
+ * Permission matrix flags:
+ *   - task:delete_all → can delete ANY task
+ *   - task:delete_own → can only delete tasks created by self
+ *
+ * Admin: always allowed.
  */
-export function canDeleteTask(user: StaffContext, task: TaskContext): boolean {
+export function canDeleteTask(
+  user: StaffContext,
+  task: TaskContext,
+  matrixPerms?: Partial<Record<string, boolean>>
+): boolean {
   if (user.role === 'admin') return true
-  return task.createdBy === user.id
+
+  const isOwner = task.createdBy === user.id
+
+  // If matrix permissions are provided, use them
+  if (matrixPerms) {
+    if (matrixPerms['task:delete_all']) {
+      // Scope: chỉ trong phạm vi khoa (trừ admin đã return ở trên)
+      const inDepartment = task.departmentId != null && user.departmentIds.includes(task.departmentId)
+      const inCooperating = task.cooperatingDepartmentIds.some(d => user.departmentIds.includes(d))
+      return inDepartment || inCooperating || isOwner
+    }
+    if (matrixPerms['task:delete_own']) return isOwner
+    return false
+  }
+
+  // Fallback: only creator can delete
+  return isOwner
 }
 
 // ===== Status Change =====

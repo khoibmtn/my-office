@@ -82,9 +82,11 @@ export default function TasksPage() {
     }
   }, [allTasks, staffId, isAdmin])
 
-  // Client-side filtering
+  // Client-side filtering (including fuzzy search)
   const filteredTasks = useMemo(() => {
+    const query = filters.searchQuery?.toLowerCase().trim() || ''
     return tabTasks.filter(t => {
+      if (query && !t.title.toLowerCase().includes(query)) return false
       if (filters.status !== 'all' && t.status !== filters.status) return false
       if (filters.priority !== 'all' && t.priority !== filters.priority) return false
       if (filters.assigneeId !== 'all' && t.assigneeId !== filters.assigneeId) return false

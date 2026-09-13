@@ -157,6 +157,7 @@ export function TaskCalendar({ tasks }: TaskCalendarProps) {
                     <div
                       key={task.id}
                       onClick={() => router.push(`/tasks/${task.id}`)}
+                      onMouseEnter={() => router.prefetch(`/tasks/${task.id}`)}
                       className={`text-[10px] px-1.5 py-0.5 rounded cursor-pointer truncate font-medium transition-all hover:opacity-80 ${colors.bg} ${colors.text}`}
                       title={task.title}
                     >

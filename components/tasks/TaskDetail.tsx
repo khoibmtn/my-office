@@ -12,6 +12,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { useStaff } from '@/hooks/useStaff'
 import { useDepartments } from '@/hooks/useDepartments'
+import { useOrganization } from '@/hooks/useOrganization'
 import { TaskStatusBadge } from './TaskStatusBadge'
 import { TaskPriorityBadge } from './TaskPriorityBadge'
 import { TaskCommentThread } from './TaskCommentThread'
@@ -77,9 +78,17 @@ export function TaskDetail({
     cooperatingDepartmentIds: task.cooperatingDepartmentIds,
   }
 
-  const _canEdit = canEditTask(userCtx, taskCtx)
+  const { hasPermission } = useOrganization()
+  const matrixPerms: Partial<Record<string, boolean>> = {
+    'task:edit_own': hasPermission('task:edit_own'),
+    'task:edit_all': hasPermission('task:edit_all'),
+    'task:delete_own': hasPermission('task:delete_own'),
+    'task:delete_all': hasPermission('task:delete_all'),
+  }
+
+  const _canEdit = canEditTask(userCtx, taskCtx, matrixPerms)
   const _canStatus = canChangeStatus(userCtx, taskCtx)
-  const _canDelete = canDeleteTask(userCtx, taskCtx)
+  const _canDelete = canDeleteTask(userCtx, taskCtx, matrixPerms)
   const _canComment = canAddComment(userCtx, taskCtx)
   const _canSubtask = canAddSubtask(userCtx, taskCtx)
 

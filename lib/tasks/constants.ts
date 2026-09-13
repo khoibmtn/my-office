@@ -35,6 +35,13 @@ export const TASK_PRIORITY_LABELS: Record<TaskPriority, string> = {
   urgent: 'Khẩn cấp',
 }
 
+export const TASK_PRIORITY_DOTS: Record<TaskPriority, string> = {
+  low: '⚪',
+  normal: '🔵',
+  high: '🟡',
+  urgent: '🔴',
+}
+
 export const TASK_PRIORITY_COLORS: Record<TaskPriority, { bg: string; text: string; dot: string }> = {
   low: { bg: 'bg-slate-100', text: 'text-slate-600', dot: 'bg-slate-400' },
   normal: { bg: 'bg-blue-50', text: 'text-blue-600', dot: 'bg-blue-400' },

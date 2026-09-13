@@ -7,10 +7,12 @@ import {
   Search, FileText, AlertCircle, Loader2, X, PlusSquare, MinusSquare, ArrowRightLeft,
   ChevronUp, ChevronDown, FolderSymlink, UserCheck, Share2, Users
 } from 'lucide-react'
-import type { Dossier, Document } from '@/types'
+import type { Dossier, Document, StaffMember } from '@/types'
 import { toggleArchiveDossier, reorderLevel1Dossiers } from '@/lib/dossiers'
 import { useRole } from '@/hooks/useRole'
 import { useDossierUnread } from '@/hooks/useDossierUnread'
+import { useOrganization } from '@/hooks/useOrganization'
+import { useStaff } from '@/hooks/useStaff'
 import { MoveDossierModal } from './MoveDossierModal'
 
 interface DossierTableProps {
@@ -24,8 +26,6 @@ interface DossierTableProps {
   onShareDossier?: (dossier: Dossier) => void
   perms: {
     canCreateDossier?: boolean
-    canEditDossier?: boolean
-    canDeleteDossier?: boolean
     canTransferDossier?: boolean
   }
 }
@@ -86,8 +86,54 @@ export function DossierTable({
   perms,
 }: DossierTableProps) {
   const router = useRouter()
-  const { staffId } = useRole()
+  const { staffId, isAdmin } = useRole()
+  const { hasPermission, currentStaff } = useOrganization()
+  const { staff: staffList } = useStaff()
   const { unreadMap, getSubtreeUnread, markAsRead } = useDossierUnread(dossiers)
+
+  // Current user's department IDs
+  const myDeptIds = currentStaff?.departmentIds ||
+    (currentStaff?.primaryDepartmentId ? [currentStaff.primaryDepartmentId] : [])
+
+  // Check if a dossier's owner belongs to the same department as current user
+  const isDossierInMyDepartment = (dossier: Dossier): boolean => {
+    const owner = staffList.find((s: StaffMember) => s.id === dossier.ownerId)
+    if (!owner) return false
+    const ownerDepts = owner.departmentIds ||
+      (owner.primaryDepartmentId ? [owner.primaryDepartmentId] : [])
+    return ownerDepts.some(d => myDeptIds.includes(d))
+  }
+
+  // Per-dossier permission helpers
+  const canEditThisDossier = (dossier: Dossier): boolean => {
+    if (isAdmin) return true
+    if (hasPermission('dossier:edit_all')) {
+      // Scope: chỉ trong phạm vi khoa (trừ admin đã return ở trên)
+      return isDossierInMyDepartment(dossier) ||
+             dossier.createdBy === staffId ||
+             dossier.ownerId === staffId
+    }
+    if (hasPermission('dossier:edit_own')) {
+      return dossier.createdBy === staffId || dossier.ownerId === staffId
+    }
+    return false
+  }
+
+  const canDeleteThisDossier = (dossier: Dossier): boolean => {
+    if (isAdmin && (!dossier.sharedWith?.length)) return true
+    // Block delete if currently shared with others
+    if (dossier.sharedWith && dossier.sharedWith.length > 0) return false
+    if (hasPermission('dossier:delete_all')) {
+      // Scope: chỉ trong phạm vi khoa
+      return isDossierInMyDepartment(dossier) ||
+             dossier.createdBy === staffId ||
+             dossier.ownerId === staffId
+    }
+    if (hasPermission('dossier:delete_own')) {
+      return dossier.createdBy === staffId || dossier.ownerId === staffId
+    }
+    return false
+  }
 
   const [tab, setTab] = useState<'active' | 'archived' | 'all'>(() => {
     if (typeof window !== 'undefined') {
@@ -491,7 +537,7 @@ export function DossierTable({
                     <td className="py-3 px-3.5 text-right whitespace-nowrap">
                       <div className="flex items-center justify-end gap-1">
                         {/* Up / Down Reorder for Level 1 Dossiers */}
-                        {perms.canEditDossier && dossier.level === 1 && !isArchived && (
+                        {canEditThisDossier(dossier) && dossier.level === 1 && !isArchived && (
                           <div className="inline-flex items-center gap-0.5 border-r pr-1.5 mr-1 border-slate-200">
                             <button
                               onClick={e => {
@@ -541,7 +587,7 @@ export function DossierTable({
                         )}
 
                         {/* Edit */}
-                        {perms.canEditDossier && (
+                        {canEditThisDossier(dossier) && (
                           <button
                             onClick={e => {
                               e.stopPropagation()
@@ -555,7 +601,7 @@ export function DossierTable({
                         )}
 
                         {/* Move Dossier Location */}
-                        {perms.canEditDossier && !isArchived && (
+                        {canEditThisDossier(dossier) && !isArchived && (
                           <button
                             onClick={e => {
                               e.stopPropagation()
@@ -569,7 +615,7 @@ export function DossierTable({
                         )}
 
                         {/* Share Dossier */}
-                        {onShareDossier && perms.canEditDossier && !isArchived && (
+                        {onShareDossier && canEditThisDossier(dossier) && !isArchived && (
                           <button
                             onClick={e => {
                               e.stopPropagation()
@@ -597,7 +643,7 @@ export function DossierTable({
                         )}
 
                         {/* Archive / Unarchive */}
-                        {perms.canEditDossier && (
+                        {canEditThisDossier(dossier) && (
                           <button
                             onClick={e => handleToggleArchive(dossier, e)}
                             disabled={archivingId === dossier.id}
@@ -619,7 +665,7 @@ export function DossierTable({
                         )}
 
                         {/* Delete */}
-                        {perms.canDeleteDossier && (
+                        {canDeleteThisDossier(dossier) && (
                           <button
                             onClick={e => {
                               e.stopPropagation()
@@ -627,6 +673,16 @@ export function DossierTable({
                             }}
                             className="p-1.5 text-red-600 hover:bg-red-100 rounded-md transition-colors"
                             title="Xóa hồ sơ"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                        {/* Show disabled delete with tooltip if shared */}
+                        {!canDeleteThisDossier(dossier) && (dossier.createdBy === staffId || dossier.ownerId === staffId || isAdmin) && dossier.sharedWith && dossier.sharedWith.length > 0 && (
+                          <button
+                            disabled
+                            className="p-1.5 text-gray-300 cursor-not-allowed rounded-md"
+                            title={`Không thể xóa — đang chia sẻ với ${dossier.sharedWith.length} người`}
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>

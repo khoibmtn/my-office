@@ -8,7 +8,7 @@ import {
 import type { Task, TaskStatus, TaskPriority } from '@/types/tasks'
 import { updateTask, updateTaskStatus, deleteTask } from '@/lib/tasks/mutations'
 import { isValidTransition } from '@/lib/tasks/validation'
-import { TASK_PRIORITY_LABELS, TASK_STATUS_LABELS } from '@/lib/tasks/constants'
+import { TASK_PRIORITY_LABELS, TASK_PRIORITY_DOTS, TASK_STATUS_LABELS } from '@/lib/tasks/constants'
 import type { StaffMember } from '@/types'
 
 interface BulkActionsBarProps {
@@ -126,9 +126,10 @@ export function BulkActionsBar({
               <button
                 key={p}
                 onClick={() => bulkPriorityChange(p)}
-                className="px-2 py-1 text-[11px] rounded-lg bg-slate-800 hover:bg-slate-700 transition-colors"
+                className="px-2 py-1 text-[11px] rounded-lg bg-slate-800 hover:bg-slate-700 transition-colors inline-flex items-center gap-1"
               >
-                {TASK_PRIORITY_LABELS[p]}
+                <span>{TASK_PRIORITY_DOTS[p]}</span>
+                <span>{TASK_PRIORITY_LABELS[p]}</span>
               </button>
             ))}
             <button onClick={() => setAction(null)} className="p-1 hover:bg-slate-700 rounded">

@@ -12,7 +12,7 @@ import { CoAssigneePicker } from '@/components/documents/CoAssigneePicker'
 import { CoDepartmentPicker } from '@/components/tasks/CoDepartmentPicker'
 import { createTaskSeries, updateTaskSeries, triggerSeriesGenerationNow } from '@/lib/tasks/series'
 import { Timestamp } from 'firebase/firestore'
-import { TASK_PRIORITY_LABELS } from '@/lib/tasks/constants'
+import { TASK_PRIORITY_LABELS, TASK_PRIORITY_DOTS } from '@/lib/tasks/constants'
 import type { TaskPriority, RecurrenceType, WeekendPolicy, SubtaskTemplate, TaskSeries } from '@/types/tasks'
 
 interface SeriesFormProps {
@@ -742,7 +742,7 @@ export function SeriesForm({ actorId, actorName, series, onClose }: SeriesFormPr
                 className="w-full mt-1 px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs bg-white focus:ring-2 focus:ring-blue-500"
               >
                 {Object.entries(TASK_PRIORITY_LABELS).map(([k, v]) => (
-                  <option key={k} value={k}>{v}</option>
+                  <option key={k} value={k}>{TASK_PRIORITY_DOTS[k as TaskPriority]} {v}</option>
                 ))}
               </select>
             </div>

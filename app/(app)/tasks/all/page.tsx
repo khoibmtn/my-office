@@ -16,7 +16,9 @@ export default function AllTasksPage() {
   const { tasks, loading } = useTasks({ view: 'all' })
 
   const filteredTasks = useMemo(() => {
+    const query = filters.searchQuery?.toLowerCase().trim() || ''
     return tasks.filter(t => {
+      if (query && !t.title.toLowerCase().includes(query)) return false
       if (filters.status !== 'all' && t.status !== filters.status) return false
       if (filters.priority !== 'all' && t.priority !== filters.priority) return false
       if (filters.assigneeId !== 'all' && t.assigneeId !== filters.assigneeId) return false
