@@ -33,6 +33,9 @@ function getFirebaseApp() {
 
 const provider = new GoogleAuthProvider()
 provider.addScope('https://www.googleapis.com/auth/drive.file')
+provider.setCustomParameters({
+  prompt: 'select_account',
+})
 
 export function getFirebaseAuth() {
   const app = getFirebaseApp()
@@ -83,13 +86,13 @@ async function _doEnsureAuth(): Promise<User | null> {
 
   await firebaseAuth.authStateReady()
 
-  // 1. Check if already signed in
-  if (firebaseAuth.currentUser) {
+  // 1. If already signed in with a Google account (non-anonymous), return it immediately
+  if (firebaseAuth.currentUser && !firebaseAuth.currentUser.isAnonymous) {
     _saveTokens(firebaseAuth.currentUser)
     return firebaseAuth.currentUser
   }
 
-  // 2. Process redirect result if available (e.g. from previous redirect attempt)
+  // 2. Process redirect result if available (crucial when returning from Google redirect)
   try {
     const redirectResult = await getRedirectResult(firebaseAuth)
     if (redirectResult?.user) {
@@ -98,13 +101,22 @@ async function _doEnsureAuth(): Promise<User | null> {
         localStorage.setItem('google_access_token', credential.accessToken)
       }
       _saveTokens(redirectResult.user)
+      if (typeof window !== 'undefined') {
+        sessionStorage.removeItem('firebase_redirect_in_progress')
+      }
       return redirectResult.user
     }
   } catch (err: any) {
     console.warn('[Auth] Redirect result error (non-fatal):', err?.code || err)
   }
 
-  // 3. Anonymous sign-in fallback if still no user
+  // 3. If we already have a valid user (e.g. anonymous user for read rules), return it
+  if (firebaseAuth.currentUser) {
+    _saveTokens(firebaseAuth.currentUser)
+    return firebaseAuth.currentUser
+  }
+
+  // 4. Anonymous sign-in fallback if still no user
   try {
     const anonResult = await signInAnonymously(firebaseAuth)
     return anonResult.user
@@ -129,16 +141,43 @@ async function _saveTokens(user: User) {
 
 /**
  * Sign in with Google account (for Drive API access and Admin login).
- * Uses signInWithPopup directly to avoid cross-domain redirect issues on custom domains/Vercel.
+ * Tries popup first; if blocked by browser, automatically falls back to redirect.
+ * If useRedirect is true, directly uses redirect.
  */
-export async function signInWithGoogle() {
-  const result = await signInWithPopup(auth(), provider)
-  const credential = GoogleAuthProvider.credentialFromResult(result)
-  if (credential?.accessToken) {
-    localStorage.setItem('google_access_token', credential.accessToken)
+export async function signInWithGoogle(useRedirect = false) {
+  const firebaseAuth = auth()
+
+  if (useRedirect) {
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem('firebase_redirect_in_progress', 'true')
+    }
+    await signInWithRedirect(firebaseAuth, provider)
+    return null
   }
-  _saveTokens(result.user)
-  return result
+
+  try {
+    const result = await signInWithPopup(firebaseAuth, provider)
+    const credential = GoogleAuthProvider.credentialFromResult(result)
+    if (credential?.accessToken) {
+      localStorage.setItem('google_access_token', credential.accessToken)
+    }
+    _saveTokens(result.user)
+    return result
+  } catch (popupErr: any) {
+    // If popup was blocked by browser or cancelled by popup blocker
+    if (
+      popupErr?.code === 'auth/popup-blocked' ||
+      popupErr?.code === 'auth/cancelled-popup-request'
+    ) {
+      console.warn('[Auth] Popup blocked, falling back to signInWithRedirect...')
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem('firebase_redirect_in_progress', 'true')
+      }
+      await signInWithRedirect(firebaseAuth, provider)
+      return null
+    }
+    throw popupErr
+  }
 }
 
 /**

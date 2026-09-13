@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from './useAuth'
 import type { UserRole } from '@/types'
 
-const ADMIN_EMAIL = 'khoibm.tn@gmail.com'
+export const ADMIN_EMAIL = 'khoibm.tn@gmail.com'
 
 interface StaffSession {
   staffId: string
