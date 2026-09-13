@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react'
-import { Loader2, Trash2, Eye, RefreshCw, CheckCircle2, Clock, CircleDot, Search, Pencil, ArrowUpDown, ClipboardCopy, Calendar, ChevronLeft, ChevronRight, X, Folder, ArrowRightLeft, FolderPlus, User, ChevronDown } from 'lucide-react'
+import { Loader2, Trash2, Eye, RefreshCw, CheckCircle2, Clock, CircleDot, Search, Pencil, ArrowUpDown, ClipboardCopy, Calendar, ChevronLeft, ChevronRight, X, Folder, ArrowRightLeft, FolderPlus, User, ChevronDown, RotateCcw, FileText } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
@@ -455,7 +455,10 @@ export function DocumentTable({ documents, storagePrefix = 'myoffice_docTable', 
       if (saved) {
         try {
           const parsed = JSON.parse(saved)
-          if (Array.isArray(parsed)) return parsed
+          if (Array.isArray(parsed)) {
+            // Backward-compatibility: migrate old 'pending' to 'pending_docs'
+            return parsed.map(k => (k === 'pending' ? 'pending_docs' : k))
+          }
         } catch {}
       }
     }
@@ -871,7 +874,7 @@ export function DocumentTable({ documents, storagePrefix = 'myoffice_docTable', 
         const days = getDaysRemaining(d.deadline)
         return badgeFilters.some(bf => {
           if (bf === 'completed' || bf === 'completed_docs') return d.status === 'completed'
-          if (bf === 'pending_docs') return d.status !== 'completed'
+          if (bf === 'pending' || bf === 'pending_docs') return d.status !== 'completed'
           if (d.status === 'completed') return false
           if (bf === 'overdue') return days !== null && days < 0
           if (bf === 'expired') return days !== null && days === 0
@@ -949,6 +952,43 @@ export function DocumentTable({ documents, storagePrefix = 'myoffice_docTable', 
 
     return result
   }, [baseDocs, badgeFilters, priorityBadgeFilters, staffBadgeFilter, searchQuery, wordMatch, sortConfig, urlTagId, activeTag])
+
+  // Check if any filter is actively narrowing the list
+  const hasActiveFilters = useMemo(() => {
+    return (
+      badgeFilters.length > 0 ||
+      priorityBadgeFilters.length > 0 ||
+      Boolean(staffBadgeFilter) ||
+      searchQuery.trim().length > 0 ||
+      filterStatus !== 'all' ||
+      timePeriod !== 'today' ||
+      Boolean(urlTagId)
+    )
+  }, [badgeFilters, priorityBadgeFilters, staffBadgeFilter, searchQuery, filterStatus, timePeriod, urlTagId])
+
+  // Clear all filters handler to easily restore all documents
+  const handleClearAllFilters = useCallback(() => {
+    setBadgeFilters([])
+    setPriorityBadgeFilters([])
+    setStaffBadgeFilter(null)
+    setSearchQuery('')
+    setFilterStatus('all')
+    setTimePeriod('today')
+    setCustomFrom('')
+    setCustomTo('')
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem(lsKey('badgeFilters'))
+      localStorage.removeItem(lsKey('priorityBadges'))
+      localStorage.removeItem(lsKey('staffBadgeFilter'))
+      localStorage.setItem(lsKey('filterStatus'), 'all')
+      localStorage.setItem(lsKey('timePeriod'), 'today')
+      localStorage.removeItem(lsKey('customFrom'))
+      localStorage.removeItem(lsKey('customTo'))
+    }
+    if (urlTagId) {
+      router.push('/documents')
+    }
+  }, [lsKey, urlTagId, router])
 
   // Reset page on filter change
   useEffect(() => { setCurrentPage(1) }, [searchQuery, badgeFilters, priorityBadgeFilters, staffBadgeFilter, filterStatus, timePeriod])
@@ -1131,8 +1171,8 @@ export function DocumentTable({ documents, storagePrefix = 'myoffice_docTable', 
                 { key: 'express_scheduled', label: 'Hỏa tốc hẹn giờ', color: '#e11d48' }
               ].map(p => {
                 const count = priorityStats[p.key] || 0
-                if (count === 0) return null
                 const isSelected = priorityBadgeFilters.includes(p.key)
+                if (count === 0 && !isSelected) return null
                 return (
                   <button
                     key={p.key}
@@ -1186,7 +1226,19 @@ export function DocumentTable({ documents, storagePrefix = 'myoffice_docTable', 
               </button>
             )}
           </div>
-          <span className="filter-count hidden sm:inline">{filteredDocs.length}/{baseDocs.length} văn bản</span>
+          <div className="flex items-center gap-2">
+            <span className="filter-count hidden sm:inline">{filteredDocs.length}/{baseDocs.length} văn bản</span>
+            {hasActiveFilters && (
+              <button
+                onClick={handleClearAllFilters}
+                className="hidden sm:inline-flex items-center gap-1 text-xs font-semibold text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 px-2 py-0.5 rounded transition-colors cursor-pointer"
+                title="Bỏ tất cả bộ lọc để xem toàn bộ văn bản"
+              >
+                <RotateCcw className="w-3 h-3" />
+                <span>Bỏ lọc</span>
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Mobile priority filters */}
@@ -1199,8 +1251,8 @@ export function DocumentTable({ documents, storagePrefix = 'myoffice_docTable', 
             { key: 'express_scheduled', label: 'HT hẹn giờ', color: '#e11d48' }
           ].map(p => {
             const count = priorityStats[p.key] || 0
-            if (count === 0) return null
             const isSelected = priorityBadgeFilters.includes(p.key)
+            if (count === 0 && !isSelected) return null
             return (
               <button
                 key={p.key}
@@ -1247,15 +1299,18 @@ export function DocumentTable({ documents, storagePrefix = 'myoffice_docTable', 
             { key: 'urgent2', count: stats.urgent2, color: settings.urgent2Color, label: 'Cận hạn 4-7 ngày' },
             { key: 'normal', count: stats.normal, color: settings.normalColor, label: 'Còn hạn > 7 ngày' },
           ].map(b => {
-            if (b.count === 0) return null
-            const isSelected = badgeFilters.includes(b.key)
+            const isSelected = badgeFilters.includes(b.key) || (b.key === 'pending_docs' && badgeFilters.includes('pending'))
+            if (b.count === 0 && !isSelected) return null
             return (
               <button
                 key={b.key}
                 onClick={() => {
-                  setBadgeFilters(prev => 
-                    prev.includes(b.key) ? prev.filter(x => x !== b.key) : [...prev, b.key]
-                  )
+                  setBadgeFilters(prev => {
+                    const normalized = prev.map(x => (x === 'pending' ? 'pending_docs' : x))
+                    return normalized.includes(b.key)
+                      ? normalized.filter(x => x !== b.key)
+                      : [...normalized, b.key]
+                  })
                 }}
                 className="badge-filter px-2 py-1 rounded shadow-sm flex items-center gap-1 transition-all border whitespace-nowrap shrink-0 text-xs"
                 style={{ 
@@ -1524,7 +1579,39 @@ export function DocumentTable({ documents, storagePrefix = 'myoffice_docTable', 
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {pagedDocs.map((doc, idx) => {
+                {pagedDocs.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={8} className="py-16 text-center">
+                      <div className="flex flex-col items-center justify-center gap-3 max-w-md mx-auto">
+                        <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center text-slate-400">
+                          <FileText className="w-6 h-6" />
+                        </div>
+                        <div className="space-y-1">
+                          <p className="text-sm font-semibold text-slate-700">
+                            {baseDocs.length > 0
+                              ? `Không có văn bản nào phù hợp với bộ lọc hiện tại (0/${baseDocs.length} văn bản)`
+                              : 'Chưa có văn bản nào trong hệ thống'}
+                          </p>
+                          {baseDocs.length > 0 && (
+                            <p className="text-xs text-slate-500">
+                              Một hoặc nhiều bộ lọc (hạn xử lý, mức độ khẩn, cán bộ, hoặc từ khóa) đang giới hạn kết quả hiển thị.
+                            </p>
+                          )}
+                        </div>
+                        {hasActiveFilters && (
+                          <button
+                            onClick={handleClearAllFilters}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-sm transition-colors cursor-pointer"
+                          >
+                            <RotateCcw className="w-3.5 h-3.5" />
+                            <span>Xóa tất cả bộ lọc để xem {baseDocs.length} văn bản</span>
+                          </button>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  pagedDocs.map((doc, idx) => {
                   const days = getDaysRemaining(doc.deadline)
                   const docEffStatus = getDocEffectiveStatus(doc)
                   const eff = getEffectiveStatus(doc, docEffStatus)
@@ -1770,7 +1857,7 @@ export function DocumentTable({ documents, storagePrefix = 'myoffice_docTable', 
                       </TableCell>
                     </TableRow>
                   )
-                })}
+                }))}
               </TableBody>
             </Table>
           </div>
@@ -1779,7 +1866,26 @@ export function DocumentTable({ documents, storagePrefix = 'myoffice_docTable', 
 
       {/* === MOBILE CARD LIST (shown only on mobile) === */}
       <div className="sm:hidden flex flex-col gap-2">
-        {pagedDocs.map((doc, idx) => {
+        {pagedDocs.length === 0 ? (
+          <div className="py-8 px-4 text-center bg-white rounded-xl border border-slate-200 flex flex-col items-center gap-2">
+            <FileText className="w-8 h-8 text-slate-300" />
+            <p className="text-sm font-medium text-slate-700">
+              {baseDocs.length > 0
+                ? `Không có văn bản phù hợp (0/${baseDocs.length})`
+                : 'Chưa có văn bản nào'}
+            </p>
+            {hasActiveFilters && (
+              <button
+                onClick={handleClearAllFilters}
+                className="mt-1 inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-semibold"
+              >
+                <RotateCcw className="w-3 h-3" />
+                <span>Xóa tất cả bộ lọc</span>
+              </button>
+            )}
+          </div>
+        ) : (
+          pagedDocs.map((doc, idx) => {
           const days = getDaysRemaining(doc.deadline)
           const docEffStatus = getDocEffectiveStatus(doc)
           const eff = getEffectiveStatus(doc, docEffStatus)
@@ -1810,7 +1916,7 @@ export function DocumentTable({ documents, storagePrefix = 'myoffice_docTable', 
               settings={settings}
             />
           )
-        })}
+        }))}
       </div>
 
       {/* === PAGINATION === */}
