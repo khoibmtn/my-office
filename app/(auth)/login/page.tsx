@@ -1,21 +1,28 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { LogIn, User, Shield, Loader2, Eye, EyeOff } from 'lucide-react'
 import { useRole } from '@/hooks/useRole'
 import { hashPassword } from '@/lib/staff'
-import { linkGoogleAccount } from '@/lib/firebase'
+import { signInWithGoogle } from '@/lib/firebase'
 
 export default function LoginPage() {
   const router = useRouter()
-  const { login } = useRole()
+  const { login, isGuest, role } = useRole()
   const [mode, setMode] = useState<'staff' | 'admin'>('staff')
   const [nickname, setNickname] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+
+  // If user is already authenticated (staff or admin), automatically redirect to /documents
+  useEffect(() => {
+    if (!isGuest) {
+      router.replace('/documents')
+    }
+  }, [isGuest, router])
 
   const handleStaffLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -62,10 +69,12 @@ export default function LoginPage() {
     setLoading(true)
     setError('')
     try {
-      await linkGoogleAccount()
-      router.push('/')
+      const result = await signInWithGoogle()
+      if (result?.user) {
+        router.push('/documents')
+      }
     } catch (err: any) {
-      if (err?.code === 'auth/popup-closed-by-user') {
+      if (err?.code === 'auth/popup-closed-by-user' || err?.code === 'auth/cancelled-popup-request') {
         setError('')
       } else {
         setError(err?.message || 'Đăng nhập Google thất bại')

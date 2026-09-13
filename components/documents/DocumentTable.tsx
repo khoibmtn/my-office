@@ -479,7 +479,7 @@ export function DocumentTable({ documents, storagePrefix = 'myoffice_docTable', 
   const [staffBadgeFilter, setStaffBadgeFilter] = useState<string | null>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem(lsKey('staffBadgeFilter'))
-      if (saved !== null) return saved ? saved : null
+      if (saved && saved !== 'admin') return saved
     }
     return null
   })
@@ -993,6 +993,59 @@ export function DocumentTable({ documents, storagePrefix = 'myoffice_docTable', 
   // Reset page on filter change
   useEffect(() => { setCurrentPage(1) }, [searchQuery, badgeFilters, priorityBadgeFilters, staffBadgeFilter, filterStatus, timePeriod])
 
+  // Auto-prune stale badge filters that match 0 documents in baseDocs
+  useEffect(() => {
+    if (badgeFilters.length > 0 && baseDocs.length > 0) {
+      const validFilters = badgeFilters.filter(bf => {
+        if (bf === 'completed' || bf === 'completed_docs') return stats.completed > 0
+        if (bf === 'pending' || bf === 'pending_docs') return (baseDocs.length - stats.completed) > 0
+        if (bf === 'overdue') return stats.overdue > 0
+        if (bf === 'expired') return stats.expired > 0
+        if (bf === 'urgent1') return stats.urgent1 > 0
+        if (bf === 'urgent2') return stats.urgent2 > 0
+        if (bf === 'normal') return stats.normal > 0
+        return false
+      })
+      if (validFilters.length !== badgeFilters.length) {
+        setBadgeFilters(validFilters)
+        if (typeof window !== 'undefined') {
+          if (validFilters.length === 0) {
+            localStorage.removeItem(lsKey('badgeFilters'))
+          } else {
+            localStorage.setItem(lsKey('badgeFilters'), JSON.stringify(validFilters))
+          }
+        }
+      }
+    }
+  }, [baseDocs.length, stats, badgeFilters, lsKey])
+
+  // Auto-prune stale priority filters that match 0 documents
+  useEffect(() => {
+    if (priorityBadgeFilters.length > 0 && baseDocs.length > 0) {
+      const validPriorities = priorityBadgeFilters.filter(p => (priorityStats[p] || 0) > 0)
+      if (validPriorities.length !== priorityBadgeFilters.length) {
+        setPriorityBadgeFilters(validPriorities)
+        if (typeof window !== 'undefined') {
+          if (validPriorities.length === 0) {
+            localStorage.removeItem(lsKey('priorityBadges'))
+          } else {
+            localStorage.setItem(lsKey('priorityBadges'), JSON.stringify(validPriorities))
+          }
+        }
+      }
+    }
+  }, [baseDocs.length, priorityStats, priorityBadgeFilters, lsKey])
+
+  // Ensure staffBadgeFilter is never 'admin'
+  useEffect(() => {
+    if (staffBadgeFilter === 'admin') {
+      setStaffBadgeFilter(null)
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem(lsKey('staffBadgeFilter'))
+      }
+    }
+  }, [staffBadgeFilter, lsKey])
+
   // Pagination
   const showPagination = filteredDocs.length >= 10
   const totalPages = showPagination ? Math.max(1, Math.ceil(filteredDocs.length / pageSize)) : 1
@@ -1145,7 +1198,21 @@ export function DocumentTable({ documents, storagePrefix = 'myoffice_docTable', 
               <label className="hidden sm:inline">Lọc danh sách:</label>
               <select 
                 value={filterStatus} 
-                onChange={e => { setFilterStatus(e.target.value); e.target.blur() }}
+                onChange={e => {
+                  const val = e.target.value
+                  setFilterStatus(val)
+                  if (val === 'all') {
+                    setBadgeFilters([])
+                    setPriorityBadgeFilters([])
+                    setStaffBadgeFilter(null)
+                    if (typeof window !== 'undefined') {
+                      localStorage.removeItem(lsKey('badgeFilters'))
+                      localStorage.removeItem(lsKey('priorityBadges'))
+                      localStorage.removeItem(lsKey('staffBadgeFilter'))
+                    }
+                  }
+                  e.target.blur()
+                }}
                 className={filterStatus !== 'all' ? 'select-colored' : ''}
                 style={{
                   background: filterStatus === 'completed' ? settings.completedColor : filterStatus === 'pending' ? '#f59e0b' : undefined,

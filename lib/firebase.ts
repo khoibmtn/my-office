@@ -89,21 +89,22 @@ async function _doEnsureAuth(): Promise<User | null> {
     return firebaseAuth.currentUser
   }
 
-  // 3. Process redirect result ONLY if redirect flow was initiated
-  if (typeof window !== 'undefined' && sessionStorage.getItem('firebase_redirect_in_progress')) {
-    try {
-      sessionStorage.removeItem('firebase_redirect_in_progress')
-      const redirectResult = await getRedirectResult(firebaseAuth)
-      if (redirectResult?.user) {
-        _saveTokens(redirectResult.user)
-        return redirectResult.user
+  // 2. Process redirect result if available (e.g. from previous redirect attempt)
+  try {
+    const redirectResult = await getRedirectResult(firebaseAuth)
+    if (redirectResult?.user) {
+      const credential = GoogleAuthProvider.credentialFromResult(redirectResult)
+      if (credential?.accessToken) {
+        localStorage.setItem('google_access_token', credential.accessToken)
       }
-    } catch (err: any) {
-      console.warn('[Auth] Redirect result error (non-fatal):', err?.code || err)
+      _saveTokens(redirectResult.user)
+      return redirectResult.user
     }
+  } catch (err: any) {
+    console.warn('[Auth] Redirect result error (non-fatal):', err?.code || err)
   }
 
-  // 4. Anonymous sign-in fallback if still no user
+  // 3. Anonymous sign-in fallback if still no user
   try {
     const anonResult = await signInAnonymously(firebaseAuth)
     return anonResult.user
@@ -127,68 +128,32 @@ async function _saveTokens(user: User) {
 }
 
 /**
- * Sign in with Google account (for Drive API access).
- * On localhost: popup. On production: redirect.
+ * Sign in with Google account (for Drive API access and Admin login).
+ * Uses signInWithPopup directly to avoid cross-domain redirect issues on custom domains/Vercel.
  */
 export async function signInWithGoogle() {
-  const isLocalhost = typeof window !== 'undefined' && window.location.hostname === 'localhost'
-
-  if (isLocalhost) {
-    const result = await signInWithPopup(auth(), provider)
-    const credential = GoogleAuthProvider.credentialFromResult(result)
-    if (credential?.accessToken) {
-      localStorage.setItem('google_access_token', credential.accessToken)
-    }
-    return result
+  const result = await signInWithPopup(auth(), provider)
+  const credential = GoogleAuthProvider.credentialFromResult(result)
+  if (credential?.accessToken) {
+    localStorage.setItem('google_access_token', credential.accessToken)
   }
-
-  // Production: always use redirect (no popup issues)
-  await signInWithRedirect(auth(), provider)
-  return null
+  _saveTokens(result.user)
+  return result
 }
 
 /**
- * Link Google account to current anonymous user (for Drive API).
- * Preserves the anonymous UID so Firestore data stays linked.
+ * Link Google account to current user (for Drive API).
+ * If anonymous or not signed in, signs in directly with Google popup.
  */
 export async function linkGoogleAccount(): Promise<User | null> {
   const firebaseAuth = auth()
   const currentUser = firebaseAuth.currentUser
 
-  if (!currentUser) {
-    // No current user, do a fresh Google sign-in
+  if (!currentUser || currentUser.isAnonymous) {
     return (await signInWithGoogle())?.user ?? null
   }
 
-  if (!currentUser.isAnonymous) {
-    // Already a Google user
-    console.log('[Auth] Already signed in with Google')
-    return currentUser
-  }
-
-  const isLocalhost = typeof window !== 'undefined' && window.location.hostname === 'localhost'
-
-  try {
-    if (isLocalhost) {
-      const result = await linkWithPopup(currentUser, provider)
-      const credential = GoogleAuthProvider.credentialFromResult(result)
-      if (credential?.accessToken) {
-        localStorage.setItem('google_access_token', credential.accessToken)
-      }
-      _saveTokens(result.user)
-      return result.user
-    } else {
-      await linkWithRedirect(currentUser, provider)
-      return null // Will resolve after redirect
-    }
-  } catch (err: any) {
-    // If linking fails (e.g., account already exists), fall back to regular sign-in
-    if (err?.code === 'auth/credential-already-in-use' || err?.code === 'auth/email-already-in-use') {
-      console.warn('[Auth] Google account already linked, signing in directly')
-      return (await signInWithGoogle())?.user ?? null
-    }
-    throw err
-  }
+  return currentUser
 }
 
 export function hasGoogleToken(): boolean {
