@@ -4,7 +4,7 @@ import React, { useEffect, useState, useMemo, useCallback, useRef, Suspense } fr
 import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { Loader2, FileText, LogIn, LogOut, Settings, Menu, X, User, Folder, ChevronDown, ChevronRight, CheckSquare, LayoutDashboard, Kanban, CalendarDays, RefreshCw } from 'lucide-react'
-import { useAuth, AuthProvider } from '@/hooks/useAuth'
+import { useAuth } from '@/hooks/useAuth'
 import { useRole } from '@/hooks/useRole'
 import { usePermissions } from '@/hooks/usePermissions'
 import { Button } from '@/components/ui/button'
@@ -251,7 +251,7 @@ function InnerAppLayout({ children }: { children: React.ReactNode }) {
                 } else {
                   await resetSession()
                 }
-                window.location.reload()
+                window.location.href = '/login'
               }}
             >
               <LogOut className="h-4 w-4 mr-2" />
@@ -307,9 +307,5 @@ function InnerAppLayout({ children }: { children: React.ReactNode }) {
 }
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <AuthProvider>
-      <InnerAppLayout>{children}</InnerAppLayout>
-    </AuthProvider>
-  )
+  return <InnerAppLayout>{children}</InnerAppLayout>
 }

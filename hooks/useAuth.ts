@@ -33,7 +33,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }, 8000)
 
     ensureAuth()
-      .then(() => {
+      .then((initialUser) => {
+        if (initialUser) {
+          setUser(initialUser)
+          setLoading(false)
+        }
         const firebaseAuth = auth()
         unsubscribe = onIdTokenChanged(firebaseAuth, async (u) => {
           try {

@@ -29,31 +29,50 @@ export default function LoginPage() {
     }
   }, [])
 
-  // If user is already authenticated (staff or admin), automatically redirect to /documents
+  // If user is already authenticated (staff or admin), automatically redirect to /documents or returnUrl
   useEffect(() => {
-    if (!isGuest) {
+    if (user && !user.isAnonymous) {
+      if (user.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase()) {
+        if (typeof window !== 'undefined') {
+          sessionStorage.removeItem('firebase_redirect_in_progress')
+          const returnUrl = sessionStorage.getItem('firebase_redirect_return_url')
+          if (returnUrl && returnUrl !== '/login') {
+            sessionStorage.removeItem('firebase_redirect_return_url')
+            router.replace(returnUrl)
+            return
+          }
+        }
+        router.replace('/documents')
+      } else {
+        // Logged in with wrong Google account
+        setLoading(false)
+        setLoadingMessage('')
+        if (typeof window !== 'undefined') {
+          sessionStorage.removeItem('firebase_redirect_in_progress')
+        }
+      }
+    } else if (!isGuest) {
+      // Authenticated staff user
       if (typeof window !== 'undefined') {
         sessionStorage.removeItem('firebase_redirect_in_progress')
       }
       router.replace('/documents')
     }
-  }, [isGuest, router])
+  }, [user, isGuest, router])
 
-  // Safety timer if redirect was in progress but did not authenticate after 8s
+  // Safety timer if redirect was in progress but did not authenticate after 6s
   useEffect(() => {
     if (loading && loadingMessage) {
       const t = setTimeout(() => {
-        if (isGuest) {
-          setLoading(false)
-          setLoadingMessage('')
-          if (typeof window !== 'undefined') {
-            sessionStorage.removeItem('firebase_redirect_in_progress')
-          }
+        setLoading(false)
+        setLoadingMessage('')
+        if (typeof window !== 'undefined') {
+          sessionStorage.removeItem('firebase_redirect_in_progress')
         }
-      }, 8000)
+      }, 6000)
       return () => clearTimeout(t)
     }
-  }, [loading, loadingMessage, isGuest])
+  }, [loading, loadingMessage])
 
   const isWrongGoogleAccount = Boolean(
     user && !user.isAnonymous && user.email?.toLowerCase() !== ADMIN_EMAIL.toLowerCase()
@@ -109,7 +128,16 @@ export default function LoginPage() {
       const result = await signInWithGoogle(useRedirect)
       if (result?.user) {
         if (result.user.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase()) {
-          router.push('/documents')
+          if (typeof window !== 'undefined') {
+            sessionStorage.removeItem('firebase_redirect_in_progress')
+            const returnUrl = sessionStorage.getItem('firebase_redirect_return_url')
+            if (returnUrl && returnUrl !== '/login') {
+              sessionStorage.removeItem('firebase_redirect_return_url')
+              router.replace(returnUrl)
+              return
+            }
+          }
+          router.replace('/documents')
         } else {
           setLoading(false)
           setLoadingMessage('')

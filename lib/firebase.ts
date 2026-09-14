@@ -66,9 +66,81 @@ export function db() {
 let _ensureAuthPromise: Promise<User | null> | null = null
 
 /**
+ * Save Google OAuth access token to localStorage and cookie (with timestamp).
+ */
+export function saveGoogleAccessToken(token: string) {
+  if (typeof window === 'undefined') return
+  localStorage.setItem('google_access_token', token)
+  localStorage.setItem('google_access_token_saved_at', Date.now().toString())
+  if (typeof document !== 'undefined') {
+    document.cookie = `google_access_token=${token}; path=/; max-age=3600; SameSite=Lax`
+  }
+}
+
+/**
+ * Clear Google OAuth access token from localStorage and cookie.
+ */
+export function clearGoogleAccessToken() {
+  if (typeof window === 'undefined') return
+  localStorage.removeItem('google_access_token')
+  localStorage.removeItem('google_access_token_saved_at')
+  if (typeof document !== 'undefined') {
+    document.cookie = `google_access_token=; path=/; max-age=0; SameSite=Lax`
+  }
+}
+
+/**
+ * Check Google OAuth access token status and expiration.
+ * Google access tokens expire after 3600s (60 min).
+ * We flag as expired after 55 min for proactive renewal.
+ */
+export function getGoogleTokenExpiryInfo(): {
+  hasToken: boolean
+  isExpired: boolean
+  savedAt: number | null
+  minutesAgo: number | null
+} {
+  if (typeof window === 'undefined') {
+    return { hasToken: false, isExpired: true, savedAt: null, minutesAgo: null }
+  }
+  const token = localStorage.getItem('google_access_token')
+  if (!token) {
+    return { hasToken: false, isExpired: true, savedAt: null, minutesAgo: null }
+  }
+  const rawSavedAt = localStorage.getItem('google_access_token_saved_at')
+  if (!rawSavedAt) {
+    return { hasToken: true, isExpired: false, savedAt: null, minutesAgo: null }
+  }
+  const savedAt = parseInt(rawSavedAt, 10)
+  if (isNaN(savedAt)) {
+    return { hasToken: true, isExpired: false, savedAt: null, minutesAgo: null }
+  }
+  const diffMs = Date.now() - savedAt
+  const minutesAgo = Math.floor(diffMs / 60000)
+  const isExpired = minutesAgo >= 55
+
+  return {
+    hasToken: true,
+    isExpired,
+    savedAt,
+    minutesAgo,
+  }
+}
+
+export function hasGoogleToken(): boolean {
+  const info = getGoogleTokenExpiryInfo()
+  return info.hasToken && !info.isExpired
+}
+
+export function getGoogleAccessToken(): string | null {
+  if (typeof window === 'undefined') return null
+  return localStorage.getItem('google_access_token')
+}
+
+/**
  * Ensure the user is authenticated (anonymous or Google).
+ * - Checks getRedirectResult FIRST to intercept returning OAuth redirect credentials.
  * - If user is already signed in (Google or anonymous), returns immediately.
- * - If returning from Google redirect, processes the redirect result.
  * - Otherwise, signs in anonymously so Firestore rules pass.
  * 
  * This is fire-once and cached.
@@ -84,21 +156,15 @@ export function ensureAuth(): Promise<User | null> {
 async function _doEnsureAuth(): Promise<User | null> {
   const firebaseAuth = auth()
 
-  await firebaseAuth.authStateReady()
-
-  // 1. If already signed in with a Google account (non-anonymous), return it immediately
-  if (firebaseAuth.currentUser && !firebaseAuth.currentUser.isAnonymous) {
-    _saveTokens(firebaseAuth.currentUser)
-    return firebaseAuth.currentUser
-  }
-
-  // 2. Process redirect result if available (crucial when returning from Google redirect)
+  // 1. Process redirect result FIRST before anything else!
+  // When returning from signInWithRedirect, getRedirectResult() provides the Google credential
+  // containing credential.accessToken for Google Drive. We must call this before checking currentUser.
   try {
     const redirectResult = await getRedirectResult(firebaseAuth)
     if (redirectResult?.user) {
       const credential = GoogleAuthProvider.credentialFromResult(redirectResult)
       if (credential?.accessToken) {
-        localStorage.setItem('google_access_token', credential.accessToken)
+        saveGoogleAccessToken(credential.accessToken)
       }
       _saveTokens(redirectResult.user)
       if (typeof window !== 'undefined') {
@@ -108,6 +174,17 @@ async function _doEnsureAuth(): Promise<User | null> {
     }
   } catch (err: any) {
     console.warn('[Auth] Redirect result error (non-fatal):', err?.code || err)
+    if (typeof window !== 'undefined') {
+      sessionStorage.removeItem('firebase_redirect_in_progress')
+    }
+  }
+
+  await firebaseAuth.authStateReady()
+
+  // 2. If already signed in with a Google account (non-anonymous), return it
+  if (firebaseAuth.currentUser && !firebaseAuth.currentUser.isAnonymous) {
+    _saveTokens(firebaseAuth.currentUser)
+    return firebaseAuth.currentUser
   }
 
   // 3. If we already have a valid user (e.g. anonymous user for read rules), return it
@@ -159,7 +236,7 @@ export async function signInWithGoogle(useRedirect = false) {
     const result = await signInWithPopup(firebaseAuth, provider)
     const credential = GoogleAuthProvider.credentialFromResult(result)
     if (credential?.accessToken) {
-      localStorage.setItem('google_access_token', credential.accessToken)
+      saveGoogleAccessToken(credential.accessToken)
     }
     _saveTokens(result.user)
     return result
@@ -181,23 +258,57 @@ export async function signInWithGoogle(useRedirect = false) {
 }
 
 /**
- * Link Google account to current user (for Drive API).
- * If anonymous or not signed in, signs in directly with Google popup.
+ * Request or refresh Google Drive OAuth token without logging out.
+ * Can be called anywhere (e.g. from Settings > Drive or DocumentForm) to re-acquire
+ * the Google OAuth access token with drive.file scope.
  */
-export async function linkGoogleAccount(): Promise<User | null> {
+export async function requestGoogleDriveToken(useRedirect = false): Promise<{ success: boolean; token?: string; error?: string }> {
   const firebaseAuth = auth()
-  const currentUser = firebaseAuth.currentUser
 
-  if (!currentUser || currentUser.isAnonymous) {
-    return (await signInWithGoogle())?.user ?? null
+  if (useRedirect) {
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem('firebase_redirect_in_progress', 'true')
+      sessionStorage.setItem('firebase_redirect_return_url', window.location.pathname)
+    }
+    await signInWithRedirect(firebaseAuth, provider)
+    return { success: true }
   }
 
-  return currentUser
+  try {
+    const result = await signInWithPopup(firebaseAuth, provider)
+    const credential = GoogleAuthProvider.credentialFromResult(result)
+    if (credential?.accessToken) {
+      saveGoogleAccessToken(credential.accessToken)
+      _saveTokens(result.user)
+      return { success: true, token: credential.accessToken }
+    }
+    return { success: false, error: 'Không nhận được access token từ Google' }
+  } catch (popupErr: any) {
+    if (
+      popupErr?.code === 'auth/popup-blocked' ||
+      popupErr?.code === 'auth/cancelled-popup-request'
+    ) {
+      console.warn('[Auth] Popup blocked during token request, falling back to redirect...')
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem('firebase_redirect_in_progress', 'true')
+        sessionStorage.setItem('firebase_redirect_return_url', window.location.pathname)
+      }
+      await signInWithRedirect(firebaseAuth, provider)
+      return { success: true }
+    }
+    return { success: false, error: popupErr?.message || 'Lỗi kết nối Google' }
+  }
 }
 
-export function hasGoogleToken(): boolean {
-  if (typeof window === 'undefined') return false
-  return !!localStorage.getItem('google_access_token')
+/**
+ * Link Google account to current user (for Drive API).
+ */
+export async function linkGoogleAccount(useRedirect = false): Promise<User | null> {
+  const res = await requestGoogleDriveToken(useRedirect)
+  if (res.success) {
+    return auth().currentUser
+  }
+  return null
 }
 
 /**
@@ -215,10 +326,9 @@ export function isGoogleUser(): boolean {
  * After reset, the next page load will auto-sign-in anonymously.
  */
 export const resetSession = async () => {
-  localStorage.removeItem('google_access_token')
+  clearGoogleAccessToken()
   localStorage.removeItem('firebase_id_token')
   localStorage.removeItem('firebase_refresh_token')
-  // Reset cached promise so next ensureAuth() does fresh anonymous login
   _ensureAuthPromise = null
   await signOut(auth())
 }
