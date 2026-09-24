@@ -18,6 +18,7 @@ const COLLECTION = 'documents'
 export async function createDocument(input: CreateDocumentInput): Promise<string> {
   const ref = await addDoc(collection(db(), COLLECTION), {
     title: input.title,
+    docNumber: input.docNumber ?? '',
     originalLink: input.originalLink,
     task: input.task ?? '',
     assignee: input.assignee ?? '',
@@ -25,9 +26,12 @@ export async function createDocument(input: CreateDocumentInput): Promise<string
     coAssigneeIds: input.coAssigneeIds ?? [],
     dossierIds: input.dossierIds ?? [],
     notes: input.notes ?? '',
+    sender: input.sender ?? '',
+    leader: input.leader ?? '',
     tags: input.tags ?? [],
     tagIds: input.tagIds ?? [],
     deadline: input.deadline ?? null,
+    issueDate: input.issueDate ?? null,
     priority: input.priority ?? 'normal',
     attachments: [],
     status: 'uploading' as DocumentStatus,

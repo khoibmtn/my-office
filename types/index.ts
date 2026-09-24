@@ -136,9 +136,12 @@ export interface CreateDocumentInput {
   dossierIds?: string[]
   priority?: string
   notes?: string
+  sender?: string
+  leader?: string
   tags?: string[]
   tagIds?: string[]
-  deadline?: Timestamp
+  deadline?: Timestamp | Date | null
+  issueDate?: Timestamp | Date | null
   attachmentInputs: AttachmentInput[]
 }
 

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import {
   Loader2,
@@ -116,6 +116,29 @@ export default function EditDocumentPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [isDirty, setIsDirty] = useState(false)
+
+  const markDirty = useCallback(() => { if (!isDirty) setIsDirty(true) }, [isDirty])
+
+  // Unsaved changes warning (beforeunload)
+  useEffect(() => {
+    if (!isDirty) return
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault()
+      e.returnValue = ''
+    }
+    window.addEventListener('beforeunload', handler)
+    return () => window.removeEventListener('beforeunload', handler)
+  }, [isDirty])
+
+  // Safe navigation with unsaved changes check
+  const handleNavigateBack = useCallback(() => {
+    if (isDirty) {
+      const choice = confirm('Bạn có thay đổi chưa lưu. Bạn có chắc muốn rời trang không?\n\nBấm OK để rời trang (mất thay đổi).\nBấm Cancel để ở lại.')
+      if (!choice) return
+    }
+    router.back()
+  }, [isDirty, router])
 
   // Form fields
   const [title, setTitle] = useState('')
@@ -171,6 +194,7 @@ export default function EditDocumentPage() {
     if (id) {
       setCoAssigneeIds(prev => prev.filter(item => item !== id))
     }
+    markDirty()
   }
 
   useEffect(() => {
@@ -211,6 +235,15 @@ export default function EditDocumentPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    // Validation
+    if (!title.trim()) {
+      setError('Vui lòng nhập Tiêu đề văn bản.')
+      return
+    }
+    if (!originalLink.trim() && !mainFile) {
+      setError('Vui lòng nhập Link file chính hoặc tải file lên.')
+      return
+    }
     setSaving(true)
     setError(null)
     try {
@@ -285,7 +318,7 @@ export default function EditDocumentPage() {
 
       await updateDocument(id, {
         title,
-        originalLink,
+        originalLink: originalLink || undefined,
         sender: sender || undefined,
         leader: leader || undefined,
         notes: notes || undefined,
@@ -302,6 +335,7 @@ export default function EditDocumentPage() {
         issueDate: issueDate ? new Date(issueDate + 'T00:00:00') : null,
       })
 
+      setIsDirty(false)
       router.push('/documents')
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
@@ -330,7 +364,7 @@ export default function EditDocumentPage() {
         <Input
           id="title"
           value={title}
-          onChange={(e) => setTitle(e.target.value)}
+          onChange={(e) => { setTitle(e.target.value); markDirty() }}
           required
           className="h-9 text-xs"
         />
@@ -344,7 +378,7 @@ export default function EditDocumentPage() {
           <Input
             id="originalLink"
             value={originalLink}
-            onChange={(e) => { setOriginalLink(e.target.value); setOriginalLinkChanged(true) }}
+            onChange={(e) => { setOriginalLink(e.target.value); setOriginalLinkChanged(true); markDirty() }}
             required
             placeholder="https://drive.google.com/..."
             className="flex-1 h-9 text-xs"
@@ -391,7 +425,7 @@ export default function EditDocumentPage() {
                 onChange={(e) => {
                   const file = e.target.files?.[0] ?? null
                   setMainFile(file)
-                  if (file) setOriginalLinkChanged(false)
+                  if (file) { setOriginalLinkChanged(false); markDirty() }
                 }}
               />
             </label>
@@ -442,7 +476,7 @@ export default function EditDocumentPage() {
           <Input
             id="sender"
             value={sender}
-            onChange={(e) => setSender(e.target.value)}
+            onChange={(e) => { setSender(e.target.value); markDirty() }}
             className="h-9 text-xs"
           />
         </div>
@@ -451,7 +485,7 @@ export default function EditDocumentPage() {
           <Input
             id="leader"
             value={leader}
-            onChange={(e) => setLeader(e.target.value)}
+            onChange={(e) => { setLeader(e.target.value); markDirty() }}
             className="h-9 text-xs"
           />
         </div>
@@ -465,6 +499,7 @@ export default function EditDocumentPage() {
         value={attachments}
         onChange={(items) => {
           setAttachments(items)
+          markDirty()
           if (activePreviewKey && activePreviewKey !== 'main' && !items.some(it => it.id === activePreviewKey)) {
             handleClosePreview()
           }
@@ -480,7 +515,7 @@ export default function EditDocumentPage() {
       <Textarea
         id="notes"
         value={notes}
-        onChange={(e) => setNotes(e.target.value)}
+        onChange={(e) => { setNotes(e.target.value); markDirty() }}
         placeholder="Ghi chú thêm (chỉ lưu nội bộ)..."
         className="min-h-[72px] text-xs resize-y leading-relaxed"
       />
@@ -495,7 +530,7 @@ export default function EditDocumentPage() {
           <select
             id="status"
             value={status}
-            onChange={(e) => setStatus(e.target.value as DocumentStatus)}
+            onChange={(e) => { setStatus(e.target.value as DocumentStatus); markDirty() }}
             className="h-9 rounded-md border border-slate-200 bg-slate-50 px-2.5 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all font-medium text-slate-700"
           >
             {STATUS_OPTIONS.map((opt) => (
@@ -509,7 +544,7 @@ export default function EditDocumentPage() {
           <select
             id="priority"
             value={priority}
-            onChange={(e) => setPriority(e.target.value)}
+            onChange={(e) => { setPriority(e.target.value); markDirty() }}
             className="h-9 rounded-md border border-slate-200 bg-slate-50 px-2.5 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all font-medium text-slate-700"
           >
             <option value="normal">Thường</option>
@@ -528,7 +563,7 @@ export default function EditDocumentPage() {
             id="issueDate"
             type="date"
             value={issueDate}
-            onChange={(e) => setIssueDate(e.target.value)}
+            onChange={(e) => { setIssueDate(e.target.value); markDirty() }}
             className="h-9 text-xs px-2"
           />
         </div>
@@ -539,7 +574,7 @@ export default function EditDocumentPage() {
             id="deadline"
             type="date"
             value={deadline}
-            onChange={(e) => setDeadline(e.target.value)}
+            onChange={(e) => { setDeadline(e.target.value); markDirty() }}
             className="h-9 text-xs px-2"
           />
         </div>
@@ -558,6 +593,7 @@ export default function EditDocumentPage() {
               } else if (status === 'completed') {
                 setStatus(assignee ? 'in_progress' : 'pending')
               }
+              markDirty()
             }}
             className="h-9 text-xs px-2"
           />
@@ -640,7 +676,7 @@ export default function EditDocumentPage() {
         <div>
           <button
             type="button"
-            onClick={() => router.back()}
+            onClick={handleNavigateBack}
             className="inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-800 transition-colors mb-1.5 group cursor-pointer"
           >
             <ArrowLeft className="h-3.5 w-3.5 group-hover:-translate-x-0.5 transition-transform" />
@@ -662,7 +698,7 @@ export default function EditDocumentPage() {
             type="button"
             variant="outline"
             size="sm"
-            onClick={() => router.back()}
+            onClick={handleNavigateBack}
             className="h-8 px-3 text-xs"
           >
             Hủy
@@ -736,7 +772,7 @@ export default function EditDocumentPage() {
               type="button"
               variant="outline"
               size="sm"
-              onClick={() => router.back()}
+              onClick={handleNavigateBack}
               className="h-8 px-3 text-xs"
             >
               Hủy

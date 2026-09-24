@@ -1914,7 +1914,7 @@ export function DocumentTable({ documents, storagePrefix = 'myoffice_docTable', 
                       </TableCell>
                       <TableCell className="sticky right-0 z-10 bg-white shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.06)]" style={{ width: '1%', whiteSpace: 'nowrap' }}>
                         <div className="flex flex-col">
-                          <div className="flex items-center gap-0.5 flex-wrap">
+                          <div className="flex items-center gap-0 flex-nowrap">
                             {(perms.canToggleComplete || (perms.canCompleteAssigned && doc.assigneeId === currentStaffId)) && (
                               <button
                                 className={`status-chip mr-1 ${eff.cls}`}
@@ -1939,37 +1939,37 @@ export function DocumentTable({ documents, storagePrefix = 'myoffice_docTable', 
                               <>
                                 <button
                                   onClick={() => handleCopyGiaoViec(doc)}
-                                  className="p-1.5 rounded-lg text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors"
+                                  className="p-1 rounded-md text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors"
                                   title="Copy thông tin giao việc"
                                 >
-                                  {copiedDocId === doc.id ? <Check className="h-4 w-4 text-emerald-500" /> : <Send className="h-4 w-4" />}
+                                  {copiedDocId === doc.id ? <Check className="h-3.5 w-3.5 text-emerald-500" /> : <Send className="h-3.5 w-3.5" />}
                                 </button>
                                 <button
                                   onClick={() => setViewingId(doc.id)}
-                                  className="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+                                  className="p-1 rounded-md text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
                                   title="Xem"
                                 >
-                                  <Eye className="h-4 w-4" />
+                                  <Eye className="h-3.5 w-3.5" />
                                 </button>
                                 {perms.canEditDocument && (
                                   <Link
                                     href={`/documents/${doc.id}/edit`}
-                                    className="p-1.5 rounded-lg text-slate-400 hover:text-amber-600 hover:bg-amber-50 transition-colors"
+                                    className="p-1 rounded-md text-slate-400 hover:text-amber-600 hover:bg-amber-50 transition-colors"
                                     title="Sửa"
                                   >
-                                    <Pencil className="h-4 w-4" />
+                                    <Pencil className="h-3.5 w-3.5" />
                                   </Link>
                                 )}
                               </>
                             )}
                             {perms.canDeleteDocument && (
                               <button
-                                className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                                className="p-1 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors"
                                 onClick={() => handleDelete(doc.id, doc.title)}
                                 disabled={deleting === doc.id}
                                 title="Xóa"
                               >
-                                {deleting === doc.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                                {deleting === doc.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
                               </button>
                             )}
                           </div>

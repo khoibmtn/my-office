@@ -1,9 +1,10 @@
 'use client'
 
+import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import type { AttachmentInput as AttachmentInputItem } from '@/types'
-import { X, Plus, Eye, ExternalLink } from 'lucide-react'
+import { X, Plus, Eye, ExternalLink, Upload, Loader2 } from 'lucide-react'
 import { v4 as uuid } from 'uuid'
 import { parseFileNameFromUrl } from '@/lib/utils'
 
@@ -15,6 +16,8 @@ interface Props {
 }
 
 export function AttachmentInput({ value, onChange, onPreview, activePreviewId }: Props) {
+  const [uploadingIds, setUploadingIds] = useState<Set<string>>(new Set())
+
   const addRow = () =>
     onChange([...value, { id: uuid(), title: '', originalLink: '' }])
 
@@ -24,57 +27,113 @@ export function AttachmentInput({ value, onChange, onPreview, activePreviewId }:
   const updateRowUrl = (id: string, val: string) =>
     onChange(value.map((item) => (item.id === id ? { ...item, originalLink: val, title: parseFileNameFromUrl(val) } : item)))
 
+  const handleFileUpload = async (id: string, file: File) => {
+    setUploadingIds(prev => new Set(prev).add(id))
+    try {
+      const token = localStorage.getItem('google_access_token')
+      const form = new FormData()
+      form.append('file', file)
+      form.append('folderId', process.env.NEXT_PUBLIC_DRIVE_FOLDER_ID ?? '')
+      if (token) form.append('userAccessToken', token)
+      const res = await fetch('/api/drive/upload', { method: 'POST', body: form })
+      if (!res.ok) throw new Error(await res.text())
+      const { driveFileId } = await res.json()
+      const driveUrl = `https://drive.google.com/file/d/${driveFileId}/preview`
+      onChange(value.map((item) =>
+        item.id === id
+          ? { ...item, originalLink: driveUrl, title: file.name }
+          : item
+      ))
+    } catch (err) {
+      alert(`Upload thất bại: ${err instanceof Error ? err.message : String(err)}`)
+    } finally {
+      setUploadingIds(prev => {
+        const next = new Set(prev)
+        next.delete(id)
+        return next
+      })
+    }
+  }
+
   return (
     <div className="flex flex-col gap-2">
       {value.map((item, index) => {
         const isActive = activePreviewId === item.id
+        const isUploading = uploadingIds.has(item.id)
         return (
-          <div key={item.id} className="flex items-center gap-1.5">
-            <Input
-              placeholder={`Link đính kèm ${index + 1} (Drive / URL)`}
-              value={item.originalLink}
-              onChange={(e) => updateRowUrl(item.id, e.target.value)}
-              className="flex-1 h-9 text-xs"
-            />
-            {item.originalLink && onPreview && (
+          <div key={item.id} className="flex flex-col gap-1">
+            <div className="flex items-center gap-1.5">
+              <Input
+                placeholder={`Link đính kèm ${index + 1} (Drive / URL)`}
+                value={item.originalLink}
+                onChange={(e) => updateRowUrl(item.id, e.target.value)}
+                className="flex-1 h-9 text-xs"
+                disabled={isUploading}
+              />
+              {/* Upload file button */}
+              {!item.originalLink && !isUploading && (
+                <label
+                  className="inline-flex items-center justify-center h-9 w-9 rounded-md border border-dashed border-slate-300 text-slate-400 hover:text-blue-600 hover:border-blue-400 hover:bg-blue-50 shrink-0 transition-colors cursor-pointer"
+                  title="Tải file lên trực tiếp (upload lên Google Drive)"
+                >
+                  <Upload className="h-3.5 w-3.5" />
+                  <input
+                    type="file"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0]
+                      if (file) handleFileUpload(item.id, file)
+                      e.target.value = ''
+                    }}
+                  />
+                </label>
+              )}
+              {/* Uploading spinner */}
+              {isUploading && (
+                <div className="inline-flex items-center justify-center h-9 px-2 text-blue-500 shrink-0" title="Đang upload...">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                </div>
+              )}
+              {item.originalLink && onPreview && (
+                <Button
+                  type="button"
+                  variant={isActive ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => onPreview(item.originalLink, item.title || `Đính kèm ${index + 1}`, item.id)}
+                  className={`h-9 px-2 text-xs shrink-0 font-medium ${
+                    isActive
+                      ? 'bg-blue-600 hover:bg-blue-700 text-white font-semibold shadow-2xs border border-blue-600'
+                      : 'text-blue-600 hover:text-blue-700 hover:bg-blue-50'
+                  }`}
+                  title={isActive ? 'Đang xem file này (bấm để đóng xem trước)' : 'Xem trước file này'}
+                >
+                  <Eye className={`h-3.5 w-3.5 mr-1 ${isActive ? 'text-white' : ''}`} />
+                  {isActive ? 'Đang xem' : 'Xem'}
+                </Button>
+              )}
+              {item.originalLink && (
+                <a
+                  href={item.originalLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center justify-center h-9 w-9 rounded-md border border-slate-200 text-slate-500 hover:text-slate-800 hover:bg-slate-50 shrink-0 transition-colors"
+                  title="Mở trong tab mới"
+                >
+                  <ExternalLink className="h-3.5 w-3.5" />
+                </a>
+              )}
               <Button
                 type="button"
-                variant={isActive ? 'default' : 'outline'}
+                variant="ghost"
                 size="sm"
-                onClick={() => onPreview(item.originalLink, item.title || `Đính kèm ${index + 1}`, item.id)}
-                className={`h-9 px-2 text-xs shrink-0 font-medium ${
-                  isActive
-                    ? 'bg-blue-600 hover:bg-blue-700 text-white font-semibold shadow-2xs border border-blue-600'
-                    : 'text-blue-600 hover:text-blue-700 hover:bg-blue-50'
-                }`}
-                title={isActive ? 'Đang xem file này (bấm để đóng xem trước)' : 'Xem trước file này'}
+                aria-label="Xóa đính kèm"
+                disabled={value.length <= 1 || isUploading}
+                onClick={() => removeRow(item.id)}
+                className="h-9 w-9 p-0 text-slate-400 hover:text-red-600 hover:bg-red-50 shrink-0"
               >
-                <Eye className={`h-3.5 w-3.5 mr-1 ${isActive ? 'text-white' : ''}`} />
-                {isActive ? 'Đang xem' : 'Xem'}
+                <X className="h-4 w-4" />
               </Button>
-            )}
-            {item.originalLink && (
-              <a
-                href={item.originalLink}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center justify-center h-9 w-9 rounded-md border border-slate-200 text-slate-500 hover:text-slate-800 hover:bg-slate-50 shrink-0 transition-colors"
-                title="Mở trong tab mới"
-              >
-                <ExternalLink className="h-3.5 w-3.5" />
-              </a>
-            )}
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              aria-label="Xóa đính kèm"
-              disabled={value.length <= 1}
-              onClick={() => removeRow(item.id)}
-              className="h-9 w-9 p-0 text-slate-400 hover:text-red-600 hover:bg-red-50 shrink-0"
-            >
-              <X className="h-4 w-4" />
-            </Button>
+            </div>
           </div>
         )
       })}
