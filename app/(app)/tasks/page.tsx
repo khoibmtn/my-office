@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useMemo } from 'react'
-import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { Plus, ListChecks, LayoutGrid, Calendar, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useTasks } from '@/hooks/useTasks'
@@ -11,7 +11,6 @@ import { useDepartments } from '@/hooks/useDepartments'
 import { useTaskStats } from '@/hooks/useTaskStats'
 import { TaskTable } from '@/components/tasks/TaskTable'
 import { TaskFilters, DEFAULT_FILTERS, type TaskFilterValues } from '@/components/tasks/TaskFilters'
-import { TaskForm } from '@/components/tasks/TaskForm'
 import { KanbanBoard } from '@/components/tasks/KanbanBoard'
 import { TaskCalendar } from '@/components/tasks/TaskCalendar'
 import { TASK_STATUS_LABELS } from '@/lib/tasks/constants'
@@ -23,7 +22,6 @@ export default function TasksPage() {
 
   const [activeTab, setActiveTab] = useState<'all' | 'my' | 'created' | 'unassigned'>('all')
   const [filters, setFilters] = useState<TaskFilterValues>(DEFAULT_FILTERS)
-  const [showForm, setShowForm] = useState(false)
   const [viewMode, setViewMode] = useState<'list' | 'kanban' | 'calendar'>('list')
 
   const { tasks: allTasks, loading } = useTasks({ view: 'all' })
@@ -146,10 +144,12 @@ export default function TasksPage() {
             </button>
           </div>
 
-          <Button size="sm" onClick={() => setShowForm(true)} className="bg-blue-600 hover:bg-blue-700 text-white">
-            <Plus className="w-4 h-4 mr-1" />
-            Tạo mới
-          </Button>
+          <Link href="/tasks/new">
+            <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white">
+              <Plus className="w-4 h-4 mr-1" />
+              Tạo mới
+            </Button>
+          </Link>
         </div>
       </div>
 
@@ -232,18 +232,6 @@ export default function TasksPage() {
         <TaskCalendar tasks={filteredTasks} />
       )}
 
-      {/* Create form modal */}
-      {showForm && (
-        <div className="fixed inset-0 bg-black/30 z-50 flex items-center justify-center p-4" onClick={() => setShowForm(false)}>
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-5" onClick={(e) => e.stopPropagation()}>
-            <TaskForm
-              actorId={staffId || 'unknown'}
-              actorName={staffName || 'Unknown'}
-              onClose={() => setShowForm(false)}
-            />
-          </div>
-        </div>
-      )}
     </div>
   )
 }
