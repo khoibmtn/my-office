@@ -221,6 +221,26 @@ function DocumentPickerPanel({
                     </td>
                     <td className="px-2 py-1.5 text-slate-700 break-words leading-snug">
                       {doc.title || doc.docNumber || <span className="text-slate-400 italic">Không tiêu đề</span>}
+                      {(doc.sender || doc.issueDate) && (
+                        <span className="ml-1 text-[11px]">
+                          {'('}
+                          {doc.sender && <span className="font-bold italic text-red-600">{doc.sender}</span>}
+                          {doc.sender && doc.issueDate && ', '}
+                          {doc.issueDate && (
+                            <>
+                              <span className="text-slate-500">ngày </span>
+                              <span className="font-bold text-blue-600">
+                                {(() => {
+                                  const d = typeof doc.issueDate?.toDate === 'function' ? doc.issueDate.toDate() : doc.issueDate instanceof Date ? doc.issueDate : null
+                                  if (!d || isNaN(d.getTime())) return '—'
+                                  return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`
+                                })()}
+                              </span>
+                            </>
+                          )}
+                          {')'}
+                        </span>
+                      )}
                     </td>
                   </tr>
                 )
