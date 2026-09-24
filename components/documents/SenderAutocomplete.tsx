@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useMemo, useEffect, useRef } from 'react'
-import { Search, X, Building2 } from 'lucide-react'
+import { X, Building2 } from 'lucide-react'
 import { useDocuments } from '@/hooks/useDocuments'
 import { useOrgNames } from '@/hooks/useOrgNames'
 
@@ -14,12 +14,18 @@ interface SenderAutocompleteProps {
 export function SenderAutocomplete({ value, onChange, className }: SenderAutocompleteProps) {
   const [isFocused, setIsFocused] = useState(false)
   const [search, setSearch] = useState(value)
+  // Track the "committed" value so ESC/X can revert
+  const committedRef = useRef(value)
   const wrapperRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
   const { documents } = useDocuments()
   const { orgNames } = useOrgNames()
 
-  // Sync external value
-  useEffect(() => { setSearch(value) }, [value])
+  // Sync external value changes
+  useEffect(() => {
+    setSearch(value)
+    committedRef.current = value
+  }, [value])
 
   // All unique senders from documents
   const allSenders = useMemo(() => {
@@ -54,28 +60,59 @@ export function SenderAutocomplete({ value, onChange, className }: SenderAutocom
 
   const hasSuggestions = suggestions.orgNames.length > 0 || suggestions.others.length > 0
 
-  // Close dropdown on click outside
+  // Revert to committed value
+  const revert = () => {
+    setSearch(committedRef.current)
+    onChange(committedRef.current)
+    setIsFocused(false)
+  }
+
+  // Close dropdown on click outside — also revert if user typed but didn't select
   useEffect(() => {
     if (!isFocused) return
     const handler = (e: MouseEvent) => {
       if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
+        // Commit whatever is typed (don't revert on click-away)
+        committedRef.current = search
         setIsFocused(false)
       }
     }
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
-  }, [isFocused])
+  }, [isFocused, search])
 
   const selectSender = (name: string) => {
     setSearch(name)
     onChange(name)
+    committedRef.current = name
     setIsFocused(false)
+  }
+
+  // Handle keyboard
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Escape') {
+      e.preventDefault()
+      revert()
+      inputRef.current?.blur()
+    }
+  }
+
+  // Commit on blur (when focus leaves via Tab, etc.)
+  const handleBlur = () => {
+    // Small delay to allow dropdown click to register first
+    setTimeout(() => {
+      if (!wrapperRef.current?.contains(document.activeElement)) {
+        committedRef.current = search
+        setIsFocused(false)
+      }
+    }, 150)
   }
 
   return (
     <div ref={wrapperRef} className={`relative ${className || ''}`}>
       <div className="relative">
         <input
+          ref={inputRef}
           type="text"
           value={search}
           onChange={(e) => {
@@ -84,15 +121,28 @@ export function SenderAutocomplete({ value, onChange, className }: SenderAutocom
             if (!isFocused) setIsFocused(true)
           }}
           onFocus={() => setIsFocused(true)}
+          onBlur={handleBlur}
+          onKeyDown={handleKeyDown}
           placeholder="Nhập hoặc chọn cơ quan ban hành..."
           className="w-full h-9 text-xs pl-3 pr-8 border border-slate-200 rounded-md bg-white focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
           autoComplete="off"
         />
-        {search && (
+        {search && search !== committedRef.current && (
           <button
             type="button"
-            onClick={() => { setSearch(''); onChange('') }}
-            className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+            onClick={revert}
+            className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-red-500 transition-colors"
+            title="Hoàn tác (Esc)"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        )}
+        {search && search === committedRef.current && committedRef.current && (
+          <button
+            type="button"
+            onClick={() => { setSearch(''); onChange(''); committedRef.current = '' }}
+            className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+            title="Xóa"
           >
             <X className="w-3.5 h-3.5" />
           </button>
@@ -114,9 +164,10 @@ export function SenderAutocomplete({ value, onChange, className }: SenderAutocom
                 <button
                   key={`org-${name}`}
                   type="button"
+                  onMouseDown={(e) => e.preventDefault()}
                   onClick={() => selectSender(name)}
                   className={`w-full text-left px-3 py-1.5 text-xs hover:bg-blue-50 transition-colors ${
-                    value === name ? 'bg-blue-50 font-semibold text-blue-700' : 'text-slate-700'
+                    committedRef.current === name ? 'bg-blue-50 font-semibold text-blue-700' : 'text-slate-700'
                   }`}
                 >
                   {name}
@@ -135,9 +186,10 @@ export function SenderAutocomplete({ value, onChange, className }: SenderAutocom
                 <button
                   key={`other-${name}`}
                   type="button"
+                  onMouseDown={(e) => e.preventDefault()}
                   onClick={() => selectSender(name)}
                   className={`w-full text-left px-3 py-1.5 text-xs hover:bg-slate-50 transition-colors ${
-                    value === name ? 'bg-blue-50 font-semibold text-blue-700' : 'text-slate-700'
+                    committedRef.current === name ? 'bg-blue-50 font-semibold text-blue-700' : 'text-slate-700'
                   }`}
                 >
                   {name}
