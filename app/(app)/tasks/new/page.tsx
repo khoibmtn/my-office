@@ -298,24 +298,6 @@ function DossierTreePicker({
     )
   }
 
-  // Check parent: toggles all children too
-  const toggleParent = (parentId: string) => {
-    const children = tree.childrenMap.get(parentId) || []
-    const childIds = children.map(c => c.id)
-    const allSelected = [parentId, ...childIds].every(id => selectedIds.includes(id))
-
-    if (allSelected) {
-      // Uncheck all
-      onChange(selectedIds.filter(id => id !== parentId && !childIds.includes(id)))
-    } else {
-      // Check all
-      const newIds = new Set(selectedIds)
-      newIds.add(parentId)
-      childIds.forEach(id => newIds.add(id))
-      onChange(Array.from(newIds))
-    }
-  }
-
   const renderNode = (dossier: Dossier, depth: number = 0) => {
     const children = tree.childrenMap.get(dossier.id) || []
     const hasChildren = children.length > 0
@@ -329,34 +311,37 @@ function DossierTreePicker({
     return (
       <div key={dossier.id}>
         <div
-          className={`flex items-center gap-1.5 px-2 py-1.5 rounded-md cursor-pointer transition-colors ${
+          className={`flex items-center gap-1.5 py-1.5 rounded-md cursor-pointer transition-colors ${
             isChecked ? 'bg-amber-50' : 'hover:bg-slate-50'
           }`}
-          style={{ paddingLeft: `${8 + depth * 20}px` }}
+          style={{ paddingLeft: `${12 + depth * 24}px`, paddingRight: '8px' }}
         >
-          {/* Expand toggle */}
-          {hasChildren ? (
-            <button
-              type="button"
-              onClick={(e) => { e.stopPropagation(); toggleExpand(dossier.id) }}
-              className="p-0.5 text-slate-400 hover:text-slate-600 shrink-0"
-            >
-              {isExpanded ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
-            </button>
-          ) : (
-            <span className="w-4.5 shrink-0" />
-          )}
+          {/* Expand toggle — always reserve space */}
+          <div className="w-5 h-5 flex items-center justify-center shrink-0">
+            {hasChildren ? (
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); toggleExpand(dossier.id) }}
+                className="p-0.5 text-slate-400 hover:text-slate-600"
+              >
+                {isExpanded ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+              </button>
+            ) : null}
+          </div>
 
-          {/* Checkbox */}
+          {/* Checkbox — each item is independent */}
           <input
             type="checkbox"
             checked={isChecked}
-            onChange={() => hasChildren ? toggleParent(dossier.id) : toggleCheck(dossier.id)}
+            onChange={() => toggleCheck(dossier.id)}
             className="w-3.5 h-3.5 rounded border-slate-300 text-amber-600 focus:ring-amber-500 cursor-pointer shrink-0"
           />
 
           {/* Icon + name */}
-          <div className="flex items-center gap-1.5 min-w-0 flex-1" onClick={() => hasChildren ? toggleExpand(dossier.id) : toggleCheck(dossier.id)}>
+          <div
+            className="flex items-center gap-1.5 min-w-0 flex-1"
+            onClick={() => hasChildren ? toggleExpand(dossier.id) : toggleCheck(dossier.id)}
+          >
             <Folder className={`w-3.5 h-3.5 shrink-0 ${depth === 0 ? 'text-amber-500' : 'text-amber-400'}`} />
             <span className={`text-xs truncate ${depth === 0 ? 'font-medium text-slate-700' : 'text-slate-600'}`}>
               {dossier.name}
@@ -978,10 +963,15 @@ function NewTaskContent() {
           {cardAssignment}
           {cardTags}
         </div>
-        {/* Full-width cards spanning both columns */}
-        <div className="md:col-span-2 flex flex-col gap-4">
+        {/* Văn bản liên quan: full-width */}
+        <div className="md:col-span-2">
           {cardDocuments}
+        </div>
+        {/* Hồ sơ + Công việc tiên quyết: side by side */}
+        <div className="min-w-0">
           {cardDossiers}
+        </div>
+        <div className="min-w-0">
           {cardDependencies}
         </div>
 
