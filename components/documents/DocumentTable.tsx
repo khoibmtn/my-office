@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react'
-import { Loader2, Trash2, Eye, RefreshCw, CheckCircle2, Clock, CircleDot, Search, Pencil, ArrowUpDown, ClipboardCopy, Calendar, ChevronLeft, ChevronRight, X, Folder, ArrowRightLeft, FolderPlus, User, ChevronDown, RotateCcw, FileText } from 'lucide-react'
+import { Loader2, Trash2, Eye, RefreshCw, CheckCircle2, Clock, CircleDot, Search, Pencil, ArrowUpDown, ClipboardCopy, Calendar, ChevronLeft, ChevronRight, X, Folder, ArrowRightLeft, FolderPlus, User, ChevronDown, RotateCcw, FileText, Send, Check } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
@@ -318,6 +318,32 @@ function DocumentCard({
         ) : doc.status !== 'uploading' && (
           <>
             <button
+              onClick={async () => {
+                const lines: string[] = []
+                lines.push(`Giao việc cho: ${doc.assignee || ''}`)
+                if (doc.deadline) {
+                  const now = new Date(); now.setHours(0,0,0,0)
+                  const dl = doc.deadline.toDate(); dl.setHours(0,0,0,0)
+                  const days = Math.ceil((dl.getTime() - now.getTime()) / 86400000)
+                  const daysText = days < 0 ? ` (quá ${Math.abs(days)} ngày)` : days === 0 ? ' (hôm nay!)' : ` (còn ${days} ngày)`
+                  lines.push(`Hạn xử lý: ${doc.deadline.toDate().toLocaleDateString('vi-VN')}${daysText}`)
+                }
+                lines.push(`Nội dung văn bản: ${doc.title || ''}`)
+                if (doc.driveViewUrl) { lines.push(doc.driveViewUrl); lines.push('') }
+                if (doc.attachments && doc.attachments.length > 0) {
+                  lines.push(`Các văn bản đính kèm (${doc.attachments.length}):`)
+                  doc.attachments.forEach((att, i) => {
+                    if (att.driveViewUrl) { lines.push(att.driveViewUrl); if (i < doc.attachments!.length - 1) lines.push('') }
+                  })
+                }
+                await navigator.clipboard.writeText(lines.join('\n'))
+              }}
+              className="p-2 rounded-lg text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors"
+              title="Copy thông tin giao việc"
+            >
+              <Send className="h-4 w-4" />
+            </button>
+            <button
               onClick={() => onView(doc.id)}
               className="p-2 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
               title="Xem"
@@ -441,6 +467,7 @@ export function DocumentTable({ documents, storagePrefix = 'myoffice_docTable', 
   const [retrying, setRetrying] = useState<string | null>(null)
   const [deleting, setDeleting] = useState<string | null>(null)
   const [viewingId, setViewingId] = useState<string | null>(null)
+  const [copiedDocId, setCopiedDocId] = useState<string | null>(null)
   const [copyModalContent, setCopyModalContent] = useState<string | null>(null)
   const [filterStatus, setFilterStatus] = useState<string>(() => {
     if (typeof window !== 'undefined') {
@@ -1083,6 +1110,35 @@ export function DocumentTable({ documents, storagePrefix = 'myoffice_docTable', 
     try { await deleteDocument(docId, true) }
     catch (err) { alert('Lỗi: ' + (err instanceof Error ? err.message : String(err))) }
     finally { setDeleting(null) }
+  }, [])
+
+  const handleCopyGiaoViec = useCallback(async (doc: Document) => {
+    const lines: string[] = []
+    lines.push(`Giao việc cho: ${doc.assignee || ''}`)
+    if (doc.deadline) {
+      const now = new Date(); now.setHours(0,0,0,0)
+      const dl = doc.deadline.toDate(); dl.setHours(0,0,0,0)
+      const days = Math.ceil((dl.getTime() - now.getTime()) / 86400000)
+      const daysText = days < 0 ? ` (quá ${Math.abs(days)} ngày)` : days === 0 ? ' (hôm nay!)' : ` (còn ${days} ngày)`
+      lines.push(`Hạn xử lý: ${doc.deadline.toDate().toLocaleDateString('vi-VN')}${daysText}`)
+    }
+    lines.push(`Nội dung văn bản: ${doc.title || ''}`)
+    if (doc.driveViewUrl) {
+      lines.push(doc.driveViewUrl)
+      lines.push('')
+    }
+    if (doc.attachments && doc.attachments.length > 0) {
+      lines.push(`Các văn bản đính kèm (${doc.attachments.length}):`)
+      doc.attachments.forEach((att, i) => {
+        if (att.driveViewUrl) {
+          lines.push(att.driveViewUrl)
+          if (i < doc.attachments!.length - 1) lines.push('')
+        }
+      })
+    }
+    await navigator.clipboard.writeText(lines.join('\n'))
+    setCopiedDocId(doc.id)
+    setTimeout(() => setCopiedDocId(null), 2000)
   }, [])
 
   const handleToggleComplete = useCallback(async (doc: Document) => {
@@ -1881,6 +1937,13 @@ export function DocumentTable({ documents, storagePrefix = 'myoffice_docTable', 
                               </Button>
                             ) : doc.status !== 'uploading' && (
                               <>
+                                <button
+                                  onClick={() => handleCopyGiaoViec(doc)}
+                                  className="p-1.5 rounded-lg text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors"
+                                  title="Copy thông tin giao việc"
+                                >
+                                  {copiedDocId === doc.id ? <Check className="h-4 w-4 text-emerald-500" /> : <Send className="h-4 w-4" />}
+                                </button>
                                 <button
                                   onClick={() => setViewingId(doc.id)}
                                   className="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"

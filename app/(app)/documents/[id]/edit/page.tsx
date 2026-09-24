@@ -15,9 +15,10 @@ import {
   ExternalLink,
   Folder,
   X,
+  Upload,
 } from 'lucide-react'
 import { v4 as uuid } from 'uuid'
-import { toLocalISODate } from '@/lib/utils'
+import { toLocalISODate, getStructuredMainFileName } from '@/lib/utils'
 import { extractDriveFileId } from '@/lib/link-detector'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -137,6 +138,8 @@ export default function EditDocumentPage() {
     { id: uuid(), title: '', originalLink: '' },
   ])
   const [originalLinkChanged, setOriginalLinkChanged] = useState(false)
+  const [mainFile, setMainFile] = useState<File | null>(null)
+  const [uploading, setUploading] = useState(false)
 
   // Preview panel state
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
@@ -211,6 +214,55 @@ export default function EditDocumentPage() {
     setSaving(true)
     setError(null)
     try {
+      // Handle file upload first
+      if (mainFile) {
+        setUploading(true)
+        try {
+          // Build structured filename: YYYYMMDD-DocNumber.ext
+          const docForName = {
+            issueDate: issueDate ? { toDate: () => new Date(issueDate + 'T00:00:00') } : fullDoc?.issueDate,
+            docNumber: fullDoc?.docNumber,
+            mimeType: mainFile.type,
+          }
+          const structuredName = getStructuredMainFileName(docForName)
+          // Determine the actual extension from the uploaded file
+          const origExt = mainFile.name.includes('.') ? '.' + mainFile.name.split('.').pop() : ''
+          const hasExt = structuredName.includes('.')
+          const uploadName = hasExt ? structuredName : (structuredName + origExt)
+          // Rename file for upload
+          const renamedFile = new File([mainFile], uploadName || mainFile.name, { type: mainFile.type })
+
+          const token = localStorage.getItem('google_access_token')
+          const form = new FormData()
+          form.append('file', renamedFile)
+          form.append('folderId', process.env.NEXT_PUBLIC_DRIVE_FOLDER_ID ?? '')
+          if (token) form.append('userAccessToken', token)
+          const res = await fetch('/api/drive/upload', { method: 'POST', body: form })
+          if (!res.ok) throw new Error(await res.text())
+          const { driveFileId, driveViewUrl, mimeType: uploadedMime } = await res.json()
+          const driveLink = `https://drive.google.com/file/d/${driveFileId}/preview`
+          setOriginalLink(driveLink)
+          // Update Firestore with the new Drive info directly
+          await updateDocument(id, {
+            originalLink: driveLink,
+            driveFileId,
+            driveViewUrl: driveLink,
+            mimeType: uploadedMime || mainFile.type,
+            status: 'pending',
+          })
+          setMainFile(null)
+          // Skip the Drive copy step since we already uploaded
+          setOriginalLinkChanged(false)
+        } catch (uploadErr) {
+          setError(`Lỗi upload file: ${uploadErr instanceof Error ? uploadErr.message : String(uploadErr)}`)
+          setSaving(false)
+          setUploading(false)
+          return
+        } finally {
+          setUploading(false)
+        }
+      }
+
       // Synchronous Drive copy if link changed or upload failed
       if (originalLinkChanged || status === 'upload_failed') {
         const atts = attachments
@@ -324,6 +376,62 @@ export default function EditDocumentPage() {
                 <ExternalLink className="h-3.5 w-3.5" />
               </a>
             </>
+          )}
+        </div>
+
+        <div className="mt-1.5">
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] text-slate-400">hoặc</span>
+            <label className="inline-flex items-center gap-1.5 text-[11px] text-blue-600 cursor-pointer hover:text-blue-700 hover:underline font-medium">
+              <Upload className="h-3.5 w-3.5" />
+              Tải file lên trực tiếp (upload lên Google Drive)
+              <input
+                type="file"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0] ?? null
+                  setMainFile(file)
+                  if (file) setOriginalLinkChanged(false)
+                }}
+              />
+            </label>
+          </div>
+          {mainFile && (
+            <div className="mt-1.5 flex items-center gap-2 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">
+              <Upload className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+              <div className="flex-1 min-w-0">
+                <span className="text-xs font-medium text-emerald-800 truncate block">{mainFile.name}</span>
+                <span className="text-[10px] text-emerald-600">
+                  {(mainFile.size / 1024).toFixed(0)} KB — Sẽ upload lên Google Drive khi bấm Lưu
+                  {fullDoc?.docNumber && (
+                    <> · Đổi tên: <strong>{(() => {
+                      const docForName = {
+                        issueDate: issueDate ? { toDate: () => new Date(issueDate + 'T00:00:00') } : fullDoc?.issueDate,
+                        docNumber: fullDoc?.docNumber,
+                        mimeType: mainFile.type,
+                      }
+                      const structuredName = getStructuredMainFileName(docForName)
+                      const origExt = mainFile.name.includes('.') ? '.' + mainFile.name.split('.').pop() : ''
+                      return structuredName.includes('.') ? structuredName : structuredName + origExt
+                    })()}</strong></>
+                  )}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setMainFile(null)}
+                className="p-1 text-emerald-400 hover:text-red-500 rounded transition-colors"
+                title="Hủy file đã chọn"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          )}
+          {uploading && (
+            <div className="mt-1.5 flex items-center gap-2 text-xs text-blue-600">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              <span>Đang upload file lên Google Drive...</span>
+            </div>
           )}
         </div>
       </div>
