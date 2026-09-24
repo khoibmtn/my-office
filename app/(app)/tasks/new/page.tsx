@@ -82,14 +82,7 @@ function DocumentPickerPanel({
   onChange: (ids: string[]) => void
 }) {
   const [search, setSearch] = useState('')
-
-  const dossierMap = useMemo(() => {
-    const m = new Map<string, string>()
-    for (const d of dossiers) {
-      if (d.level === 1) m.set(d.id, d.name)
-    }
-    return m
-  }, [dossiers])
+  const listRef = React.useRef<HTMLDivElement>(null)
 
   // Get level-1 dossier name for a document
   const getLevel1Dossier = useCallback((doc: Document) => {
@@ -128,21 +121,40 @@ function DocumentPickerPanel({
     )
   }
 
+  const scrollToDoc = (id: string) => {
+    if (!listRef.current) return
+    const row = listRef.current.querySelector(`[data-doc-id="${id}"]`)
+    if (row) {
+      row.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      row.classList.add('ring-2', 'ring-blue-400')
+      setTimeout(() => row.classList.remove('ring-2', 'ring-blue-400'), 1200)
+    }
+  }
+
   return (
     <div className="flex flex-col gap-2">
-      {/* Selected tags */}
+      {/* Selected tags — full title, click to scroll */}
       {selectedIds.length > 0 && (
-        <div className="flex flex-wrap gap-1.5">
+        <div className="flex flex-col gap-1">
           {selectedIds.map(id => {
             const d = documents.find(doc => doc.id === id)
             return (
-              <span key={id} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium bg-blue-50 text-blue-700 border border-blue-200">
-                <FileText className="w-3 h-3" />
-                <span className="max-w-[180px] truncate">{d?.title || d?.docNumber || id.slice(-6)}</span>
-                <button type="button" onClick={() => toggle(id)} className="ml-0.5 hover:text-red-500">
-                  <X className="w-3 h-3" />
+              <div
+                key={id}
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200 cursor-pointer hover:bg-blue-100 transition-colors group"
+                onClick={() => scrollToDoc(id)}
+                title="Bấm để cuộn đến văn bản này"
+              >
+                <FileText className="w-3.5 h-3.5 shrink-0" />
+                <span className="flex-1 min-w-0 leading-snug">{d?.title || d?.docNumber || id.slice(-6)}</span>
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); toggle(id) }}
+                  className="p-0.5 text-blue-400 hover:text-red-500 shrink-0 opacity-60 group-hover:opacity-100 transition-opacity"
+                >
+                  <X className="w-3.5 h-3.5" />
                 </button>
-              </span>
+              </div>
             )
           })}
         </div>
@@ -166,7 +178,7 @@ function DocumentPickerPanel({
       </div>
 
       {/* Document list with columns */}
-      <div className="border border-slate-200 rounded-lg max-h-[200px] overflow-y-auto bg-white">
+      <div ref={listRef} className="border border-slate-200 rounded-lg max-h-[240px] overflow-y-auto bg-white">
         {filtered.length === 0 ? (
           <p className="text-xs text-slate-400 italic p-3 text-center">Không tìm thấy văn bản nào</p>
         ) : (
@@ -174,7 +186,7 @@ function DocumentPickerPanel({
             <thead className="sticky top-0 bg-slate-50 border-b border-slate-200">
               <tr>
                 <th className="w-8 px-2 py-1.5"></th>
-                <th className="px-2 py-1.5 text-left text-[10px] font-semibold text-slate-500 uppercase">Hồ sơ</th>
+                <th className="px-2 py-1.5 text-left text-[10px] font-semibold text-slate-500 uppercase w-[120px]">Hồ sơ</th>
                 <th className="px-2 py-1.5 text-left text-[10px] font-semibold text-slate-500 uppercase">Tên văn bản</th>
               </tr>
             </thead>
@@ -185,8 +197,9 @@ function DocumentPickerPanel({
                 return (
                   <tr
                     key={doc.id}
+                    data-doc-id={doc.id}
                     onClick={() => toggle(doc.id)}
-                    className={`cursor-pointer transition-colors ${isChecked ? 'bg-blue-50' : 'hover:bg-slate-50'}`}
+                    className={`cursor-pointer transition-all rounded ${isChecked ? 'bg-blue-50' : 'hover:bg-slate-50'}`}
                   >
                     <td className="px-2 py-1.5 text-center">
                       <input
@@ -752,45 +765,127 @@ function NewTaskContent() {
   )
 
   /* ── Card: Dependencies ── */
+  /* ── Dependencies: Searchable checkbox list ── */
+  const [depSearch, setDepSearch] = useState('')
+  const depListRef = React.useRef<HTMLDivElement>(null)
+
+  const topLevelTasks = useMemo(() => existingTasks.filter(t => !t.parentTaskId), [existingTasks])
+
+  const filteredDeps = useMemo(() => {
+    const q = depSearch.toLowerCase().trim()
+    if (!q) return topLevelTasks
+    return topLevelTasks.filter(t => t.title.toLowerCase().includes(q))
+  }, [topLevelTasks, depSearch])
+
+  const toggleDep = (id: string) => {
+    setDependsOnTaskIds(prev =>
+      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+    )
+    markDirty()
+  }
+
+  const scrollToDep = (id: string) => {
+    if (!depListRef.current) return
+    const row = depListRef.current.querySelector(`[data-task-id="${id}"]`)
+    if (row) {
+      row.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      row.classList.add('ring-2', 'ring-violet-400')
+      setTimeout(() => row.classList.remove('ring-2', 'ring-violet-400'), 1200)
+    }
+  }
+
   const cardDependencies = (
     <SectionCard icon={Link2} iconColor="text-violet-500" title="Công việc tiên quyết">
       <p className="text-[11px] text-slate-400 -mt-1">
         Việc này sẽ bị chặn cho đến khi việc tiên quyết hoàn thành
       </p>
-      {existingTasks.length > 0 ? (
-        <>
-          <select
-            onChange={e => {
-              const v = e.target.value
-              if (v && !dependsOnTaskIds.includes(v)) { setDependsOnTaskIds([...dependsOnTaskIds, v]); markDirty() }
-              e.target.value = ''
-            }}
-            className="h-9 rounded-md border border-slate-200 bg-slate-50 px-2.5 text-xs font-medium text-slate-700 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all"
-          >
-            <option value="">+ Chọn công việc tiên quyết...</option>
-            {existingTasks.filter(t => !t.parentTaskId && !dependsOnTaskIds.includes(t.id)).map(t => (
-              <option key={t.id} value={t.id}>
-                {t.title} {t.status === 'completed' ? '— [Đã xong]' : '— [Chưa xong]'}
-              </option>
-            ))}
-          </select>
+      {topLevelTasks.length > 0 ? (
+        <div className="flex flex-col gap-2">
+          {/* Selected tags — full title, click to scroll */}
           {dependsOnTaskIds.length > 0 && (
-            <div className="flex flex-wrap gap-1.5">
+            <div className="flex flex-col gap-1">
               {dependsOnTaskIds.map(id => {
-                const t = existingTasks.find(item => item.id === id)
+                const t = topLevelTasks.find(item => item.id === id)
                 return (
-                  <span key={id} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium bg-violet-50 text-violet-700 border border-violet-200">
-                    <Link2 className="w-3 h-3" />
-                    <span className="max-w-[150px] truncate">{t?.title || id.slice(-6)}</span>
-                    <button type="button" onClick={() => { setDependsOnTaskIds(dependsOnTaskIds.filter(i => i !== id)); markDirty() }} className="ml-0.5 hover:text-red-500">
-                      <X className="w-3 h-3" />
+                  <div
+                    key={id}
+                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium bg-violet-50 text-violet-700 border border-violet-200 cursor-pointer hover:bg-violet-100 transition-colors group"
+                    onClick={() => scrollToDep(id)}
+                    title="Bấm để cuộn đến công việc này"
+                  >
+                    <Link2 className="w-3.5 h-3.5 shrink-0" />
+                    <span className="flex-1 min-w-0 leading-snug">{t?.title || id.slice(-6)}</span>
+                    {t && (
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded shrink-0 ${
+                        t.status === 'completed' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
+                      }`}>
+                        {t.status === 'completed' ? 'Đã xong' : 'Chưa xong'}
+                      </span>
+                    )}
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); toggleDep(id) }}
+                      className="p-0.5 text-violet-400 hover:text-red-500 shrink-0 opacity-60 group-hover:opacity-100 transition-opacity"
+                    >
+                      <X className="w-3.5 h-3.5" />
                     </button>
-                  </span>
+                  </div>
                 )
               })}
             </div>
           )}
-        </>
+
+          {/* Search */}
+          <div className="relative">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+            <input
+              type="text"
+              value={depSearch}
+              onChange={(e) => setDepSearch(e.target.value)}
+              placeholder="Tìm công việc theo tiêu đề..."
+              className="w-full pl-8 pr-3 py-2 text-xs border border-slate-200 rounded-lg bg-slate-50 focus:bg-white focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+            />
+            {depSearch && (
+              <button type="button" onClick={() => setDepSearch('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+
+          {/* Task list */}
+          <div ref={depListRef} className="border border-slate-200 rounded-lg max-h-[200px] overflow-y-auto bg-white">
+            {filteredDeps.length === 0 ? (
+              <p className="text-xs text-slate-400 italic p-3 text-center">Không tìm thấy công việc nào</p>
+            ) : (
+              <div className="divide-y divide-slate-100">
+                {filteredDeps.map(t => {
+                  const isChecked = dependsOnTaskIds.includes(t.id)
+                  return (
+                    <div
+                      key={t.id}
+                      data-task-id={t.id}
+                      onClick={() => toggleDep(t.id)}
+                      className={`flex items-center gap-2 px-3 py-2 cursor-pointer transition-all ${isChecked ? 'bg-violet-50' : 'hover:bg-slate-50'}`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={() => toggleDep(t.id)}
+                        className="w-3.5 h-3.5 rounded border-slate-300 text-violet-600 focus:ring-violet-500 cursor-pointer shrink-0"
+                      />
+                      <span className="text-xs text-slate-700 flex-1 min-w-0 leading-snug">{t.title}</span>
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded shrink-0 ${
+                        t.status === 'completed' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'
+                      }`}>
+                        {t.status === 'completed' ? 'Đã xong' : 'Chưa xong'}
+                      </span>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        </div>
       ) : (
         <p className="text-xs text-slate-400 italic">Chưa có công việc nào khác</p>
       )}
@@ -877,14 +972,17 @@ function NewTaskContent() {
       <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="flex flex-col gap-4 min-w-0">
           {cardInfo}
-          {cardDocuments}
-          {cardDossiers}
-          {cardDependencies}
         </div>
         <div className="flex flex-col gap-4 min-w-0">
           {cardSchedule}
           {cardAssignment}
           {cardTags}
+        </div>
+        {/* Full-width cards spanning both columns */}
+        <div className="md:col-span-2 flex flex-col gap-4">
+          {cardDocuments}
+          {cardDossiers}
+          {cardDependencies}
         </div>
 
         {/* ── Sticky Bottom Action Bar ── */}
