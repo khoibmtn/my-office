@@ -13,6 +13,7 @@ import { TagSidebarPanel } from '@/components/tags/TagSidebarPanel'
 import { DossierNavItem } from '@/components/dossiers/DossierTreeNav'
 import { NotificationBell } from '@/components/notifications/NotificationBell'
 import { useRecurringScheduler } from '@/hooks/useRecurringScheduler'
+import { GlobalDataProvider } from '@/contexts/GlobalDataProvider'
 
 function InnerAppLayout({ children }: { children: React.ReactNode }) {
   useRecurringScheduler()
@@ -307,5 +308,9 @@ function InnerAppLayout({ children }: { children: React.ReactNode }) {
 }
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
-  return <InnerAppLayout>{children}</InnerAppLayout>
+  return (
+    <GlobalDataProvider>
+      <InnerAppLayout>{children}</InnerAppLayout>
+    </GlobalDataProvider>
+  )
 }
