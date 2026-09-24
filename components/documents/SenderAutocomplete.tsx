@@ -16,10 +16,15 @@ export function SenderAutocomplete({ value, onChange, className }: SenderAutocom
   const [search, setSearch] = useState(value)
   // Track the "committed" value so ESC/X can revert
   const committedRef = useRef(value)
+  const searchRef = useRef(search)        // Always-fresh ref for blur timeout
+  const isRevertingRef = useRef(false)     // Flag to prevent blur from overwriting committedRef
   const wrapperRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const { documents } = useDocuments()
   const { orgNames } = useOrgNames()
+
+  // Keep searchRef always in sync
+  searchRef.current = search
 
   // Sync external value changes (only when NOT focused = data loaded from DB)
   useEffect(() => {
@@ -64,24 +69,27 @@ export function SenderAutocomplete({ value, onChange, className }: SenderAutocom
 
   // Revert to committed value
   const revert = () => {
-    setSearch(committedRef.current)
-    onChange(committedRef.current)
+    isRevertingRef.current = true
+    const original = committedRef.current
+    setSearch(original)
+    onChange(original)
     setIsFocused(false)
+    // Clear flag after blur timeout window
+    setTimeout(() => { isRevertingRef.current = false }, 200)
   }
 
-  // Close dropdown on click outside — also revert if user typed but didn't select
+  // Close dropdown on click outside — commit whatever is typed
   useEffect(() => {
     if (!isFocused) return
     const handler = (e: MouseEvent) => {
       if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
-        // Commit whatever is typed (don't revert on click-away)
-        committedRef.current = search
+        committedRef.current = searchRef.current
         setIsFocused(false)
       }
     }
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
-  }, [isFocused, search])
+  }, [isFocused])
 
   const selectSender = (name: string) => {
     setSearch(name)
@@ -101,10 +109,11 @@ export function SenderAutocomplete({ value, onChange, className }: SenderAutocom
 
   // Commit on blur (when focus leaves via Tab, etc.)
   const handleBlur = () => {
-    // Small delay to allow dropdown click to register first
     setTimeout(() => {
+      // Skip if we're in a revert operation (ESC/X was pressed)
+      if (isRevertingRef.current) return
       if (!wrapperRef.current?.contains(document.activeElement)) {
-        committedRef.current = search
+        committedRef.current = searchRef.current  // Use ref for latest value
         setIsFocused(false)
       }
     }, 150)
