@@ -1363,10 +1363,10 @@ export function DocumentTable({ documents, storagePrefix = 'myoffice_docTable', 
           </div>
         )}
 
-        {/* Filter bar - responsive */}
+        {/* Filter bar - all on one row */}
         <div className="filters-bar">
-          {/* Row 1: Time + Status + Priority */}
-          <div className="flex items-center gap-2 sm:gap-4 flex-wrap flex-1 min-w-0">
+          {/* Row 1: Time + Status + Sender + Search */}
+          <div className="flex items-center gap-2 flex-wrap flex-1 min-w-0">
             <div className="filter-group">
               <Calendar size={16} className="text-slate-500 hidden sm:block" />
               <select
@@ -1412,53 +1412,18 @@ export function DocumentTable({ documents, storagePrefix = 'myoffice_docTable', 
                 }}
               >
                 <option value="all">Tất cả</option>
-                <option value="pending">Chưa hoàn thành</option>
-                <option value="completed">Đã hoàn thành</option>
+                <option value="pending">Chưa HT</option>
+                <option value="completed">Đã HT</option>
               </select>
             </div>
 
-            {/* Sender/issuer filter — compact combobox */}
+            {/* Sender/issuer filter */}
             <SenderFilterCombo
               value={senderFilter}
               onChange={setSenderFilter}
               orgNameStrings={orgNameStrings}
               allDocSenders={allDocSenders}
             />
-
-            {/* Priority filters - scroll on mobile */}
-            <div className="filter-group overflow-x-auto flex-nowrap hidden sm:flex">
-              <label className="hidden md:inline">Mức độ khẩn:</label>
-              {[
-                { key: 'normal', label: 'Thường', color: '#64748b' },
-                { key: 'urgent', label: 'Khẩn', color: '#f59e0b' },
-                { key: 'very_urgent', label: 'Thượng khẩn', color: '#f97316' },
-                { key: 'express', label: 'Hỏa tốc', color: '#ef4444' },
-                { key: 'express_scheduled', label: 'Hỏa tốc hẹn giờ', color: '#e11d48' }
-              ].map(p => {
-                const count = priorityStats[p.key] || 0
-                const isSelected = priorityBadgeFilters.includes(p.key)
-                if (count === 0 && !isSelected) return null
-                return (
-                  <button
-                    key={p.key}
-                    onClick={() => setPriorityBadgeFilters(prev =>
-                      prev.includes(p.key) ? prev.filter(x => x !== p.key) : [...prev, p.key]
-                    )}
-                    className="badge-filter px-2 py-0.5 rounded shadow-sm flex items-center gap-1 transition-all border text-xs font-semibold whitespace-nowrap shrink-0"
-                    style={{
-                      '--badge-color': p.color,
-                      background: isSelected ? p.color : `color-mix(in srgb, ${p.color} 25%, #ffffff)`,
-                      borderColor: p.color,
-                      color: isSelected ? '#fff' : p.color,
-                      boxShadow: isSelected ? `0 0 0 2px #fff, 0 0 0 3px ${p.color}` : 'none'
-                    } as React.CSSProperties}
-                  >
-                    {p.label} ({count})
-                    {isSelected && <span className="opacity-70 hover:opacity-100 font-normal ml-0.5 text-sm leading-none">×</span>}
-                  </button>
-                )
-              })}
-            </div>
           </div>
 
           {/* Active Tag Filter Pill */}
@@ -1477,8 +1442,8 @@ export function DocumentTable({ documents, storagePrefix = 'myoffice_docTable', 
           )}
 
           {/* Search box */}
-          <div className="search-box w-full sm:w-auto sm:min-w-[200px]">
-            <Search size={16} />
+          <div className="search-box sm:min-w-[160px] sm:max-w-[220px]">
+            <Search size={14} />
             <input
               type="text"
               placeholder="Tìm kiếm văn bản..."
@@ -1491,8 +1456,8 @@ export function DocumentTable({ documents, storagePrefix = 'myoffice_docTable', 
               </button>
             )}
           </div>
-          <div className="flex items-center gap-2">
-            <span className="filter-count hidden sm:inline">{filteredDocs.length}/{baseDocs.length} văn bản</span>
+          <div className="flex items-center gap-2 shrink-0">
+            <span className="filter-count hidden sm:inline whitespace-nowrap">{filteredDocs.length}/{baseDocs.length} văn bản</span>
             {hasActiveFilters && (
               <button
                 onClick={handleClearAllFilters}
@@ -1504,39 +1469,6 @@ export function DocumentTable({ documents, storagePrefix = 'myoffice_docTable', 
               </button>
             )}
           </div>
-        </div>
-
-        {/* Mobile priority filters */}
-        <div className="sm:hidden scroll-x-badges px-1">
-          {[
-            { key: 'normal', label: 'Thường', color: '#64748b' },
-            { key: 'urgent', label: 'Khẩn', color: '#f59e0b' },
-            { key: 'very_urgent', label: 'T.khẩn', color: '#f97316' },
-            { key: 'express', label: 'Hỏa tốc', color: '#ef4444' },
-            { key: 'express_scheduled', label: 'HT hẹn giờ', color: '#e11d48' }
-          ].map(p => {
-            const count = priorityStats[p.key] || 0
-            const isSelected = priorityBadgeFilters.includes(p.key)
-            if (count === 0 && !isSelected) return null
-            return (
-              <button
-                key={p.key}
-                onClick={() => setPriorityBadgeFilters(prev =>
-                  prev.includes(p.key) ? prev.filter(x => x !== p.key) : [...prev, p.key]
-                )}
-                className="badge-filter px-2 py-0.5 rounded shadow-sm flex items-center gap-1 transition-all border text-[11px] font-semibold whitespace-nowrap shrink-0"
-                style={{
-                  '--badge-color': p.color,
-                  background: isSelected ? p.color : `color-mix(in srgb, ${p.color} 25%, #ffffff)`,
-                  borderColor: p.color,
-                  color: isSelected ? '#fff' : p.color,
-                  boxShadow: isSelected ? `0 0 0 2px #fff, 0 0 0 3px ${p.color}` : 'none'
-                } as React.CSSProperties}
-              >
-                {p.label} ({count})
-              </button>
-            )
-          })}
         </div>
 
         {timePeriod === 'custom' && (
@@ -1553,16 +1485,48 @@ export function DocumentTable({ documents, storagePrefix = 'myoffice_docTable', 
 
       {/* Urgency + Staff badges & Batch Action Box */}
       <div className="flex flex-col xl:flex-row gap-2 mb-4 text-xs font-semibold items-start justify-between">
-        {/* Row 1: Urgency Badges */}
-        <div className="scroll-x-badges sm:flex sm:flex-wrap sm:gap-2 sm:overflow-visible items-start w-full xl:w-auto xl:flex-1 min-w-0">
+        {/* Row 1: Priority + Completion/Deadline Badges */}
+        <div className="scroll-x-badges sm:flex sm:flex-wrap sm:gap-1.5 sm:overflow-visible items-center w-full xl:w-auto xl:flex-1 min-w-0">
+          {/* Priority badges */}
+          <label className="hidden md:inline text-xs font-semibold text-slate-500 mr-0.5 shrink-0">Mức độ khẩn:</label>
           {[
-            ...(filterStatus === 'all' ? [{ key: 'pending_docs', count: baseDocs.length - stats.completed, color: '#f59e0b', label: 'Chưa hoàn thành' }] : []),
-            ...(filterStatus === 'all' || filterStatus === 'completed' ? [{ key: 'completed_docs', count: stats.completed, color: settings.completedColor, label: 'Hoàn thành' }] : []),
-            { key: 'overdue', count: stats.overdue, color: settings.overdueColor, label: 'Quá hạn' },
-            { key: 'expired', count: stats.expired, color: settings.expiredColor, label: 'Hết hạn (0 ngày)' },
-            { key: 'urgent1', count: stats.urgent1, color: settings.urgent1Color, label: 'Cận hạn 1-3 ngày' },
-            { key: 'urgent2', count: stats.urgent2, color: settings.urgent2Color, label: 'Cận hạn 4-7 ngày' },
-            { key: 'normal', count: stats.normal, color: settings.normalColor, label: 'Còn hạn > 7 ngày' },
+            { key: 'normal', label: 'Thường', color: '#64748b' },
+            { key: 'urgent', label: 'Khẩn', color: '#f59e0b' },
+            { key: 'very_urgent', label: 'Thượng khẩn', color: '#f97316' },
+            { key: 'express', label: 'Hỏa tốc', color: '#ef4444' },
+            { key: 'express_scheduled', label: 'HT hẹn giờ', color: '#e11d48' }
+          ].map(p => {
+            const count = priorityStats[p.key] || 0
+            const isSelected = priorityBadgeFilters.includes(p.key)
+            if (count === 0 && !isSelected) return null
+            return (
+              <button
+                key={p.key}
+                onClick={() => setPriorityBadgeFilters(prev =>
+                  prev.includes(p.key) ? prev.filter(x => x !== p.key) : [...prev, p.key]
+                )}
+                className="badge-filter px-2 py-0.5 rounded shadow-sm flex items-center gap-1 transition-all border text-xs font-semibold whitespace-nowrap shrink-0"
+                style={{
+                  '--badge-color': p.color,
+                  background: isSelected ? p.color : `color-mix(in srgb, ${p.color} 25%, #ffffff)`,
+                  borderColor: p.color,
+                  color: isSelected ? '#fff' : p.color,
+                  boxShadow: isSelected ? `0 0 0 2px #fff, 0 0 0 3px ${p.color}` : 'none'
+                } as React.CSSProperties}
+              >
+                {p.label} ({count})
+                {isSelected && <span className="opacity-70 hover:opacity-100 font-normal ml-0.5 text-sm leading-none">×</span>}
+              </button>
+            )
+          })}
+
+          {/* Separator */}
+          <span className="hidden sm:inline text-slate-300 mx-0.5">|</span>
+
+          {/* Completion + Deadline badges */}
+          {[
+            ...(filterStatus === 'all' ? [{ key: 'pending_docs', count: baseDocs.length - stats.completed, color: '#f59e0b', label: 'Chưa HT' }] : []),
+            ...(filterStatus === 'all' || filterStatus === 'completed' ? [{ key: 'completed_docs', count: stats.completed, color: settings.completedColor, label: 'HT' }] : []),
           ].map(b => {
             const isSelected = badgeFilters.includes(b.key) || (b.key === 'pending_docs' && badgeFilters.includes('pending'))
             if (b.count === 0 && !isSelected) return null
@@ -1577,7 +1541,7 @@ export function DocumentTable({ documents, storagePrefix = 'myoffice_docTable', 
                       : [...normalized, b.key]
                   })
                 }}
-                className="badge-filter px-2 py-1 rounded shadow-sm flex items-center gap-1 transition-all border whitespace-nowrap shrink-0 text-xs"
+                className="badge-filter px-2 py-0.5 rounded shadow-sm flex items-center gap-1 transition-all border whitespace-nowrap shrink-0 text-xs font-semibold"
                 style={{ 
                   '--badge-color': b.color,
                   background: isSelected ? b.color : `color-mix(in srgb, ${b.color} 25%, #ffffff)`,
@@ -1587,7 +1551,43 @@ export function DocumentTable({ documents, storagePrefix = 'myoffice_docTable', 
                 } as React.CSSProperties}
               >
                 {b.label}: {b.count}
-                {isSelected && <span className="opacity-70 hover:opacity-100 font-normal ml-1 text-sm leading-none">×</span>}
+                {isSelected && <span className="opacity-70 hover:opacity-100 font-normal ml-0.5 text-sm leading-none">×</span>}
+              </button>
+            )
+          })}
+
+          <label className="hidden sm:inline text-xs font-semibold text-slate-500 ml-0.5 shrink-0">Hạn:</label>
+          {[
+            { key: 'overdue', count: stats.overdue, color: settings.overdueColor, label: 'Quá hạn' },
+            { key: 'expired', count: stats.expired, color: settings.expiredColor, label: 'Hạn (0d)' },
+            { key: 'urgent1', count: stats.urgent1, color: settings.urgent1Color, label: 'Hạn 1-3d' },
+            { key: 'urgent2', count: stats.urgent2, color: settings.urgent2Color, label: 'Hạn 4-7d' },
+            { key: 'normal', count: stats.normal, color: settings.normalColor, label: '> 7d' },
+          ].map(b => {
+            const isSelected = badgeFilters.includes(b.key)
+            if (b.count === 0 && !isSelected) return null
+            return (
+              <button
+                key={b.key}
+                onClick={() => {
+                  setBadgeFilters(prev => {
+                    const normalized = prev.map(x => (x === 'pending' ? 'pending_docs' : x))
+                    return normalized.includes(b.key)
+                      ? normalized.filter(x => x !== b.key)
+                      : [...normalized, b.key]
+                  })
+                }}
+                className="badge-filter px-2 py-0.5 rounded shadow-sm flex items-center gap-1 transition-all border whitespace-nowrap shrink-0 text-xs font-semibold"
+                style={{ 
+                  '--badge-color': b.color,
+                  background: isSelected ? b.color : `color-mix(in srgb, ${b.color} 25%, #ffffff)`,
+                  borderColor: b.color,
+                  color: isSelected ? '#fff' : b.color,
+                  boxShadow: isSelected ? `0 0 0 2px #fff, 0 0 0 4px ${b.color}` : 'none'
+                } as React.CSSProperties}
+              >
+                {b.label}: {b.count}
+                {isSelected && <span className="opacity-70 hover:opacity-100 font-normal ml-0.5 text-sm leading-none">×</span>}
               </button>
             )
           })}
