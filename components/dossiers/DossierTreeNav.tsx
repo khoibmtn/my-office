@@ -180,8 +180,9 @@ export function DossierNavItem({ active }: DossierNavItemProps) {
   const handleRowClick = () => {
     const isDossiers = pathname.startsWith('/dossiers')
     if (isDossiers) {
-      // Already on dossiers page — just toggle tree
+      // Already on dossiers — toggle tree and navigate to dossiers root
       setIsOpen(prev => !prev)
+      router.push('/dossiers')
     } else {
       // Coming from another page — open tree and navigate to last position
       setIsOpen(true)
