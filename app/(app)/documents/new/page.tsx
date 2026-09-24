@@ -29,6 +29,7 @@ import { usePermissions } from '@/hooks/usePermissions'
 import { useStaff } from '@/hooks/useStaff'
 import { CoAssigneePicker } from '@/components/documents/CoAssigneePicker'
 import { SenderAutocomplete } from '@/components/documents/SenderAutocomplete'
+import { RevertableInput } from '@/components/ui/RevertableInput'
 import type { AttachmentInput as AttachmentItem, DocumentStatus } from '@/types'
 
 type AttachmentRow = AttachmentItem & { id: string }
@@ -274,12 +275,13 @@ function NewDocumentContent() {
         <Label htmlFor="title" className="text-xs font-medium text-slate-600">
           Tiêu đề <span className="text-red-400">*</span>
         </Label>
-        <Input
+        <RevertableInput
           id="title"
           value={title}
-          onChange={(e) => { setTitle(e.target.value); markDirty() }}
+          onChange={(v) => { setTitle(v); markDirty() }}
           required
-          className="h-9 text-xs"
+          multiline
+          rows={1}
           placeholder="Nhập tiêu đề văn bản..."
         />
       </div>
@@ -410,11 +412,10 @@ function NewDocumentContent() {
         </div>
         <div className="flex flex-col gap-1">
           <Label htmlFor="leader" className="text-xs font-medium text-slate-600">Lãnh đạo</Label>
-          <Input
+          <RevertableInput
             id="leader"
             value={leader}
-            onChange={(e) => { setLeader(e.target.value); markDirty() }}
-            className="h-9 text-xs"
+            onChange={(v) => { setLeader(v); markDirty() }}
           />
         </div>
       </div>

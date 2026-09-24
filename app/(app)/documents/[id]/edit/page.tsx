@@ -31,6 +31,7 @@ import { usePermissions } from '@/hooks/usePermissions'
 import { useStaff } from '@/hooks/useStaff'
 import { CoAssigneePicker } from '@/components/documents/CoAssigneePicker'
 import { SenderAutocomplete } from '@/components/documents/SenderAutocomplete'
+import { RevertableInput } from '@/components/ui/RevertableInput'
 import type { Document, DocumentStatus, AttachmentInput as AttachmentItem } from '@/types'
 
 type AttachmentRow = AttachmentItem & { id: string }
@@ -362,12 +363,14 @@ export default function EditDocumentPage() {
         <Label htmlFor="title" className="text-xs font-medium text-slate-600">
           Tiêu đề <span className="text-red-400">*</span>
         </Label>
-        <Input
+        <RevertableInput
           id="title"
           value={title}
-          onChange={(e) => { setTitle(e.target.value); markDirty() }}
+          onChange={(v) => { setTitle(v); markDirty() }}
           required
-          className="h-9 text-xs"
+          multiline
+          rows={1}
+          placeholder="Nhập tiêu đề văn bản..."
         />
       </div>
 
@@ -481,11 +484,10 @@ export default function EditDocumentPage() {
         </div>
         <div className="flex flex-col gap-1">
           <Label htmlFor="leader" className="text-xs font-medium text-slate-600">Lãnh đạo</Label>
-          <Input
+          <RevertableInput
             id="leader"
             value={leader}
-            onChange={(e) => { setLeader(e.target.value); markDirty() }}
-            className="h-9 text-xs"
+            onChange={(v) => { setLeader(v); markDirty() }}
           />
         </div>
       </div>
@@ -681,12 +683,12 @@ export default function EditDocumentPage() {
             <ArrowLeft className="h-3.5 w-3.5 group-hover:-translate-x-0.5 transition-transform" />
             Quay lại danh sách
           </button>
-          <div className="flex items-center gap-2.5">
+          <div>
             <h1 className="text-lg font-bold text-slate-900">Sửa văn bản</h1>
             {title && (
-              <span className="text-xs text-slate-500 max-w-[360px] truncate hidden md:inline-block font-normal">
-                • {title}
-              </span>
+              <p className="text-sm font-bold text-blue-600 leading-snug mt-0.5">
+                {title}
+              </p>
             )}
           </div>
         </div>
