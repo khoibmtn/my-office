@@ -21,11 +21,13 @@ export function SenderAutocomplete({ value, onChange, className }: SenderAutocom
   const { documents } = useDocuments()
   const { orgNames } = useOrgNames()
 
-  // Sync external value changes
+  // Sync external value changes (only when NOT focused = data loaded from DB)
   useEffect(() => {
-    setSearch(value)
-    committedRef.current = value
-  }, [value])
+    if (!isFocused) {
+      setSearch(value)
+      committedRef.current = value
+    }
+  }, [value, isFocused])
 
   // All unique senders from documents
   const allSenders = useMemo(() => {
@@ -127,22 +129,12 @@ export function SenderAutocomplete({ value, onChange, className }: SenderAutocom
           className="w-full h-9 text-xs pl-3 pr-8 border border-slate-200 rounded-md bg-white focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
           autoComplete="off"
         />
-        {search && search !== committedRef.current && (
+        {search && (
           <button
             type="button"
             onClick={revert}
             className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-red-500 transition-colors"
-            title="Hoàn tác (Esc)"
-          >
-            <X className="w-3.5 h-3.5" />
-          </button>
-        )}
-        {search && search === committedRef.current && committedRef.current && (
-          <button
-            type="button"
-            onClick={() => { setSearch(''); onChange(''); committedRef.current = '' }}
-            className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
-            title="Xóa"
+            title={search !== committedRef.current ? 'Khôi phục giá trị ban đầu (Esc)' : 'Xóa'}
           >
             <X className="w-3.5 h-3.5" />
           </button>

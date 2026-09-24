@@ -101,6 +101,8 @@ export function RevertableInput({
             el.style.height = el.scrollHeight + 'px'
           }}
         />
+        {/* Auto-resize on value change (initial load) */}
+        <AutoResizeEffect textareaRef={inputRef as React.RefObject<HTMLTextAreaElement>} value={value} />
         {showClear && (
           <button
             type="button"
@@ -142,4 +144,16 @@ export function RevertableInput({
       )}
     </div>
   )
+}
+
+/** Invisible helper — triggers textarea auto-resize when value changes */
+function AutoResizeEffect({ textareaRef, value }: { textareaRef: React.RefObject<HTMLTextAreaElement>; value: string }) {
+  useEffect(() => {
+    const el = textareaRef.current
+    if (el) {
+      el.style.height = 'auto'
+      el.style.height = el.scrollHeight + 'px'
+    }
+  }, [value, textareaRef])
+  return null
 }
