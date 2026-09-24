@@ -92,6 +92,111 @@ function ThResizable({ width, minWidth = 30, onWidthChange, children, className,
   )
 }
 
+// === SenderFilterCombo: compact inline searchable sender filter ===
+function SenderFilterCombo({ value, onChange, orgNameStrings, allDocSenders }: {
+  value: string
+  onChange: (v: string) => void
+  orgNameStrings: string[]
+  allDocSenders: string[]
+}) {
+  const [open, setOpen] = useState(false)
+  const [q, setQ] = useState('')
+  const ref = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [open])
+
+  const filteredOrg = useMemo(() => {
+    if (!q.trim()) return orgNameStrings
+    const lq = q.toLowerCase()
+    return orgNameStrings.filter(n => n.toLowerCase().includes(lq))
+  }, [q, orgNameStrings])
+
+  const filteredOther = useMemo(() => {
+    if (!q.trim()) return allDocSenders
+    const lq = q.toLowerCase()
+    return allDocSenders.filter(s => s.toLowerCase().includes(lq))
+  }, [q, allDocSenders])
+
+  const select = (v: string) => {
+    onChange(v)
+    setOpen(false)
+    setQ('')
+  }
+
+  return (
+    <div ref={ref} className="filter-group relative">
+      <label className="hidden sm:inline">CQ ban hành:</label>
+      <button
+        type="button"
+        onClick={() => { setOpen(!open); if (!open) setTimeout(() => inputRef.current?.focus(), 50) }}
+        className={`text-xs px-2 py-1 border rounded-md bg-slate-50 hover:bg-slate-100 cursor-pointer transition-all max-w-[140px] truncate ${
+          value !== 'all' ? 'font-semibold border-blue-300 bg-blue-50 text-blue-700' : 'border-slate-200 text-slate-700'
+        }`}
+        title={value === 'all' ? 'Tất cả' : value === '__org__' ? 'Đơn vị' : value}
+      >
+        {value === 'all' ? 'Tất cả' : value === '__org__' ? 'Đơn vị' : value}
+      </button>
+      {open && (
+        <div className="absolute top-full left-0 z-50 mt-1 w-[220px] bg-white border border-slate-200 rounded-lg shadow-lg overflow-hidden">
+          <div className="p-1.5 border-b border-slate-100">
+            <input
+              ref={inputRef}
+              type="text"
+              value={q}
+              onChange={e => setQ(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Escape') { setOpen(false); setQ('') } }}
+              placeholder="Tìm cơ quan..."
+              className="w-full h-7 px-2 text-xs border border-slate-200 rounded bg-slate-50 focus:bg-white focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none"
+              autoComplete="off"
+            />
+          </div>
+          <div className="max-h-[200px] overflow-y-auto">
+            {/* Tat ca */}
+            <button type="button" onMouseDown={e => e.preventDefault()} onClick={() => select('all')}
+              className={`w-full text-left px-3 py-1.5 text-xs hover:bg-slate-50 ${value === 'all' ? 'bg-blue-50 font-semibold text-blue-700' : 'text-slate-700'}`}>
+              Tất cả
+            </button>
+            {/* Don vi */}
+            {orgNameStrings.length > 0 && (
+              <button type="button" onMouseDown={e => e.preventDefault()} onClick={() => select('__org__')}
+                className={`w-full text-left px-3 py-1.5 text-xs font-medium hover:bg-blue-50 ${value === '__org__' ? 'bg-blue-50 font-semibold text-blue-700' : 'text-blue-600'}`}>
+                Đơn vị (tất cả)
+              </button>
+            )}
+            {/* Org names */}
+            {filteredOrg.map(n => (
+              <button key={`o-${n}`} type="button" onMouseDown={e => e.preventDefault()} onClick={() => select(n)}
+                className={`w-full text-left px-3 pl-5 py-1.5 text-xs hover:bg-blue-50 ${value === n ? 'bg-blue-50 font-semibold text-blue-700' : 'text-slate-600'}`}>
+                └ {n}
+              </button>
+            ))}
+            {/* Separator */}
+            {filteredOther.length > 0 && <div className="border-t border-slate-100 my-0.5" />}
+            {/* Other senders */}
+            {filteredOther.map(s => (
+              <button key={`s-${s}`} type="button" onMouseDown={e => e.preventDefault()} onClick={() => select(s)}
+                className={`w-full text-left px-3 py-1.5 text-xs hover:bg-slate-50 ${value === s ? 'bg-blue-50 font-semibold text-blue-700' : 'text-slate-700'}`}>
+                {s}
+              </button>
+            ))}
+            {filteredOrg.length === 0 && filteredOther.length === 0 && (
+              <div className="px-3 py-2 text-xs text-slate-400 italic">Không tìm thấy</div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // === Helpers ===
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -1312,24 +1417,13 @@ export function DocumentTable({ documents, storagePrefix = 'myoffice_docTable', 
               </select>
             </div>
 
-            {/* Sender/issuer filter */}
-            <div className="filter-group">
-              <label className="hidden sm:inline">CQ ban hành:</label>
-              <select
-                value={senderFilter}
-                onChange={e => { setSenderFilter(e.target.value); e.target.blur() }}
-                className={senderFilter !== 'all' ? 'font-semibold' : ''}
-              >
-                <option value="all">Tất cả</option>
-                <option value="__org__">Đơn vị</option>
-                {orgNameStrings.map(n => (
-                  <option key={`org-${n}`} value={n}>  └ {n}</option>
-                ))}
-                {allDocSenders.map(s => (
-                  <option key={`other-${s}`} value={s}>{s}</option>
-                ))}
-              </select>
-            </div>
+            {/* Sender/issuer filter — compact combobox */}
+            <SenderFilterCombo
+              value={senderFilter}
+              onChange={setSenderFilter}
+              orgNameStrings={orgNameStrings}
+              allDocSenders={allDocSenders}
+            />
 
             {/* Priority filters - scroll on mobile */}
             <div className="filter-group overflow-x-auto flex-nowrap hidden sm:flex">
