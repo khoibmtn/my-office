@@ -1913,11 +1913,12 @@ export function DocumentTable({ documents, storagePrefix = 'myoffice_docTable', 
                         </div>
                       </TableCell>
                       <TableCell className="sticky right-0 z-10 bg-white shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.06)]" style={{ width: '1%', whiteSpace: 'nowrap' }}>
-                        <div className="flex flex-col">
-                          <div className="flex items-center gap-0 flex-nowrap">
+                        <div className="flex flex-col items-end gap-0.5">
+                          {/* Status chip row */}
+                          <div className="flex items-center">
                             {(perms.canToggleComplete || (perms.canCompleteAssigned && doc.assigneeId === currentStaffId)) && (
                               <button
-                                className={`status-chip mr-1 ${eff.cls}`}
+                                className={`status-chip ${eff.cls}`}
                                 onClick={() => handleToggleComplete(doc)}
                                 title={doc.status === 'completed' ? 'Bấm để chuyển về trạng thái chờ' : 'Bấm để đánh dấu hoàn thành'}
                               >
@@ -1926,53 +1927,56 @@ export function DocumentTable({ documents, storagePrefix = 'myoffice_docTable', 
                               </button>
                             )}
                             {!perms.canToggleComplete && !(perms.canCompleteAssigned && doc.assigneeId === currentStaffId) && (
-                              <span className={`status-chip mr-1 ${eff.cls} opacity-60 cursor-default`}>
+                              <span className={`status-chip ${eff.cls} opacity-60 cursor-default`}>
                                 {eff.icon}
                                 <span className="hidden xl:inline">{eff.label}</span>
                               </span>
                             )}
-                            {doc.status === 'upload_failed' && perms.canEditDocument ? (
+                          </div>
+                          {/* Action icons row */}
+                          {doc.status === 'upload_failed' && perms.canEditDocument ? (
+                            <div className="flex items-center gap-0">
                               <Button size="sm" variant="outline" onClick={() => handleRetry(doc)} disabled={retrying === doc.id}>
                                 {retrying === doc.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
                               </Button>
-                            ) : doc.status !== 'uploading' && (
-                              <>
-                                <button
-                                  onClick={() => handleCopyGiaoViec(doc)}
-                                  className="p-1 rounded-md text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors"
-                                  title="Copy thông tin giao việc"
-                                >
-                                  {copiedDocId === doc.id ? <Check className="h-3.5 w-3.5 text-emerald-500" /> : <Send className="h-3.5 w-3.5" />}
-                                </button>
-                                <button
-                                  onClick={() => setViewingId(doc.id)}
-                                  className="p-1 rounded-md text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
-                                  title="Xem"
-                                >
-                                  <Eye className="h-3.5 w-3.5" />
-                                </button>
-                                {perms.canEditDocument && (
-                                  <Link
-                                    href={`/documents/${doc.id}/edit`}
-                                    className="p-1 rounded-md text-slate-400 hover:text-amber-600 hover:bg-amber-50 transition-colors"
-                                    title="Sửa"
-                                  >
-                                    <Pencil className="h-3.5 w-3.5" />
-                                  </Link>
-                                )}
-                              </>
-                            )}
-                            {perms.canDeleteDocument && (
+                            </div>
+                          ) : doc.status !== 'uploading' && (
+                            <div className="flex items-center gap-0">
                               <button
-                                className="p-1 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors"
-                                onClick={() => handleDelete(doc.id, doc.title)}
-                                disabled={deleting === doc.id}
-                                title="Xóa"
+                                onClick={() => handleCopyGiaoViec(doc)}
+                                className="p-1 rounded-md text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors"
+                                title="Copy thông tin giao việc"
                               >
-                                {deleting === doc.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+                                {copiedDocId === doc.id ? <Check className="h-3.5 w-3.5 text-emerald-500" /> : <Send className="h-3.5 w-3.5" />}
                               </button>
-                            )}
-                          </div>
+                              <button
+                                onClick={() => setViewingId(doc.id)}
+                                className="p-1 rounded-md text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+                                title="Xem"
+                              >
+                                <Eye className="h-3.5 w-3.5" />
+                              </button>
+                              {perms.canEditDocument && (
+                                <Link
+                                  href={`/documents/${doc.id}/edit`}
+                                  className="p-1 rounded-md text-slate-400 hover:text-amber-600 hover:bg-amber-50 transition-colors"
+                                  title="Sửa"
+                                >
+                                  <Pencil className="h-3.5 w-3.5" />
+                                </Link>
+                              )}
+                              {perms.canDeleteDocument && (
+                                <button
+                                  className="p-1 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                                  onClick={() => handleDelete(doc.id, doc.title)}
+                                  disabled={deleting === doc.id}
+                                  title="Xóa"
+                                >
+                                  {deleting === doc.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+                                </button>
+                              )}
+                            </div>
+                          )}
                           {doc.completedDate && (() => {
                             const cd = toDateSafe(doc.completedDate)
                             if (!cd) return null
