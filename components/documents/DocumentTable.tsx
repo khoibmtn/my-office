@@ -20,6 +20,7 @@ import { useStaff } from '@/hooks/useStaff'
 import { useSettings } from '@/hooks/useSettings'
 import { usePermissions } from '@/hooks/usePermissions'
 import { useRole } from '@/hooks/useRole'
+import { useOrgNames } from '@/hooks/useOrgNames'
 
 // === Components ===
 
@@ -514,6 +515,21 @@ export function DocumentTable({ documents, storagePrefix = 'myoffice_docTable', 
   const [staffSearchQuery, setStaffSearchQuery] = useState('')
   const staffDropdownRef = useRef<HTMLDivElement>(null)
 
+  // Sender filter
+  const [senderFilter, setSenderFilter] = useState<string>('all')
+  const { orgNames } = useOrgNames()
+  const orgNameStrings = useMemo(() => orgNames.map(n => n.name), [orgNames])
+
+  // All unique senders from documents (excluding org names)
+  const allDocSenders = useMemo(() => {
+    const set = new Set<string>()
+    documents.forEach(d => { if (d.sender?.trim()) set.add(d.sender.trim()) })
+    const orgLower = new Set(orgNameStrings.map(n => n.toLowerCase()))
+    return Array.from(set)
+      .filter(s => !orgLower.has(s.toLowerCase()))
+      .sort((a, b) => a.localeCompare(b, 'vi'))
+  }, [documents, orgNameStrings])
+
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (staffDropdownRef.current && !staffDropdownRef.current.contains(event.target as Node)) {
@@ -931,6 +947,17 @@ export function DocumentTable({ documents, storagePrefix = 'myoffice_docTable', 
       })
     }
 
+    // Sender filter
+    if (senderFilter && senderFilter !== 'all') {
+      if (senderFilter === '__org__') {
+        // Filter by all org names
+        const orgLower = new Set(orgNameStrings.map(n => n.toLowerCase()))
+        result = result.filter(d => d.sender && orgLower.has(d.sender.trim().toLowerCase()))
+      } else {
+        result = result.filter(d => d.sender?.trim().toLowerCase() === senderFilter.toLowerCase())
+      }
+    }
+
     // Sorting
     if (sortConfig) {
       result = [...result].sort((a, b) => {
@@ -978,7 +1005,7 @@ export function DocumentTable({ documents, storagePrefix = 'myoffice_docTable', 
     }
 
     return result
-  }, [baseDocs, badgeFilters, priorityBadgeFilters, staffBadgeFilter, searchQuery, wordMatch, sortConfig, urlTagId, activeTag])
+  }, [baseDocs, badgeFilters, priorityBadgeFilters, staffBadgeFilter, senderFilter, orgNameStrings, searchQuery, wordMatch, sortConfig, urlTagId, activeTag])
 
   // Check if any filter is actively narrowing the list
   const hasActiveFilters = useMemo(() => {
@@ -989,9 +1016,10 @@ export function DocumentTable({ documents, storagePrefix = 'myoffice_docTable', 
       searchQuery.trim().length > 0 ||
       filterStatus !== 'all' ||
       timePeriod !== 'today' ||
+      senderFilter !== 'all' ||
       Boolean(urlTagId)
     )
-  }, [badgeFilters, priorityBadgeFilters, staffBadgeFilter, searchQuery, filterStatus, timePeriod, urlTagId])
+  }, [badgeFilters, priorityBadgeFilters, staffBadgeFilter, searchQuery, filterStatus, timePeriod, senderFilter, urlTagId])
 
   // Clear all filters handler to easily restore all documents
   const handleClearAllFilters = useCallback(() => {
@@ -1003,6 +1031,7 @@ export function DocumentTable({ documents, storagePrefix = 'myoffice_docTable', 
     setTimePeriod('today')
     setCustomFrom('')
     setCustomTo('')
+    setSenderFilter('all')
     if (typeof window !== 'undefined') {
       localStorage.removeItem(lsKey('badgeFilters'))
       localStorage.removeItem(lsKey('priorityBadges'))
@@ -1018,7 +1047,7 @@ export function DocumentTable({ documents, storagePrefix = 'myoffice_docTable', 
   }, [lsKey, urlTagId, router])
 
   // Reset page on filter change
-  useEffect(() => { setCurrentPage(1) }, [searchQuery, badgeFilters, priorityBadgeFilters, staffBadgeFilter, filterStatus, timePeriod])
+  useEffect(() => { setCurrentPage(1) }, [searchQuery, badgeFilters, priorityBadgeFilters, staffBadgeFilter, senderFilter, filterStatus, timePeriod])
 
   // Auto-prune stale badge filters that match 0 documents in baseDocs
   useEffect(() => {
@@ -1280,6 +1309,25 @@ export function DocumentTable({ documents, storagePrefix = 'myoffice_docTable', 
                 <option value="all">Tất cả</option>
                 <option value="pending">Chưa hoàn thành</option>
                 <option value="completed">Đã hoàn thành</option>
+              </select>
+            </div>
+
+            {/* Sender/issuer filter */}
+            <div className="filter-group">
+              <label className="hidden sm:inline">CQ ban hành:</label>
+              <select
+                value={senderFilter}
+                onChange={e => { setSenderFilter(e.target.value); e.target.blur() }}
+                className={senderFilter !== 'all' ? 'font-semibold' : ''}
+              >
+                <option value="all">Tất cả</option>
+                <option value="__org__">Đơn vị</option>
+                {orgNameStrings.map(n => (
+                  <option key={`org-${n}`} value={n}>  └ {n}</option>
+                ))}
+                {allDocSenders.map(s => (
+                  <option key={`other-${s}`} value={s}>{s}</option>
+                ))}
               </select>
             </div>
 

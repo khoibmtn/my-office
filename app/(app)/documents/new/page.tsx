@@ -28,6 +28,7 @@ import { createDocument, submitDocumentWithDriveCopy } from '@/lib/firestore'
 import { usePermissions } from '@/hooks/usePermissions'
 import { useStaff } from '@/hooks/useStaff'
 import { CoAssigneePicker } from '@/components/documents/CoAssigneePicker'
+import { SenderAutocomplete } from '@/components/documents/SenderAutocomplete'
 import type { AttachmentInput as AttachmentItem, DocumentStatus } from '@/types'
 
 type AttachmentRow = AttachmentItem & { id: string }
@@ -402,11 +403,9 @@ function NewDocumentContent() {
         </div>
         <div className="flex flex-col gap-1">
           <Label htmlFor="sender" className="text-xs font-medium text-slate-600">Cơ quan ban hành</Label>
-          <Input
-            id="sender"
+          <SenderAutocomplete
             value={sender}
-            onChange={(e) => { setSender(e.target.value); markDirty() }}
-            className="h-9 text-xs"
+            onChange={(v) => { setSender(v); markDirty() }}
           />
         </div>
         <div className="flex flex-col gap-1">

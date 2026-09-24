@@ -1,10 +1,13 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react'
-import { Plus, Pencil, Trash2, Building2, Users, ChevronRight, ChevronDown, Loader2, MapPin, Phone, Save, X } from 'lucide-react'
+import { Plus, Pencil, Trash2, Building2, Users, ChevronRight, ChevronDown, Loader2, MapPin, Phone, Save, X, ArrowUp, ArrowDown, Building } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { subscribeDepartments, createDepartment, updateDepartment, deleteDepartment } from '@/lib/departments'
+import { subscribeOrgNames, addOrgName, updateOrgName, deleteOrgName, reorderOrgNames, type OrgName } from '@/lib/orgNames'
+import { seedOrgNames } from '@/lib/seedOrgNames'
 import { useStaff } from '@/hooks/useStaff'
+import { useDocuments } from '@/hooks/useDocuments'
 import type { Department, DepartmentType } from '@/types/departments'
 
 const DEPT_TYPE_LABELS: Record<DepartmentType, string> = {
@@ -59,6 +62,75 @@ export default function OrganizationPage() {
     )
     return unsub
   }, [])
+  // === OrgNames state ===
+  const [orgNames, setOrgNames] = useState<OrgName[]>([])
+  const [orgLoading, setOrgLoading] = useState(true)
+  const [newOrgName, setNewOrgName] = useState('')
+  const [editingOrgId, setEditingOrgId] = useState<string | null>(null)
+  const [editingOrgValue, setEditingOrgValue] = useState('')
+  const [orgSaving, setOrgSaving] = useState(false)
+  const { documents } = useDocuments()
+
+  useEffect(() => {
+    const unsub = subscribeOrgNames(
+      (names) => { setOrgNames(names); setOrgLoading(false) },
+      () => setOrgLoading(false)
+    )
+    return unsub
+  }, [])
+
+  // Auto-seed defaults if empty
+  useEffect(() => {
+    if (!orgLoading && orgNames.length === 0) {
+      seedOrgNames().catch(() => {})
+    }
+  }, [orgLoading, orgNames.length])
+
+  // Count docs per org name
+  const orgDocCounts = useMemo(() => {
+    const counts: Record<string, number> = {}
+    orgNames.forEach(n => {
+      counts[n.id] = (documents || []).filter(d => d.sender?.trim().toLowerCase() === n.name.trim().toLowerCase()).length
+    })
+    return counts
+  }, [orgNames, documents])
+
+  const handleAddOrgName = async () => {
+    const name = newOrgName.trim()
+    if (!name) return
+    setOrgSaving(true)
+    try {
+      await addOrgName(name, orgNames.length)
+      setNewOrgName('')
+    } finally { setOrgSaving(false) }
+  }
+
+  const handleSaveOrgEdit = async (id: string) => {
+    const name = editingOrgValue.trim()
+    if (!name) return
+    setOrgSaving(true)
+    try {
+      await updateOrgName(id, name)
+      setEditingOrgId(null)
+    } finally { setOrgSaving(false) }
+  }
+
+  const handleDeleteOrg = async (id: string) => {
+    if (orgDocCounts[id] > 0) {
+      alert('Không thể xóa tên đơn vị đang gắn với văn bản!')
+      return
+    }
+    if (!confirm('Xóa tên đơn vị này?')) return
+    await deleteOrgName(id)
+  }
+
+  const handleMoveOrg = async (idx: number, dir: 'up' | 'down') => {
+    const items = [...orgNames]
+    const swapIdx = dir === 'up' ? idx - 1 : idx + 1
+    if (swapIdx < 0 || swapIdx >= items.length) return
+    ;[items[idx], items[swapIdx]] = [items[swapIdx], items[idx]]
+    await reorderOrgNames(items.map((item, i) => ({ id: item.id, order: i })))
+  }
 
   const staffMap = useMemo(() => {
     const map: Record<string, string> = {}
@@ -383,6 +455,118 @@ export default function OrganizationPage() {
           }
         </div>
       )}
+      {/* ── OrgNames Configuration ── */}
+      <div className="mt-8 bg-white rounded-xl border border-slate-200 shadow-sm">
+        <div className="px-5 py-3 border-b border-slate-200 flex items-center gap-2">
+          <Building className="w-4.5 h-4.5 text-blue-600" />
+          <h2 className="text-sm font-bold text-slate-900">Tên đơn vị (Cơ quan ban hành)</h2>
+        </div>
+        <div className="p-5">
+          <p className="text-xs text-slate-500 mb-3">
+            Danh sách tên đơn vị sẽ hiển thị ưu tiên khi chọn cơ quan ban hành văn bản.
+          </p>
+          {/* Add new */}
+          <div className="flex gap-2 mb-3">
+            <input
+              type="text"
+              value={newOrgName}
+              onChange={(e) => setNewOrgName(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleAddOrgName()}
+              placeholder="Nhập tên đơn vị mới..."
+              className="flex-1 h-9 px-3 text-xs border border-slate-200 rounded-lg bg-slate-50 focus:bg-white focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+            />
+            <Button size="sm" onClick={handleAddOrgName} disabled={!newOrgName.trim() || orgSaving} className="h-9 px-3 text-xs">
+              <Plus className="w-3.5 h-3.5 mr-1" /> Thêm
+            </Button>
+          </div>
+
+          {/* List */}
+          {orgLoading ? (
+            <div className="flex items-center gap-2 py-4 justify-center text-xs text-slate-400">
+              <Loader2 className="w-4 h-4 animate-spin" /> Đang tải...
+            </div>
+          ) : orgNames.length === 0 ? (
+            <p className="text-xs text-slate-400 italic py-3 text-center">Chưa có tên đơn vị nào</p>
+          ) : (
+            <div className="divide-y divide-slate-100 border border-slate-200 rounded-lg">
+              {orgNames.map((org, idx) => (
+                <div key={org.id} className="flex items-center gap-2 px-3 py-2 hover:bg-slate-50 transition-colors group">
+                  {/* Reorder buttons */}
+                  <div className="flex flex-col gap-0.5 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => handleMoveOrg(idx, 'up')}
+                      disabled={idx === 0}
+                      className="p-0.5 text-slate-300 hover:text-slate-600 disabled:opacity-30 disabled:cursor-not-allowed"
+                      title="Lên"
+                    >
+                      <ArrowUp className="w-3 h-3" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleMoveOrg(idx, 'down')}
+                      disabled={idx === orgNames.length - 1}
+                      className="p-0.5 text-slate-300 hover:text-slate-600 disabled:opacity-30 disabled:cursor-not-allowed"
+                      title="Xuống"
+                    >
+                      <ArrowDown className="w-3 h-3" />
+                    </button>
+                  </div>
+
+                  {/* Name (edit mode or display) */}
+                  {editingOrgId === org.id ? (
+                    <div className="flex-1 flex items-center gap-1.5">
+                      <input
+                        type="text"
+                        value={editingOrgValue}
+                        onChange={(e) => setEditingOrgValue(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && handleSaveOrgEdit(org.id)}
+                        className="flex-1 h-7 px-2 text-xs border border-blue-300 rounded bg-white focus:ring-1 focus:ring-blue-500 outline-none"
+                        autoFocus
+                      />
+                      <button type="button" onClick={() => handleSaveOrgEdit(org.id)} className="p-1 text-blue-600 hover:bg-blue-50 rounded" title="Lưu">
+                        <Save className="w-3.5 h-3.5" />
+                      </button>
+                      <button type="button" onClick={() => setEditingOrgId(null)} className="p-1 text-slate-400 hover:bg-slate-100 rounded" title="Hủy">
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <Building2 className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+                      <span className="text-xs font-medium text-slate-700 flex-1 min-w-0 truncate">{org.name}</span>
+                      {orgDocCounts[org.id] > 0 && (
+                        <span className="text-[10px] text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded shrink-0">
+                          {orgDocCounts[org.id]} VB
+                        </span>
+                      )}
+                      <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => { setEditingOrgId(org.id); setEditingOrgValue(org.name) }}
+                          className="p-1 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded"
+                          title="Sửa"
+                        >
+                          <Pencil className="w-3 h-3" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteOrg(org.id)}
+                          disabled={orgDocCounts[org.id] > 0}
+                          className="p-1 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded disabled:opacity-30 disabled:cursor-not-allowed"
+                          title={orgDocCounts[org.id] > 0 ? 'Đang gắn với văn bản, không thể xóa' : 'Xóa'}
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   )
 }
