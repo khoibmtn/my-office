@@ -137,7 +137,7 @@ function SenderFilterCombo({ value, onChange, orgNameStrings, allDocSenders }: {
       <button
         type="button"
         onClick={() => { setOpen(!open); if (!open) setTimeout(() => inputRef.current?.focus(), 50) }}
-        className={`text-xs px-2 py-1 border rounded-md bg-slate-50 hover:bg-slate-100 cursor-pointer transition-all max-w-[140px] truncate ${
+        className={`text-xs px-2 py-1 border rounded-md bg-slate-50 hover:bg-slate-100 cursor-pointer transition-all max-w-[220px] truncate ${
           value !== 'all' ? 'font-semibold border-blue-300 bg-blue-50 text-blue-700' : 'border-slate-200 text-slate-700'
         }`}
         title={value === 'all' ? 'Tất cả' : value === '__org__' ? 'Đơn vị' : value}
@@ -1385,7 +1385,7 @@ export function DocumentTable({ documents, storagePrefix = 'myoffice_docTable', 
             </div>
 
             <div className="filter-group">
-              <label className="hidden sm:inline">Lọc danh sách:</label>
+              <label className="hidden sm:inline">Lọc DS:</label>
               <select 
                 value={filterStatus} 
                 onChange={e => {
@@ -1412,8 +1412,8 @@ export function DocumentTable({ documents, storagePrefix = 'myoffice_docTable', 
                 }}
               >
                 <option value="all">Tất cả</option>
-                <option value="pending">Chưa HT</option>
-                <option value="completed">Đã HT</option>
+                <option value="pending">Chưa hoàn thành</option>
+                <option value="completed">Hoàn thành</option>
               </select>
             </div>
 
@@ -1488,7 +1488,7 @@ export function DocumentTable({ documents, storagePrefix = 'myoffice_docTable', 
         {/* Row 1: Priority + Completion/Deadline Badges */}
         <div className="scroll-x-badges sm:flex sm:flex-wrap sm:gap-1.5 sm:overflow-visible items-center w-full xl:w-auto xl:flex-1 min-w-0">
           {/* Priority badges */}
-          <label className="hidden md:inline text-xs font-semibold text-slate-500 mr-0.5 shrink-0">Mức độ khẩn:</label>
+          <label className="hidden md:inline text-xs font-bold text-slate-700 mr-0.5 shrink-0">Mức độ khẩn:</label>
           {[
             { key: 'normal', label: 'Thường', color: '#64748b' },
             { key: 'urgent', label: 'Khẩn', color: '#f59e0b' },
@@ -1556,7 +1556,7 @@ export function DocumentTable({ documents, storagePrefix = 'myoffice_docTable', 
             )
           })}
 
-          <label className="hidden sm:inline text-xs font-semibold text-slate-500 ml-0.5 shrink-0">Hạn:</label>
+          <label className="hidden sm:inline text-xs font-bold text-slate-700 ml-0.5 shrink-0">Hạn:</label>
           {[
             { key: 'overdue', count: stats.overdue, color: settings.overdueColor, label: 'Quá hạn' },
             { key: 'expired', count: stats.expired, color: settings.expiredColor, label: 'Hạn (0d)' },
