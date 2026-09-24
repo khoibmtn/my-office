@@ -3,7 +3,7 @@
 import React, { useEffect, useState, useMemo, useCallback, useRef, Suspense } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
-import { Loader2, FileText, LogIn, LogOut, Settings, Menu, X, User, Folder, ChevronDown, ChevronRight, CheckSquare, LayoutDashboard, Kanban, CalendarDays, RefreshCw } from 'lucide-react'
+import { Loader2, FileText, LogIn, LogOut, Settings, Menu, X, User, Folder, ChevronDown, ChevronRight, CheckSquare, LayoutDashboard, Kanban, CalendarDays, RefreshCw, PlusCircle } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { useRole } from '@/hooks/useRole'
 import { usePermissions } from '@/hooks/usePermissions'
@@ -25,6 +25,8 @@ function InnerAppLayout({ children }: { children: React.ReactNode }) {
 
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [selectedTagId, setSelectedTagId] = useState<string | null>(null)
+  const [addMenuOpen, setAddMenuOpen] = useState(false)
+  const addMenuRef = useRef<HTMLDivElement>(null)
 
   // Resizable sidebar width (min 200px, default 260px, max 480px)
   const [sidebarWidth, setSidebarWidth] = useState(260)
@@ -97,9 +99,10 @@ function InnerAppLayout({ children }: { children: React.ReactNode }) {
     return items
   }, [isGuest, perms.canAccessSettings])
 
-  // Close sidebar on route change
+  // Close sidebar + add menu on route change
   useEffect(() => {
     setSidebarOpen(false)
+    setAddMenuOpen(false)
   }, [pathname])
 
   // Show loading spinner while auto-authenticating (usually < 1s)
@@ -206,8 +209,44 @@ function InnerAppLayout({ children }: { children: React.ReactNode }) {
           />
         )}
 
-        {/* Bottom: User info + actions — always pinned at bottom */}
+        {/* Bottom: Add menu + User info — always pinned at bottom */}
         <div className="p-3 border-t border-slate-200 shrink-0">
+          {/* Add new button with upward popup menu */}
+          {perms.canAddDocument && (
+            <div className="relative mb-2" ref={addMenuRef}>
+              <Button
+                className="w-full"
+                size="sm"
+                onClick={() => setAddMenuOpen(!addMenuOpen)}
+              >
+                <PlusCircle className="h-4 w-4 mr-2" />
+                Thêm mới
+              </Button>
+              {addMenuOpen && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setAddMenuOpen(false)} />
+                  <div className="absolute bottom-full left-0 right-0 mb-1 z-50 bg-white border border-slate-200 rounded-lg shadow-lg overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-150">
+                    <button
+                      onClick={() => { setAddMenuOpen(false); setSidebarOpen(false); router.push('/tasks/new') }}
+                      className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
+                    >
+                      <CheckSquare className="h-4 w-4 text-emerald-500" />
+                      <span>Thêm công việc</span>
+                    </button>
+                    <div className="border-t border-slate-100" />
+                    <button
+                      onClick={() => { setAddMenuOpen(false); setSidebarOpen(false); router.push('/documents/new') }}
+                      className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
+                    >
+                      <FileText className="h-4 w-4 text-blue-500" />
+                      <span>Thêm văn bản</span>
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
           {/* Role badge */}
           {!isGuest && (
             <div className="flex items-center gap-2 px-3 py-2 mb-2 rounded-lg bg-slate-50 text-xs">
@@ -221,13 +260,6 @@ function InnerAppLayout({ children }: { children: React.ReactNode }) {
                 {isAdmin ? 'Admin' : 'Staff'}
               </span>
             </div>
-          )}
-
-          {/* Add document button - only for users with permission */}
-          {perms.canAddDocument && (
-            <Button className="w-full" size="sm" onClick={() => { setSidebarOpen(false); router.push('/documents/new') }}>
-              + Thêm văn bản
-            </Button>
           )}
 
           {/* Login/Logout button */}
