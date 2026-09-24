@@ -1,7 +1,7 @@
 'use client'
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
+import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import { Folder, PlusSquare, MinusSquare, ChevronDown, ChevronRight, FolderSymlink, Users } from 'lucide-react'
 import { useDossiers } from '@/hooks/useDossiers'
 import { useDocuments } from '@/hooks/useDocuments'
@@ -17,6 +17,7 @@ interface DossierNavItemProps {
 export function DossierNavItem({ active }: DossierNavItemProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const pathname = usePathname()
   const activeId = searchParams.get('id')
   
   const { dossiers, loading } = useDossiers()
@@ -26,6 +27,8 @@ export function DossierNavItem({ active }: DossierNavItemProps) {
 
   const [isOpen, setIsOpen] = useState(true)
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
+  // Remember the last active dossier ID so we can restore it
+  const lastActiveIdRef = useRef<string | null>(null)
 
   // Active non-archived dossiers
   const activeDossiers = useMemo(() => {
@@ -116,6 +119,8 @@ export function DossierNavItem({ active }: DossierNavItemProps) {
   // Auto-expand parents of active dossier
   useEffect(() => {
     if (!activeId || activeDossiers.length === 0) return
+    // Remember last active dossier
+    lastActiveIdRef.current = activeId
     const newExpanded = new Set(expandedIds)
     let curr: string | null = activeId
     
@@ -132,6 +137,20 @@ export function DossierNavItem({ active }: DossierNavItemProps) {
     }
     setExpandedIds(newExpanded)
   }, [activeId, activeDossiers])
+
+  // Auto-collapse when navigating away from /dossiers
+  // But preserve expandedIds so they restore when re-opening
+  const prevPathnameRef = useRef(pathname)
+  useEffect(() => {
+    const wasDossiers = prevPathnameRef.current.startsWith('/dossiers')
+    const isDossiers = pathname.startsWith('/dossiers')
+    prevPathnameRef.current = pathname
+
+    if (wasDossiers && !isDossiers) {
+      // Navigated away — collapse tree but keep expandedIds
+      setIsOpen(false)
+    }
+  }, [pathname])
 
   const toggleExpand = useCallback((id: string, e: React.MouseEvent) => {
     e.stopPropagation()
@@ -159,8 +178,19 @@ export function DossierNavItem({ active }: DossierNavItemProps) {
   }, [isOpen, hasAnyExpanded, parentIdsWithChildren])
 
   const handleRowClick = () => {
-    router.push('/dossiers')
-    setIsOpen(prev => !prev)
+    const isDossiers = pathname.startsWith('/dossiers')
+    if (isDossiers) {
+      // Already on dossiers page — just toggle tree
+      setIsOpen(prev => !prev)
+    } else {
+      // Coming from another page — open tree and navigate to last position
+      setIsOpen(true)
+      if (lastActiveIdRef.current) {
+        router.push(`/dossiers?id=${lastActiveIdRef.current}`)
+      } else {
+        router.push('/dossiers')
+      }
+    }
   }
 
   const handleToggleTreeOpen = (e: React.MouseEvent) => {
