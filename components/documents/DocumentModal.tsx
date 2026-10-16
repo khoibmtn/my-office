@@ -17,7 +17,7 @@ import { usePermissions } from '@/hooks/usePermissions'
 import { useRole } from '@/hooks/useRole'
 import { useStaff } from '@/hooks/useStaff'
 import { useTasks } from '@/hooks/useTasks'
-import { TaskForm } from '@/components/tasks/TaskForm'
+import { TaskCreateDrawer } from '@/components/tasks/TaskCreateDrawer'
 import { TaskStatusBadge } from '@/components/tasks/TaskStatusBadge'
 import { QuickDossierTagPicker } from './QuickDossierTagPicker'
 import { CoAssigneePicker } from './CoAssigneePicker'
@@ -828,19 +828,12 @@ export function DocumentModal({ docId, onClose }: DocumentModalProps) {
           color: #94a3b8;
       `}</style>
 
-      {/* Create Task Modal */}
-      {showTaskForm && doc && (
-        <div className="fixed inset-0 z-60 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-200 p-6">
-            <TaskForm
-              actorId={currentStaffId || 'unknown'}
-              actorName={staffName || 'Admin'}
-              documentId={doc.id}
-              onClose={() => setShowTaskForm(false)}
-            />
-          </div>
-        </div>
-      )}
+      {/* Create Task Drawer */}
+      <TaskCreateDrawer
+        isOpen={showTaskForm}
+        document={doc}
+        onClose={() => setShowTaskForm(false)}
+      />
     </div>
   )
 }

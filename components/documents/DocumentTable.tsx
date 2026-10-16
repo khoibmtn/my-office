@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react'
-import { Loader2, Trash2, Eye, RefreshCw, CheckCircle2, Clock, CircleDot, Search, Pencil, ArrowUpDown, ClipboardCopy, Calendar, ChevronLeft, ChevronRight, X, Folder, ArrowRightLeft, FolderPlus, User, ChevronDown, RotateCcw, FileText, Send, Check } from 'lucide-react'
+import { Loader2, Trash2, Eye, RefreshCw, CheckCircle2, Clock, CircleDot, Search, Pencil, ArrowUpDown, ClipboardCopy, Calendar, ChevronLeft, ChevronRight, X, Folder, ArrowRightLeft, FolderPlus, User, ChevronDown, RotateCcw, FileText, Send, Check, ClipboardList } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
@@ -14,6 +14,7 @@ import { useTags } from '@/hooks/useTags'
 import { DocumentModal } from './DocumentModal'
 import { BatchAddDossierModal } from './BatchAddDossierModal'
 import { BatchMoveDossierModal } from './BatchMoveDossierModal'
+import { TaskCreateDrawer } from '@/components/tasks/TaskCreateDrawer'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useStaff } from '@/hooks/useStaff'
@@ -301,7 +302,7 @@ function toDateSafe(ts: any): Date | null {
 // === Mobile Card Component ===
 function DocumentCard({
   doc, idx, days, eff, rowClass, prio, searchQuery,
-  onToggleComplete, onView, onDelete, onRetry, onAssign,
+  onToggleComplete, onView, onCreateTask, onDelete, onRetry, onAssign,
   retrying, deleting, staffList, perms, currentStaffId, getStaffName, settings,
 }: {
   doc: Document; idx: number; days: number | null;
@@ -310,6 +311,7 @@ function DocumentCard({
   searchQuery: string;
   onToggleComplete: (doc: Document) => void;
   onView: (id: string) => void;
+  onCreateTask?: (doc: Document) => void;
   onDelete: (id: string, title: string) => void;
   onRetry: (doc: Document) => void;
   onAssign: (id: string, person: string) => void;
@@ -458,6 +460,15 @@ function DocumentCard({
             >
               <Eye className="h-4 w-4" />
             </button>
+            {onCreateTask && (
+              <button
+                onClick={() => onCreateTask(doc)}
+                className="p-2 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
+                title="Tạo công việc từ văn bản này"
+              >
+                <ClipboardList className="h-4 w-4" />
+              </button>
+            )}
             {perms.canEditDocument && (
               <Link
                 href={`/documents/${doc.id}/edit`}
@@ -575,6 +586,7 @@ export function DocumentTable({ documents, storagePrefix = 'myoffice_docTable', 
   const [retrying, setRetrying] = useState<string | null>(null)
   const [deleting, setDeleting] = useState<string | null>(null)
   const [viewingId, setViewingId] = useState<string | null>(null)
+  const [createTaskDoc, setCreateTaskDoc] = useState<Document | null>(null)
   const [copiedDocId, setCopiedDocId] = useState<string | null>(null)
   const [copyModalContent, setCopyModalContent] = useState<string | null>(null)
   const [filterStatus, setFilterStatus] = useState<string>(() => {
@@ -2102,6 +2114,13 @@ export function DocumentTable({ documents, storagePrefix = 'myoffice_docTable', 
                               >
                                 <Eye className="h-3.5 w-3.5" />
                               </button>
+                              <button
+                                onClick={() => setCreateTaskDoc(doc)}
+                                className="p-1 rounded-md text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
+                                title="Tạo công việc từ văn bản này"
+                              >
+                                <ClipboardList className="h-3.5 w-3.5" />
+                              </button>
                               {perms.canEditDocument && (
                                 <Link
                                   href={`/documents/${doc.id}/edit`}
@@ -2184,6 +2203,7 @@ export function DocumentTable({ documents, storagePrefix = 'myoffice_docTable', 
               searchQuery={searchQuery}
               onToggleComplete={handleToggleComplete}
               onView={setViewingId}
+              onCreateTask={setCreateTaskDoc}
               onDelete={handleDelete}
               onRetry={handleRetry}
               onAssign={handleAssign}
@@ -2212,6 +2232,12 @@ export function DocumentTable({ documents, storagePrefix = 'myoffice_docTable', 
       )}
 
       <DocumentModal docId={viewingId} onClose={() => setViewingId(null)} />
+
+      <TaskCreateDrawer
+        isOpen={!!createTaskDoc}
+        document={createTaskDoc}
+        onClose={() => setCreateTaskDoc(null)}
+      />
 
       {copyModalContent !== null && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[999] flex items-center justify-center p-4 animate-in fade-in duration-200" onClick={(e) => { if (e.target === e.currentTarget) setCopyModalContent(null) }}>
