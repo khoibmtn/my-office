@@ -21,11 +21,11 @@
 - Modify: `lib/tasks/mutations.ts`
 - Modify: `lib/dossiers.ts`
 
-- [ ] **Step 1: Add `AttachedDocMetadata` and update `TaskComment` in `types/tasks.ts`**
-- [ ] **Step 2: Update `DossierComment` in `types/index.ts`**
-- [ ] **Step 3: Update `addTaskComment` in `lib/tasks/mutations.ts` to accept `attachedDocMetadata`**
-- [ ] **Step 4: Update `addDossierComment` in `lib/dossiers.ts` to accept `mentions`, `attachedDocId`, `attachedDocMetadata`**
-- [ ] **Step 5: Verify types with `npx tsc --noEmit` & commit**
+- [x] **Step 1: Add `AttachedDocMetadata` and update `TaskComment` in `types/tasks.ts`**
+- [x] **Step 2: Update `DossierComment` in `types/index.ts`**
+- [x] **Step 3: Update `addTaskComment` in `lib/tasks/mutations.ts` to accept `attachedDocMetadata`**
+- [x] **Step 4: Update `addDossierComment` in `lib/dossiers.ts` to accept `mentions`, `attachedDocId`, `attachedDocMetadata`**
+- [x] **Step 5: Verify types with `npx tsc --noEmit` & commit**
 
 ---
 
@@ -34,12 +34,12 @@
 **Files:**
 - Create: `components/chat/MentionTextarea.tsx`
 
-- [ ] **Step 1: Implement caret detection and `@` query extraction**
-- [ ] **Step 2: Build floating autocomplete menu with `activeStaff` filtering**
-- [ ] **Step 3: Support keyboard navigation (Up, Down, Enter, Tab, Escape)**
-- [ ] **Step 4: Support attached document preview pill with remove (X) button**
-- [ ] **Step 5: Add document attachment picker button and Send button**
-- [ ] **Step 6: Verify types & commit**
+- [x] **Step 1: Implement caret detection and `@` query extraction**
+- [x] **Step 2: Build floating autocomplete menu with `activeStaff` filtering**
+- [x] **Step 3: Support keyboard navigation (Up, Down, Enter, Tab, Escape)**
+- [x] **Step 4: Support attached document preview pill with remove (X) button**
+- [x] **Step 5: Add document attachment picker button and Send button**
+- [x] **Step 6: Verify types & commit**
 
 ---
 
@@ -48,10 +48,10 @@
 **Files:**
 - Create: `components/chat/DocAttachmentPickerModal.tsx`
 
-- [ ] **Step 1: Create modal dialog with two tabs: "Trong mục này" and "Tất cả văn bản"**
-- [ ] **Step 2: Implement search and selection with document preview tags**
-- [ ] **Step 3: Export formatted `AttachedDocMetadata` on selection**
-- [ ] **Step 4: Verify types & commit**
+- [x] **Step 1: Create modal dialog with two tabs: "Trong mục này" and "Tất cả văn bản"**
+- [x] **Step 2: Implement search and selection with document preview tags**
+- [x] **Step 3: Export formatted `AttachedDocMetadata` on selection**
+- [x] **Step 4: Verify types & commit**
 
 ---
 
@@ -60,15 +60,15 @@
 **Files:**
 - Create: `components/chat/ChatMessageBubble.tsx`
 
-- [ ] **Step 1: Regex parser for @mentions to render highlighted blue pills**
-- [ ] **Step 2: Render rich card for `attachedDocMetadata` (number, title, files, View/Copy buttons)**
-- [ ] **Step 3: Implement Actions Menu `...` on message hover:**
+- [x] **Step 1: Regex parser for @mentions to render highlighted blue pills**
+- [x] **Step 2: Render rich card for `attachedDocMetadata` (number, title, files, View/Copy buttons)**
+- [x] **Step 3: Implement Actions Menu `...` on message hover:**
   - "Gắn vào công việc này" (`onLinkToTask`)
   - "Lưu vào hồ sơ này" (`onLinkToDossier`)
   - "Gắn tệp vào văn bản có sẵn" (`onAttachFileToDoc`)
   - "Tạo văn bản mới từ tin nhắn" (`onCreateDocFromMessage`)
   - "Xóa tin nhắn" (`onDelete`)
-- [ ] **Step 4: Verify types & commit**
+- [x] **Step 4: Verify types & commit**
 
 ---
 
@@ -78,10 +78,10 @@
 - Modify: `components/tasks/TaskCommentThread.tsx`
 - Modify: `components/tasks/TaskDetail.tsx`
 
-- [ ] **Step 1: Refactor `TaskCommentThread.tsx` to use `MentionTextarea` and `ChatMessageBubble`**
-- [ ] **Step 2: Implement `onLinkToTask` to add document to `task.documentIds` via `updateTask`**
-- [ ] **Step 3: Add "Gửi vào chat" action buttons on linked documents list in `TaskDetail.tsx`**
-- [ ] **Step 4: Verify types & commit**
+- [x] **Step 1: Refactor `TaskCommentThread.tsx` to use `MentionTextarea` and `ChatMessageBubble`**
+- [x] **Step 2: Implement `onLinkToTask` to add document to `task.documentIds` via `updateTask`**
+- [x] **Step 3: Add "Gửi vào chat" action buttons on linked documents list in `TaskDetail.tsx`**
+- [x] **Step 4: Verify types & commit**
 
 ---
 
@@ -90,15 +90,15 @@
 **Files:**
 - Modify: `components/dossiers/DossierPanel.tsx`
 
-- [ ] **Step 1: Refactor Frame 4 in `DossierPanel.tsx` to use `MentionTextarea` and `ChatMessageBubble`**
-- [ ] **Step 2: Implement `onLinkToDossier` to add document to dossier via `toggleDocumentDossier`**
-- [ ] **Step 3: Add "Gửi vào chat" action button on dossier documents table**
-- [ ] **Step 4: Verify types & commit**
+- [x] **Step 1: Refactor Frame 4 in `DossierPanel.tsx` to use `MentionTextarea` and `ChatMessageBubble`**
+- [x] **Step 2: Implement `onLinkToDossier` to add document to dossier via `toggleDocumentDossier`**
+- [x] **Step 3: Add "Gửi vào chat" action button on dossier documents table**
+- [x] **Step 4: Verify types & commit**
 
 ---
 
 ### Task 7: Comprehensive Verification & Deploy
 
-- [ ] **Step 1: Run `npx tsc --noEmit` and `npm run build`**
+- [x] **Step 1: Run `npx tsc --noEmit` and `npm run build`**
 - [ ] **Step 2: Push to GitHub `main` branch**
 - [ ] **Step 3: Deploy to Vercel Production (`vercel --prod --yes`)**
