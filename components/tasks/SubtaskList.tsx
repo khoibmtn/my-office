@@ -3,10 +3,10 @@
 import React, { useState, useEffect, useRef } from 'react'
 import {
   Plus, Check, Trash2, Edit2,
-  ChevronUp, ChevronDown, Loader2
+  ChevronUp, ChevronDown, Loader2, GripVertical
 } from 'lucide-react'
 import type { Task } from '@/types/tasks'
-import { createTask, updateTaskStatus, updateSubtaskTitle, deleteTask, updateTask } from '@/lib/tasks/mutations'
+import { createTask, updateTaskStatus, updateSubtaskTitle, deleteTask, updateTask, reorderSubtasks } from '@/lib/tasks/mutations'
 import { calculateSubtaskProgress } from '@/lib/tasks/progress'
 
 interface SubtaskListProps {
@@ -24,6 +24,8 @@ export function SubtaskList({ parentTaskId, subtasks, actorId, actorName, canEdi
   const [adding, setAdding] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editTitle, setEditTitle] = useState('')
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null)
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
   // Sync with prop when server data arrives
@@ -69,12 +71,14 @@ export function SubtaskList({ parentTaskId, subtasks, actorId, actorName, canEdi
 
     // Temporary optimistic ID
     const tempId = `temp-${Date.now()}`
+    const nextSortOrder = localItems.length
     const tempItem: any = {
       id: tempId,
       title: titleToAdd,
       status: 'pending',
       isClosed: false,
       parentTaskId,
+      sortOrder: nextSortOrder,
       createdAt: null,
     }
     const nextItems = [...localItems, tempItem]
@@ -83,7 +87,7 @@ export function SubtaskList({ parentTaskId, subtasks, actorId, actorName, canEdi
 
     try {
       const realId = await createTask(
-        { title: titleToAdd, parentTaskId },
+        { title: titleToAdd, parentTaskId, sortOrder: nextSortOrder },
         actorId,
         actorName
       )
@@ -137,13 +141,42 @@ export function SubtaskList({ parentTaskId, subtasks, actorId, actorName, canEdi
     }
   }
 
-  const handleMove = (index: number, direction: 'up' | 'down') => {
+  const handleMove = async (index: number, direction: 'up' | 'down') => {
     const targetIndex = direction === 'up' ? index - 1 : index + 1
     if (targetIndex < 0 || targetIndex >= localItems.length) return
     const reordered = [...localItems]
     const [moved] = reordered.splice(index, 1)
     reordered.splice(targetIndex, 0, moved)
     setLocalItems(reordered)
+
+    try {
+      await reorderSubtasks(parentTaskId, reordered.map(s => s.id), actorId, actorName)
+    } catch (err) {
+      console.error('Failed to persist subtask order:', err)
+      setLocalItems(subtasks)
+    }
+  }
+
+  const handleDrop = async (e: React.DragEvent, dropIndex: number) => {
+    e.preventDefault()
+    setDragOverIndex(null)
+    if (draggedIndex === null || draggedIndex === dropIndex) {
+      setDraggedIndex(null)
+      return
+    }
+
+    const reordered = [...localItems]
+    const [moved] = reordered.splice(draggedIndex, 1)
+    reordered.splice(dropIndex, 0, moved)
+    setLocalItems(reordered)
+    setDraggedIndex(null)
+
+    try {
+      await reorderSubtasks(parentTaskId, reordered.map(s => s.id), actorId, actorName)
+    } catch (err) {
+      console.error('Failed to persist subtask drag order:', err)
+      setLocalItems(subtasks)
+    }
   }
 
   return (
@@ -188,12 +221,43 @@ export function SubtaskList({ parentTaskId, subtasks, actorId, actorName, canEdi
             return (
               <div
                 key={subtask.id}
-                className={`group flex items-center gap-2 px-2.5 py-2 rounded-lg border transition-all ${
-                  isDone
+                draggable={canEdit && !isEditing}
+                onDragStart={(e) => {
+                  e.dataTransfer.setData('text/plain', String(index))
+                  setDraggedIndex(index)
+                }}
+                onDragOver={(e) => {
+                  e.preventDefault()
+                  if (dragOverIndex !== index) setDragOverIndex(index)
+                }}
+                onDragLeave={() => {
+                  if (dragOverIndex === index) setDragOverIndex(null)
+                }}
+                onDrop={(e) => handleDrop(e, index)}
+                onDragEnd={() => {
+                  setDraggedIndex(null)
+                  setDragOverIndex(null)
+                }}
+                className={`group flex items-center gap-1.5 px-2.5 py-2 rounded-lg border transition-all ${
+                  draggedIndex === index
+                    ? 'opacity-40 border-dashed border-blue-400 bg-blue-50/50'
+                    : dragOverIndex === index
+                    ? 'border-blue-500 ring-1 ring-blue-500 bg-blue-50/30'
+                    : isDone
                     ? 'bg-slate-100/70 border-slate-200 opacity-75'
                     : 'bg-white border-slate-200/90 hover:border-blue-300 shadow-2xs'
                 }`}
               >
+                {/* Drag handle */}
+                {canEdit && !isEditing && (
+                  <div
+                    className="cursor-grab active:cursor-grabbing text-slate-300 hover:text-slate-600 transition-colors shrink-0"
+                    title="Kéo thả để sắp xếp thứ tự"
+                  >
+                    <GripVertical className="w-3.5 h-3.5" />
+                  </div>
+                )}
+
                 {/* Real Checkbox */}
                 <input
                   type="checkbox"
