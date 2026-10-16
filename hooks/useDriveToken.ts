@@ -34,9 +34,21 @@ export function useDriveToken() {
     return info
   }, [])
 
-  // Listen to token update events & poll every 20 seconds
+  // Listen to token update events & poll periodically.
+  // Proactively auto-refresh before the temporary access token expires!
   useEffect(() => {
-    updateStatus()
+    const checkAndProactiveRefresh = async () => {
+      const info = updateStatus()
+      // If token is getting old (e.g. >= 45 min) or expired, silently refresh from server!
+      if ((info.isExpired || (info.minutesAgo !== null && info.minutesAgo >= 45)) && !refreshing) {
+        try {
+          await requestGoogleDriveToken(false, { loginHint: ADMIN_EMAIL, skipSilent: false })
+          updateStatus()
+        } catch (e) {}
+      }
+    }
+
+    checkAndProactiveRefresh()
 
     const handleTokenUpdated = () => {
       updateStatus()
@@ -44,13 +56,13 @@ export function useDriveToken() {
     }
 
     window.addEventListener('google_token_updated', handleTokenUpdated)
-    const interval = setInterval(updateStatus, 20000)
+    const interval = setInterval(checkAndProactiveRefresh, 60000)
 
     return () => {
       window.removeEventListener('google_token_updated', handleTokenUpdated)
       clearInterval(interval)
     }
-  }, [updateStatus])
+  }, [updateStatus, refreshing])
 
   /**
    * Refresh or re-acquire token.

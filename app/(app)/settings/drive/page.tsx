@@ -162,28 +162,25 @@ export default function DrivePage() {
                 </p>
                 {isTokenActive ? (
                   <div className="mt-1 space-y-0.5">
-                    <p className="text-sm text-green-700 font-medium">
-                      ✅ Token đang hoạt động ({tokenInfo.remainingFormatted})
+                    <p className="text-sm text-green-700 font-semibold flex items-center gap-1.5">
+                      <CheckCircle2 className="w-4 h-4 text-green-600" />
+                      Kết nối Google Drive đang hoạt động liên tục
                     </p>
                     <p className="text-xs text-slate-500">
-                      {tokenInfo.minutesAgo !== null
-                        ? `Đã cấp ${tokenInfo.minutesAgo} phút trước`
-                        : 'Token có sẵn'}
+                      Tự động duy trì ngầm qua <strong>Google Refresh Token</strong> (tương tự như Chrome Extension).
                     </p>
-                    <p className="text-[11px] text-slate-500">
-                      Tự động liên kết tài khoản: <strong className="text-slate-700">{googleEmail || 'khoibm.tn@gmail.com'}</strong>
+                    <p className="text-[11px] text-green-700 mt-1">
+                      ✅ Bạn không cần phải cấp lại token định kỳ — hệ thống sẽ tự động làm mới ngầm trong suốt quá trình sử dụng.
                     </p>
                   </div>
                 ) : (
                   <div className="mt-1 space-y-0.5">
                     <p className="text-sm text-amber-700 font-semibold flex items-center gap-1">
                       <AlertTriangle className="w-4 h-4" />
-                      {tokenInfo.hasToken && tokenInfo.isExpired
-                        ? 'Token đã hết hạn — Cần làm mới'
-                        : 'Chưa có token Drive — Cần cấp token'}
+                      Chưa kết nối Google Drive — Cần cấp quyền
                     </p>
                     <p className="text-xs text-amber-600">
-                      Hệ thống tự động chọn tài khoản <strong>{googleEmail || 'khoibm.tn@gmail.com'}</strong> để tránh nhầm tài khoản khác.
+                      Hệ thống tự động liên kết với tài khoản <strong>{googleEmail || 'khoibm.tn@gmail.com'}</strong> để tránh nhầm tài khoản khác.
                     </p>
                   </div>
                 )}
@@ -204,7 +201,7 @@ export default function DrivePage() {
                   ) : (
                     <Key className="h-4 w-4 mr-1.5" />
                   )}
-                  {isTokenActive ? 'Làm mới Token' : '🔑 Cấp lại Token Drive'}
+                  {isTokenActive ? 'Kiểm tra & Làm mới' : '🔑 Kết nối Google Drive'}
                 </Button>
 
                 <div className="flex items-center gap-3">

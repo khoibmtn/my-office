@@ -39,11 +39,9 @@ export function DriveTokenBanner() {
       const res = await autoRenewIfExpired()
       if (!isMounted) return
 
-      if (res?.success && res?.autoSilent) {
-        setSuccessToast(`Đã tự động cập nhật token Google Drive (${ADMIN_EMAIL})`)
-        setTimeout(() => setSuccessToast(null), 4000)
-      } else if (res && !res.success && res.needInteractive) {
-        // Silent refresh failed, open interactive prompt
+      // If silent auto-renew succeeds, do not disturb user with toasts or countdowns.
+      // If silent refresh failed and user interaction is needed, show prompt modal.
+      if (res && !res.success && res.needInteractive) {
         setModalOpen(true)
       }
     }
@@ -69,7 +67,7 @@ export function DriveTokenBanner() {
         setSuccessToast(`Đã làm mới token Google Drive (${ADMIN_EMAIL}) thành công!`)
         setModalOpen(false)
         setBannerDismissed(false)
-        setTimeout(() => setSuccessToast(null), 4000)
+        setTimeout(() => setSuccessToast(null), 3000)
       }
     } else {
       setErrorToast(res.error || 'Cấp lại token thất bại')
@@ -80,7 +78,6 @@ export function DriveTokenBanner() {
   if (isGuest) return null
 
   const isExpired = tokenInfo.isExpired || !tokenInfo.hasToken
-  const isExpiringSoon = !isExpired && tokenInfo.expiresInMinutes <= 15
 
   return (
     <>
@@ -102,30 +99,17 @@ export function DriveTokenBanner() {
         </div>
       )}
 
-      {/* Main Top Banner (Expiring Soon or Expired) */}
-      {(isExpired || isExpiringSoon) && !bannerDismissed && (
-        <div
-          className={`px-4 py-2 border-b text-xs sm:text-sm flex flex-wrap items-center justify-between gap-2.5 transition-all ${
-            isExpired
-              ? 'bg-amber-50 border-amber-200 text-amber-900'
-              : 'bg-blue-50 border-blue-200 text-blue-900'
-          }`}
-        >
+      {/* Main Top Banner ONLY shown when token is genuinely expired and silent refresh failed */}
+      {isExpired && !bannerDismissed && (
+        <div className="px-4 py-2 border-b text-xs sm:text-sm flex flex-wrap items-center justify-between gap-2.5 bg-amber-50 border-amber-200 text-amber-900 transition-all">
           <div className="flex items-center gap-2 min-w-0">
-            {isExpired ? (
-              <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
-            ) : (
-              <Key className="w-4 h-4 text-blue-600 shrink-0" />
-            )}
+            <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
             <div className="truncate">
               <span className="font-semibold">
-                {isExpired ? 'Token Google Drive đã hết hạn: ' : 'Token Google Drive: '}
+                Chưa có kết nối Google Drive:
               </span>
-              <span className="font-medium underline decoration-dotted">
-                {tokenInfo.remainingFormatted}
-              </span>
-              <span className="text-slate-500 ml-1.5 hidden md:inline">
-                ({ADMIN_EMAIL})
+              <span className="text-slate-600 ml-1.5">
+                Cần cấp quyền để lưu file vào Drive ({ADMIN_EMAIL})
               </span>
             </div>
           </div>
@@ -135,31 +119,25 @@ export function DriveTokenBanner() {
               size="sm"
               onClick={() => handleQuickRefresh(false, false)}
               disabled={refreshing}
-              className={`h-7 px-2.5 text-xs font-medium shadow-xs ${
-                isExpired
-                  ? 'bg-amber-600 hover:bg-amber-700 text-white'
-                  : 'bg-blue-600 hover:bg-blue-700 text-white'
-              }`}
+              className="h-7 px-2.5 text-xs font-medium shadow-xs bg-amber-600 hover:bg-amber-700 text-white"
             >
               {refreshing ? (
                 <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />
               ) : (
                 <RefreshCw className="w-3.5 h-3.5 mr-1.5" />
               )}
-              {isExpired ? 'Cấp lại token nhanh' : 'Làm mới nhanh'}
+              Kết nối Google Drive
             </Button>
 
-            {isExpired && (
-              <button
-                type="button"
-                onClick={() => handleQuickRefresh(true, false)}
-                disabled={refreshing}
-                title="Chuyển hướng nếu popup bị chặn"
-                className="text-[11px] text-blue-600 hover:underline hidden sm:inline-flex items-center gap-0.5"
-              >
-                <ExternalLink className="w-3 h-3" /> Chuyển hướng
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={() => handleQuickRefresh(true, false)}
+              disabled={refreshing}
+              title="Chuyển hướng nếu popup bị chặn"
+              className="text-[11px] text-blue-600 hover:underline hidden sm:inline-flex items-center gap-0.5"
+            >
+              <ExternalLink className="w-3 h-3" /> Chuyển hướng
+            </button>
 
             <button
               onClick={() => setBannerDismissed(true)}
@@ -169,32 +147,6 @@ export function DriveTokenBanner() {
               <X className="w-3.5 h-3.5" />
             </button>
           </div>
-        </div>
-      )}
-
-      {/* Floating Status Pill when Token is Healthy (>15 min) */}
-      {!isExpired && !isExpiringSoon && (
-        <div className="px-4 py-1.5 bg-slate-50/80 border-b border-slate-200/60 flex items-center justify-between text-[11px] sm:text-xs text-slate-600">
-          <div className="flex items-center gap-1.5">
-            <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            <span className="font-medium text-slate-700">Google Drive:</span>
-            <span className="text-emerald-700 font-semibold">{tokenInfo.remainingFormatted}</span>
-            <span className="text-slate-400 hidden sm:inline">• {ADMIN_EMAIL}</span>
-          </div>
-
-          <button
-            onClick={() => handleQuickRefresh(false, false)}
-            disabled={refreshing}
-            className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-blue-600 hover:text-blue-800 hover:bg-blue-50/60 font-medium transition-colors"
-            title="Làm mới token Google Drive ngay"
-          >
-            {refreshing ? (
-              <Loader2 className="w-3 h-3 animate-spin" />
-            ) : (
-              <RefreshCw className="w-3 h-3" />
-            )}
-            <span>Làm mới</span>
-          </button>
         </div>
       )}
 
