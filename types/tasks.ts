@@ -218,6 +218,26 @@ export interface TemplateStep {
 
 // ===== Task Comment =====
 
+export interface AttachedDocFile {
+  id?: string
+  title: string
+  driveViewUrl: string
+  originalLink?: string
+  mimeType?: string
+  isAttachment?: boolean
+}
+
+export interface AttachedDocMetadata {
+  docId: string
+  docNumber?: string
+  title: string
+  sender?: string
+  issueDate?: any
+  driveViewUrl?: string
+  originalLink?: string
+  files?: AttachedDocFile[]
+}
+
 export interface TaskComment {
   id: string
   taskId: string
@@ -226,6 +246,8 @@ export interface TaskComment {
   content: string
   mentions: string[]                   // Staff IDs for @mention
   attachments: Attachment[]
+  attachedDocId?: string | null
+  attachedDocMetadata?: AttachedDocMetadata | null
   deletedAt: Timestamp | null
   createdAt: Timestamp
   updatedAt: Timestamp

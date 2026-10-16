@@ -20,7 +20,7 @@ import { computeIsClosed } from './validation'
 import { queueNotification } from './notifications'
 import { resolveBlockedDependencies } from './dependencies'
 import type {
-  CreateTaskInput, UpdateTaskInput, TaskStatus, TaskPriority,
+  CreateTaskInput, UpdateTaskInput, TaskStatus, TaskPriority, AttachedDocMetadata,
 } from '@/types/tasks'
 
 const TASKS = 'tasks'
@@ -239,7 +239,9 @@ export async function addTaskComment(
   content: string,
   actorId: string,
   actorName: string,
-  mentions: string[] = []
+  mentions: string[] = [],
+  attachedDocId?: string | null,
+  attachedDocMetadata?: AttachedDocMetadata | null
 ): Promise<string> {
   const batch = writeBatch(db())
   const commentRef = doc(collection(db(), TASK_COMMENTS))
@@ -251,6 +253,8 @@ export async function addTaskComment(
     content,
     mentions,
     attachments: [],
+    attachedDocId: attachedDocId || null,
+    attachedDocMetadata: attachedDocMetadata || null,
     deletedAt: null,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),

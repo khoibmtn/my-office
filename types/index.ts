@@ -163,6 +163,9 @@ export interface DossierComment {
   senderId: string
   senderName: string
   content: string
+  mentions?: string[]
+  attachedDocId?: string | null
+  attachedDocMetadata?: any | null
   createdAt: Timestamp | { seconds: number; nanoseconds?: number }
 }
 

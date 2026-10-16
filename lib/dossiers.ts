@@ -135,6 +135,9 @@ export async function addDossierComment(
     senderId: string
     senderName: string
     content: string
+    mentions?: string[]
+    attachedDocId?: string | null
+    attachedDocMetadata?: any | null
   },
   actorId: string
 ): Promise<DossierComment> {
@@ -150,6 +153,9 @@ export async function addDossierComment(
     senderId: comment.senderId,
     senderName: comment.senderName,
     content: comment.content.trim(),
+    mentions: comment.mentions || [],
+    attachedDocId: comment.attachedDocId || null,
+    attachedDocMetadata: comment.attachedDocMetadata || null,
     createdAt: { seconds: Math.floor(Date.now() / 1000) },
   }
   
