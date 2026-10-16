@@ -77,7 +77,20 @@ export function useTaskDetail(taskId: string | null) {
       unsubs.push(
         subscribeToQuery(
           querySubtasks(taskId),
-          (items) => { setSubtasks(items as Task[]); checkLoaded() },
+          (items) => {
+            const sorted = (items as Task[]).slice().sort((a, b) => {
+              if (a.sortOrder !== undefined && b.sortOrder !== undefined) {
+                return a.sortOrder - b.sortOrder
+              }
+              if (a.sortOrder !== undefined) return -1
+              if (b.sortOrder !== undefined) return 1
+              const aTime = a.createdAt?.seconds ?? 0
+              const bTime = b.createdAt?.seconds ?? 0
+              return aTime - bTime
+            })
+            setSubtasks(sorted)
+            checkLoaded()
+          },
           () => checkLoaded()
         )
       )

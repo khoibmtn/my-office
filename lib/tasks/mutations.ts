@@ -72,6 +72,7 @@ export async function createTask(
     dossierIds: input.dossierIds ?? [],
     documentIds: input.documentIds ?? [],
     parentTaskId: input.parentTaskId ?? null,
+    sortOrder: input.sortOrder ?? 0,
     dependsOnTaskIds: [],
     relatedTaskIds: [],
     seriesId: null,
@@ -407,3 +408,37 @@ export async function bulkDeleteTasks(
   }
 }
 
+/**
+ * Reorder subtasks and persist sortOrder to Firestore in a batch
+ */
+export async function reorderSubtasks(
+  parentTaskId: string,
+  orderedSubtaskIds: string[],
+  actorId?: string,
+  actorName?: string
+): Promise<void> {
+  if (!orderedSubtaskIds.length) return
+  const batch = writeBatch(db())
+
+  orderedSubtaskIds.forEach((id, index) => {
+    const taskRef = doc(db(), TASKS, id)
+    batch.update(taskRef, {
+      sortOrder: index,
+      updatedAt: serverTimestamp(),
+    })
+  })
+
+  if (actorId && actorName) {
+    const activityRef = doc(collection(db(), TASK_ACTIVITIES))
+    batch.set(activityRef, {
+      taskId: parentTaskId,
+      actorId,
+      actorName,
+      eventType: 'PROGRESS_UPDATED',
+      metadata: { subtaskReordered: true, count: orderedSubtaskIds.length },
+      createdAt: serverTimestamp(),
+    })
+  }
+
+  await batch.commit()
+}

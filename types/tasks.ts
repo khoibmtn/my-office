@@ -86,6 +86,7 @@ export interface Task {
   dossierIds: string[]                     // N-N with Dossiers (can be empty → standalone task)
   documentIds: string[]                    // N-N with Documents (can be empty)
   parentTaskId: string | null              // If this is a subtask
+  sortOrder?: number                       // Order for subtasks or general ordering
   dependsOnTaskIds: string[]               // Dependencies — NO CYCLES ALLOWED
   relatedTaskIds: string[]                 // Related but not dependency
 
@@ -326,6 +327,7 @@ export interface CreateTaskInput {
   dossierIds?: string[]
   documentIds?: string[]
   parentTaskId?: string
+  sortOrder?: number
   tagIds?: string[]
   source?: TaskSource
 }
@@ -346,4 +348,5 @@ export interface UpdateTaskInput {
   documentIds?: string[]
   tagIds?: string[]
   progress?: number
+  sortOrder?: number
 }
