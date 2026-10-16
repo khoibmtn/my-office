@@ -18,6 +18,7 @@ import {
   Upload,
 } from 'lucide-react'
 import { v4 as uuid } from 'uuid'
+import { Timestamp } from 'firebase/firestore'
 import { toLocalISODate, getStructuredMainFileName } from '@/lib/utils'
 import { extractDriveFileId } from '@/lib/link-detector'
 import { Button } from '@/components/ui/button'
@@ -235,8 +236,10 @@ export default function EditDocumentPage() {
     })
   }, [id, router])
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const handleSubmit = async (e?: React.FormEvent) => {
+    if (e && typeof e.preventDefault === 'function') {
+      e.preventDefault()
+    }
     // Validation
     if (!title.trim()) {
       setError('Vui lòng nhập Tiêu đề văn bản.')
@@ -318,6 +321,46 @@ export default function EditDocumentPage() {
 
       const effectiveStatus = completedDate ? 'completed' : (status === 'completed' ? 'pending' : status)
 
+      // Convert attachments state into full Attachment objects
+      const finalAttachments = attachments
+        .filter((a) => a.originalLink && a.originalLink.trim() !== '')
+        .map((a, i) => {
+          const driveFileId = extractDriveFileId(a.originalLink) || ''
+          const driveViewUrl = driveFileId
+            ? `https://drive.google.com/file/d/${driveFileId}/preview`
+            : a.originalLink
+
+          // Preserve existing metadata if matching
+          const existing = (fullDoc?.attachments ?? []).find(
+            (ea) =>
+              (driveFileId && ea.driveFileId === driveFileId) ||
+              ea.originalLink === a.originalLink ||
+              ea.driveViewUrl === a.originalLink
+          )
+
+          let mimeType = existing?.mimeType || 'application/octet-stream'
+          if (!existing?.mimeType) {
+            const lowerTitle = (a.title || a.originalLink).toLowerCase()
+            if (lowerTitle.endsWith('.pdf')) mimeType = 'application/pdf'
+            else if (lowerTitle.endsWith('.docx')) mimeType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+            else if (lowerTitle.endsWith('.doc')) mimeType = 'application/msword'
+            else if (lowerTitle.endsWith('.xlsx')) mimeType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            else if (lowerTitle.endsWith('.xls')) mimeType = 'application/vnd.ms-excel'
+            else if (lowerTitle.endsWith('.jpg') || lowerTitle.endsWith('.jpeg')) mimeType = 'image/jpeg'
+            else if (lowerTitle.endsWith('.png')) mimeType = 'image/png'
+          }
+
+          return {
+            id: a.id || uuid(),
+            title: a.title || `Đính kèm ${i + 1}`,
+            originalLink: a.originalLink,
+            driveFileId,
+            driveViewUrl,
+            mimeType,
+            uploadedAt: existing?.uploadedAt || Timestamp.now(),
+          }
+        })
+
       await updateDocument(id, {
         title,
         originalLink: originalLink || undefined,
@@ -335,6 +378,7 @@ export default function EditDocumentPage() {
         deadline: deadline ? new Date(deadline + 'T00:00:00') : null,
         completedDate: completedDate ? new Date(completedDate + 'T00:00:00') : null,
         issueDate: issueDate ? new Date(issueDate + 'T00:00:00') : null,
+        attachments: finalAttachments,
       })
 
       setIsDirty(false)

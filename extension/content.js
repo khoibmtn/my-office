@@ -136,38 +136,94 @@ function extractDocumentData() {
     }
   }
 
-  // All files from dropdown
+  // All files from dropdown or file menu
+  // On qlvb.hpnet.vn:
+  // - VB đến modal often uses .vanban-...
+  // - VB đi modal uses .vanbandi-... or a .btn-group containing "Chọn file"
+  const pClean = prefix.replace('.', '');
   const fileItemSelectors = [
     prefix + 'file-item a',
-    '#' + prefix.replace('.', '') + 'file-items a',
+    '#' + pClean + 'file-items a',
+    '.' + pClean + 'file-items a',
+    '#' + pClean + 'danhsachtep a',
+    '.' + pClean + 'danhsachtep a',
+    // Specific to VB đi & bootstrap button dropdowns:
+    '.vanbandi-file-item a',
+    '#vanbandi-file-items a',
+    '.dropdown-menu a',
+    '.btn-group ul a',
+    'a[onclick*="ChangeFile"]',
+    'a[href*="ChangeFile"]',
+    'a[href*="/upload/"]',
+    'a[href*="download"]',
+    'a[href*=".pdf"]',
+    'a[href*=".doc"]',
+    'a[href*=".docx"]',
   ];
-  const fileItems = document.querySelectorAll(fileItemSelectors.join(', '));
-  const allFiles = [];
-  fileItems.forEach((a) => {
-    const href = a.getAttribute('href') || '';
-    const fileName = a.textContent.trim();
-    
-    // Extract URL from javascript:ChangeFile('...')
-    const match = href.match(/ChangeFile\(['"](.+?)['"]\)/);
-    if (match) {
-      let url = match[1];
-      if (url.startsWith('//')) url = 'https:' + url;
-      allFiles.push({ url, fileName });
-    } else if (href && href !== '#' && !href.startsWith('javascript:')) {
-      let url = href;
-      if (url.startsWith('//')) url = 'https:' + url;
-      allFiles.push({ url, fileName });
+
+  const candidateLinks = Array.from(document.querySelectorAll(fileItemSelectors.join(', ')));
+
+  // Also specifically find any button with "Chọn file" and inspect its sibling dropdown menu
+  document.querySelectorAll('button, a').forEach((btn) => {
+    if (btn.textContent.includes('Chọn file')) {
+      const parent = btn.parentElement;
+      if (parent) {
+        parent.querySelectorAll('a').forEach(a => candidateLinks.push(a));
+      }
     }
   });
 
-  // Separate main file from attachments
-  const attachments = allFiles.length > 1 ? allFiles.slice(1) : [];
+  const allFiles = [];
+  const seenUrls = new Set();
+
+  candidateLinks.forEach((a) => {
+    const href = a.getAttribute('href') || '';
+    const onclick = a.getAttribute('onclick') || '';
+    let fileName = a.textContent.trim();
+    let url = '';
+    
+    // 1. Extract URL from ChangeFile('...') in href or onclick
+    const match = (href + ' ' + onclick).match(/ChangeFile\(['"](.+?)['"]\)/i);
+    if (match) {
+      url = match[1];
+    } else if (href && href !== '#' && !href.startsWith('javascript:')) {
+      // 2. Direct link to file or download
+      if (href.includes('.') || href.includes('download') || href.includes('action=')) {
+        url = href;
+      }
+    }
+
+    if (url) {
+      if (url.startsWith('//')) url = 'https:' + url;
+      else if (url.startsWith('/')) url = window.location.origin + url;
+
+      // Clean up file name if blank or generic
+      if (!fileName || fileName === 'Chọn file' || fileName.length < 3) {
+        const urlParts = url.split('/');
+        fileName = decodeURIComponent(urlParts[urlParts.length - 1] || 'file').split('?')[0];
+      }
+
+      if (!seenUrls.has(url)) {
+        seenUrls.add(url);
+        allFiles.push({ url, fileName });
+      }
+    }
+  });
+
+  // If downloadLink wasn't in allFiles, add it as main file
+  if (mainFileUrl && !seenUrls.has(mainFileUrl)) {
+    allFiles.unshift({ url: mainFileUrl, fileName: mainFileName || 'Văn bản chính' });
+    seenUrls.add(mainFileUrl);
+  }
 
   // If no main file URL from download link, use first file from dropdown
   if (!mainFileUrl && allFiles.length > 0) {
     mainFileUrl = allFiles[0].url;
     mainFileName = allFiles[0].fileName;
   }
+
+  // Separate main file from attachments
+  const attachments = allFiles.length > 1 ? allFiles.slice(1) : [];
 
   // Extract priority by looking at the main table
   let priority = 'normal';
