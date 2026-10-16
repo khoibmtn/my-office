@@ -4,6 +4,7 @@ import {
 } from 'firebase/firestore'
 import { db } from './firebase'
 import { appendAuditLogToBatch } from './audit'
+import { queueNotification } from './tasks/notifications'
 import type { Dossier, DossierChecklistItem, DossierComment } from '@/types'
 
 export async function createDossier(input: {
@@ -160,7 +161,37 @@ export async function addDossierComment(
   }
   
   const nextComments = [...existingComments, newComment]
-  await updateDossier(dossierId, { comments: nextComments }, actorId)
+  const batch = writeBatch(db())
+  batch.update(dossierRef, {
+    comments: nextComments,
+    updatedAt: serverTimestamp(),
+  })
+
+  // Notifications for mentioned users
+  if (comment.mentions && comment.mentions.length > 0) {
+    for (const recipientId of comment.mentions) {
+      if (recipientId !== actorId) {
+        queueNotification(batch, {
+          recipientId,
+          category: 'MENTIONED',
+          entityType: 'dossier',
+          entityId: dossierId,
+          title: `${comment.senderName} đã nhắc đến bạn trong hồ sơ`,
+          body: comment.content.slice(0, 100),
+          actorId,
+          actorName: comment.senderName,
+        })
+      }
+    }
+  }
+
+  appendAuditLogToBatch(batch, 'dossier', dossierId, 'UPDATE', actorId, {
+    action: 'ADD_COMMENT',
+    commentId: newComment.id,
+    mentionsCount: (comment.mentions || []).length,
+  })
+
+  await batch.commit()
   return newComment
 }
 

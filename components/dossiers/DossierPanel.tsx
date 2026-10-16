@@ -9,7 +9,10 @@ import {
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import type { Dossier, DossierChecklistItem, DossierComment } from '@/types'
-import { updateDossier, addDossierComment, deleteDossierComment } from '@/lib/dossiers'
+import { updateDossier, addDossierComment, deleteDossierComment, toggleDocumentDossier } from '@/lib/dossiers'
+import { MentionTextarea } from '@/components/chat/MentionTextarea'
+import { ChatMessageBubble } from '@/components/chat/ChatMessageBubble'
+import type { AttachedDocMetadata } from '@/types/tasks'
 import { useRole } from '@/hooks/useRole'
 import { useDocuments } from '@/hooks/useDocuments'
 import { useDossiers } from '@/hooks/useDossiers'
@@ -23,35 +26,18 @@ interface DossierPanelProps {
   onClose: () => void
   canEdit: boolean
   onShare?: () => void
+  externalDraftDoc?: AttachedDocMetadata | null
+  onClearExternalDraftDoc?: () => void
 }
 
-function formatCommentTime(ts: any): string {
-  if (!ts) return ''
-  let d: Date
-  if (ts.toDate && typeof ts.toDate === 'function') d = ts.toDate()
-  else if (ts.seconds) d = new Date(ts.seconds * 1000)
-  else if (ts instanceof Date) d = ts
-  else d = new Date(ts)
-
-  if (isNaN(d.getTime())) return ''
-
-  const hours = String(d.getHours()).padStart(2, '0')
-  const mins = String(d.getMinutes()).padStart(2, '0')
-  const now = new Date()
-  const isToday =
-    d.getDate() === now.getDate() &&
-    d.getMonth() === now.getMonth() &&
-    d.getFullYear() === now.getFullYear()
-
-  if (isToday) {
-    return `${hours}:${mins}`
-  }
-  const day = String(d.getDate()).padStart(2, '0')
-  const month = String(d.getMonth() + 1).padStart(2, '0')
-  return `${hours}:${mins} ${day}/${month}`
-}
-
-export function DossierPanel({ dossier, onClose, canEdit, onShare }: DossierPanelProps) {
+export function DossierPanel({
+  dossier,
+  onClose,
+  canEdit,
+  onShare,
+  externalDraftDoc,
+  onClearExternalDraftDoc,
+}: DossierPanelProps) {
   const { staffId, staffName, role, isAdmin } = useRole()
   const { documents } = useDocuments()
   const { dossiers } = useDossiers()
@@ -115,8 +101,11 @@ export function DossierPanel({ dossier, onClose, canEdit, onShare }: DossierPane
 
   // Section 4: Comments (Chat)
   const [comments, setComments] = useState<DossierComment[]>(dossier.comments || [])
-  const [newCommentText, setNewCommentText] = useState('')
   const [sendingComment, setSendingComment] = useState(false)
+
+  const dossierDocIds = useMemo(() => {
+    return (documents || []).filter(d => (d.dossierIds || []).includes(dossier.id)).map(d => d.id)
+  }, [documents, dossier.id])
 
   const commentsEndRef = useRef<HTMLDivElement>(null)
 
@@ -263,10 +252,12 @@ export function DossierPanel({ dossier, onClose, canEdit, onShare }: DossierPane
   }
 
   // Send new comment
-  const handleSendComment = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault()
-    const content = newCommentText.trim()
-    if (!content || sendingComment) return
+  const handleSendComment = async (
+    content: string,
+    mentions: string[] = [],
+    attachedDoc?: AttachedDocMetadata | null
+  ) => {
+    if (!content.trim() || sendingComment) return
 
     setSendingComment(true)
     const sender = staffName || (isAdmin ? 'Admin' : 'Thành viên')
@@ -278,16 +269,27 @@ export function DossierPanel({ dossier, onClose, canEdit, onShare }: DossierPane
         {
           senderId: sId,
           senderName: sender,
-          content,
+          content: content.trim(),
+          mentions: mentions.length > 0 ? mentions : undefined,
+          attachedDocId: attachedDoc?.docId || null,
+          attachedDocMetadata: attachedDoc || null,
         },
         sId
       )
       setComments(prev => [...prev, added])
-      setNewCommentText('')
     } catch (err) {
       console.error('Send comment failed:', err)
     } finally {
       setSendingComment(false)
+    }
+  }
+
+  // Link document to dossier from chat action menu
+  const handleLinkDocToDossier = async (docId: string) => {
+    try {
+      await toggleDocumentDossier(docId, dossier.id, 'add', staffId || 'unknown')
+    } catch (err) {
+      console.error('Failed to link document to dossier:', err)
     }
   }
 
@@ -704,7 +706,7 @@ export function DossierPanel({ dossier, onClose, canEdit, onShare }: DossierPane
 
           <div className="p-3 flex flex-col">
             {/* Messages list container */}
-            <div className="space-y-2.5 max-h-72 overflow-y-auto pr-1 mb-3">
+            <div className="space-y-2.5 max-h-80 overflow-y-auto pr-1 mb-3">
               {comments.length === 0 ? (
                 <div className="text-center py-6 text-slate-400 text-xs italic">
                   Chưa có trao đổi nào. Hãy gửi tin nhắn đầu tiên!
@@ -717,51 +719,22 @@ export function DossierPanel({ dossier, onClose, canEdit, onShare }: DossierPane
                     (staffName && c.senderName === staffName)
                   const canDelete = isMine || isAdmin
                   return (
-                    <div
+                    <ChatMessageBubble
                       key={c.id}
-                      className={`flex flex-col group ${isMine ? 'items-end' : 'items-start'}`}
-                    >
-                      {isMine ? (
-                        /* My Message: Right aligned, Blue bubble, discreet time inside */
-                        <div className="relative max-w-[85%] bg-blue-600 text-white rounded-2xl rounded-tr-xs px-3 py-2 text-xs leading-relaxed break-words shadow-2xs">
-                          <p className="whitespace-pre-line inline">{c.content}</p>
-                          <span className="inline-flex items-center gap-1 float-right mt-1 ml-2 text-[10px] text-blue-200/90 select-none leading-none pt-0.5">
-                            <span>{formatCommentTime(c.createdAt)}</span>
-                            {canDelete && (
-                              <button
-                                type="button"
-                                onClick={() => handleDeleteComment(c.id)}
-                                className="opacity-0 group-hover:opacity-100 p-0.5 text-blue-200 hover:text-white transition-opacity cursor-pointer ml-0.5"
-                                title="Xóa tin nhắn"
-                              >
-                                <Trash2 className="w-3 h-3" />
-                              </button>
-                            )}
-                          </span>
-                        </div>
-                      ) : (
-                        /* Other's Message: Left aligned, Slate bubble with sender name on top & discreet time inside */
-                        <div className="relative max-w-[85%] bg-white text-slate-800 border border-slate-200/90 rounded-2xl rounded-tl-xs px-3 py-2 text-xs leading-relaxed break-words shadow-2xs">
-                          <div className="font-bold text-[11px] text-indigo-700 mb-1 select-none flex items-center gap-1">
-                            <span>{c.senderName}</span>
-                          </div>
-                          <p className="whitespace-pre-line inline text-slate-800">{c.content}</p>
-                          <span className="inline-flex items-center gap-1 float-right mt-1 ml-2 text-[10px] text-slate-400 select-none leading-none pt-0.5">
-                            <span>{formatCommentTime(c.createdAt)}</span>
-                            {canDelete && (
-                              <button
-                                type="button"
-                                onClick={() => handleDeleteComment(c.id)}
-                                className="opacity-0 group-hover:opacity-100 p-0.5 text-slate-400 hover:text-red-600 transition-opacity cursor-pointer ml-0.5"
-                                title="Xóa tin nhắn"
-                              >
-                                <Trash2 className="w-3 h-3" />
-                              </button>
-                            )}
-                          </span>
-                        </div>
-                      )}
-                    </div>
+                      id={c.id}
+                      authorId={c.senderId}
+                      authorName={c.senderName}
+                      content={c.content}
+                      createdAt={c.createdAt}
+                      isMe={Boolean(isMine)}
+                      canDelete={Boolean(canDelete)}
+                      onDelete={() => handleDeleteComment(c.id)}
+                      attachedDocId={c.attachedDocId}
+                      attachedDocMetadata={c.attachedDocMetadata}
+                      mentions={c.mentions}
+                      onLinkToDossier={handleLinkDocToDossier}
+                      isAlreadyInDossier={c.attachedDocId ? dossierDocIds.includes(c.attachedDocId) : false}
+                    />
                   )
                 })
               )}
@@ -769,34 +742,15 @@ export function DossierPanel({ dossier, onClose, canEdit, onShare }: DossierPane
             </div>
 
             {/* Comment input area */}
-            <form onSubmit={handleSendComment} className="flex items-end gap-1.5 pt-2 border-t border-indigo-200/70">
-              <textarea
-                rows={2}
-                value={newCommentText}
-                onChange={e => setNewCommentText(e.target.value)}
-                onKeyDown={e => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault()
-                    handleSendComment()
-                  }
-                }}
-                placeholder="Nhập nội dung trao đổi (Enter để gửi)..."
-                className="flex-1 px-2.5 py-1.5 border border-indigo-200 rounded-lg text-xs bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 placeholder:text-slate-400 resize-none text-slate-800"
+            <div className="pt-2 border-t border-indigo-200/70">
+              <MentionTextarea
+                onSend={handleSendComment}
+                contextDocIds={dossierDocIds}
+                externalAttachedDoc={externalDraftDoc}
+                onClearExternalAttachedDoc={onClearExternalDraftDoc}
+                placeholder="Nhập trao đổi... (Gõ @ để tag, Enter để gửi)"
               />
-              <Button
-                type="submit"
-                size="sm"
-                disabled={!newCommentText.trim() || sendingComment}
-                className="h-10 px-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shrink-0"
-                title="Gửi tin nhắn"
-              >
-                {sendingComment ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Send className="w-4 h-4" />
-                )}
-              </Button>
-            </form>
+            </div>
           </div>
         </div>
       </div>
