@@ -129,6 +129,10 @@ export interface CreateDocumentInput {
   title: string
   docNumber?: string
   originalLink: string
+  driveFileId?: string
+  driveViewUrl?: string
+  mimeType?: string
+  status?: DocumentStatus
   task?: string
   assignee?: string
   assigneeId?: string

@@ -16,6 +16,7 @@ import type { Document, CreateDocumentInput, DocumentStatus } from '../types'
 const COLLECTION = 'documents'
 
 export async function createDocument(input: CreateDocumentInput): Promise<string> {
+  const defaultStatus = (input.driveFileId || input.driveViewUrl) ? 'pending' : 'uploading'
   const ref = await addDoc(collection(db(), COLLECTION), {
     title: input.title,
     docNumber: input.docNumber ?? '',
@@ -34,10 +35,10 @@ export async function createDocument(input: CreateDocumentInput): Promise<string
     issueDate: input.issueDate ?? null,
     priority: input.priority ?? 'normal',
     attachments: [],
-    status: 'uploading' as DocumentStatus,
-    driveFileId: '',
-    driveViewUrl: '',
-    mimeType: '',
+    status: (input.status || defaultStatus) as DocumentStatus,
+    driveFileId: input.driveFileId ?? '',
+    driveViewUrl: input.driveViewUrl ?? '',
+    mimeType: input.mimeType ?? '',
     textSnippet: '',
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),

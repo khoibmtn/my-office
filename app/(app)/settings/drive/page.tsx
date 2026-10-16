@@ -9,6 +9,7 @@ import {
   requestGoogleDriveToken,
   getGoogleTokenExpiryInfo,
   hasGoogleToken,
+  type GoogleTokenExpiryInfo,
 } from '@/lib/firebase'
 import { useAuth } from '@/hooks/useAuth'
 
@@ -16,12 +17,20 @@ export default function DrivePage() {
   const { user } = useAuth()
   const [googleLinked, setGoogleLinked] = useState(false)
   const [googleEmail, setGoogleEmail] = useState<string | null>(null)
-  const [tokenInfo, setTokenInfo] = useState<{
-    hasToken: boolean
-    isExpired: boolean
-    savedAt: number | null
-    minutesAgo: number | null
-  }>({ hasToken: false, isExpired: true, savedAt: null, minutesAgo: null })
+  const [tokenInfo, setTokenInfo] = useState<GoogleTokenExpiryInfo>(() => {
+    if (typeof window === 'undefined') {
+      return {
+        hasToken: false,
+        isExpired: true,
+        savedAt: null,
+        minutesAgo: null,
+        expiresInMinutes: 0,
+        remainingMs: 0,
+        remainingFormatted: 'Chưa có token',
+      }
+    }
+    return getGoogleTokenExpiryInfo()
+  })
 
   const [refreshing, setRefreshing] = useState(false)
   const [resetting, setResetting] = useState(false)
@@ -48,13 +57,13 @@ export default function DrivePage() {
     return () => clearInterval(interval)
   }, [refreshStatus])
 
-  async function handleRefreshToken(useRedirect = false) {
+  async function handleRefreshToken(useRedirect = false, selectAccount = false) {
     setRefreshing(true)
     setSuccessMessage(null)
     setErrorMessage(null)
 
     try {
-      const res = await requestGoogleDriveToken(useRedirect)
+      const res = await requestGoogleDriveToken(useRedirect, { selectAccount })
       if (res.success) {
         if (!useRedirect) {
           refreshStatus()
@@ -154,12 +163,15 @@ export default function DrivePage() {
                 {isTokenActive ? (
                   <div className="mt-1 space-y-0.5">
                     <p className="text-sm text-green-700 font-medium">
-                      ✅ Token đang hoạt động
+                      ✅ Token đang hoạt động ({tokenInfo.remainingFormatted})
                     </p>
                     <p className="text-xs text-slate-500">
                       {tokenInfo.minutesAgo !== null
-                        ? `Đã cấp ${tokenInfo.minutesAgo} phút trước (hết hạn sau ${Math.max(0, 60 - tokenInfo.minutesAgo)} phút nữa)`
+                        ? `Đã cấp ${tokenInfo.minutesAgo} phút trước`
                         : 'Token có sẵn'}
+                    </p>
+                    <p className="text-[11px] text-slate-500">
+                      Tự động liên kết tài khoản: <strong className="text-slate-700">{googleEmail || 'khoibm.tn@gmail.com'}</strong>
                     </p>
                   </div>
                 ) : (
@@ -167,11 +179,11 @@ export default function DrivePage() {
                     <p className="text-sm text-amber-700 font-semibold flex items-center gap-1">
                       <AlertTriangle className="w-4 h-4" />
                       {tokenInfo.hasToken && tokenInfo.isExpired
-                        ? 'Token đã hết hạn (> 1 giờ) — Cần làm mới'
+                        ? 'Token đã hết hạn — Cần làm mới'
                         : 'Chưa có token Drive — Cần cấp token'}
                     </p>
                     <p className="text-xs text-amber-600">
-                      Google giới hạn token OAuth trong 1 giờ. Hãy bấm nút bên cạnh để cấp lại token mà không cần đăng xuất.
+                      Hệ thống tự động chọn tài khoản <strong>{googleEmail || 'khoibm.tn@gmail.com'}</strong> để tránh nhầm tài khoản khác.
                     </p>
                   </div>
                 )}
@@ -195,17 +207,28 @@ export default function DrivePage() {
                   {isTokenActive ? 'Làm mới Token' : '🔑 Cấp lại Token Drive'}
                 </Button>
 
-                {!isTokenActive && (
+                <div className="flex items-center gap-3">
+                  {!isTokenActive && (
+                    <button
+                      type="button"
+                      onClick={() => handleRefreshToken(true)}
+                      disabled={refreshing}
+                      className="text-xs text-blue-600 hover:text-blue-800 hover:underline inline-flex items-center gap-1 transition-colors"
+                    >
+                      <ExternalLink className="w-3 h-3" />
+                      Chuyển hướng
+                    </button>
+                  )}
+
                   <button
                     type="button"
-                    onClick={() => handleRefreshToken(true)}
+                    onClick={() => handleRefreshToken(false, true)}
                     disabled={refreshing}
-                    className="text-xs text-blue-600 hover:text-blue-800 hover:underline inline-flex items-center gap-1 transition-colors"
+                    className="text-xs text-slate-500 hover:text-slate-800 underline transition-colors"
                   >
-                    <ExternalLink className="w-3 h-3" />
-                    Cấp lại bằng chuyển hướng toàn trang
+                    Chọn tài khoản khác
                   </button>
-                )}
+                </div>
               </div>
             </div>
           </div>

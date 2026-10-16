@@ -8,6 +8,14 @@ function getDriveClient(userAccessToken?: string) {
     oauth2.setCredentials({ access_token: userAccessToken })
     return google.drive({ version: 'v3', auth: oauth2 })
   }
+  if (process.env.GOOGLE_REFRESH_TOKEN && process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
+    const oauth2Client = new google.auth.OAuth2(
+      process.env.GOOGLE_CLIENT_ID,
+      process.env.GOOGLE_CLIENT_SECRET
+    )
+    oauth2Client.setCredentials({ refresh_token: process.env.GOOGLE_REFRESH_TOKEN })
+    return google.drive({ version: 'v3', auth: oauth2Client })
+  }
   const auth = new google.auth.GoogleAuth({
     credentials: JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_KEY!),
     scopes: ['https://www.googleapis.com/auth/drive'],

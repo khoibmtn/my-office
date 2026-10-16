@@ -435,11 +435,13 @@ function DocumentCard({
                   lines.push(`Hạn xử lý: ${doc.deadline.toDate().toLocaleDateString('vi-VN')}${daysText}`)
                 }
                 lines.push(`Nội dung văn bản: ${doc.title || ''}`)
-                if (doc.driveViewUrl) { lines.push(doc.driveViewUrl); lines.push('') }
+                const mainUrl = doc.driveViewUrl || doc.originalLink || ''
+                if (mainUrl) { lines.push(mainUrl); lines.push('') }
                 if (doc.attachments && doc.attachments.length > 0) {
                   lines.push(`Các văn bản đính kèm (${doc.attachments.length}):`)
                   doc.attachments.forEach((att, i) => {
-                    if (att.driveViewUrl) { lines.push(att.driveViewUrl); if (i < doc.attachments!.length - 1) lines.push('') }
+                    const attUrl = att.driveViewUrl || att.originalLink || ''
+                    if (attUrl) { lines.push(attUrl); if (i < doc.attachments!.length - 1) lines.push('') }
                   })
                 }
                 await navigator.clipboard.writeText(lines.join('\n'))
@@ -1257,15 +1259,17 @@ export function DocumentTable({ documents, storagePrefix = 'myoffice_docTable', 
       lines.push(`Hạn xử lý: ${doc.deadline.toDate().toLocaleDateString('vi-VN')}${daysText}`)
     }
     lines.push(`Nội dung văn bản: ${doc.title || ''}`)
-    if (doc.driveViewUrl) {
-      lines.push(doc.driveViewUrl)
+    const mainUrl = doc.driveViewUrl || doc.originalLink || ''
+    if (mainUrl) {
+      lines.push(mainUrl)
       lines.push('')
     }
     if (doc.attachments && doc.attachments.length > 0) {
       lines.push(`Các văn bản đính kèm (${doc.attachments.length}):`)
       doc.attachments.forEach((att, i) => {
-        if (att.driveViewUrl) {
-          lines.push(att.driveViewUrl)
+        const attUrl = att.driveViewUrl || att.originalLink || ''
+        if (attUrl) {
+          lines.push(attUrl)
           if (i < doc.attachments!.length - 1) lines.push('')
         }
       })

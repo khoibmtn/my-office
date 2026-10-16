@@ -11,6 +11,7 @@ import { doc as firestoreDoc, getDoc } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { getDocument, updateDocument } from '@/lib/firestore'
 import { parseFileNameFromUrl, getStructuredMainFileName } from '@/lib/utils'
+import { extractDriveFileId } from '@/lib/link-detector'
 import { useAuth } from '@/hooks/useAuth'
 import { usePermissions } from '@/hooks/usePermissions'
 import { useRole } from '@/hooks/useRole'
@@ -103,7 +104,20 @@ export function DocumentModal({ docId, onClose }: DocumentModalProps) {
     setLoading(true)
     getDocument(docId).then((d) => {
       setDoc(d)
-      if (d?.driveViewUrl) setActiveUrl(d.driveViewUrl)
+      if (d) {
+        const fileId = d.driveFileId || (d.originalLink ? extractDriveFileId(d.originalLink) : '') || ''
+        const viewUrl = d.driveViewUrl || (fileId ? `https://drive.google.com/file/d/${fileId}/preview` : d.originalLink) || ''
+        if (viewUrl) setActiveUrl(viewUrl)
+
+        // Self-heal document if driveFileId or driveViewUrl was missing in Firestore
+        if ((!d.driveFileId || !d.driveViewUrl) && (fileId || viewUrl)) {
+          updateDocument(d.id, {
+            driveFileId: fileId,
+            driveViewUrl: viewUrl,
+            status: d.status === 'uploading' ? 'pending' : d.status,
+          }).catch(e => console.warn('[Self-heal doc error]', e))
+        }
+      }
       setLoading(false)
     })
   }, [docId])
@@ -176,23 +190,30 @@ export function DocumentModal({ docId, onClose }: DocumentModalProps) {
     return () => window.removeEventListener('keydown', handleEsc)
   }, [onClose])
 
+  const mainDriveId = doc ? (doc.driveFileId || (doc.originalLink ? extractDriveFileId(doc.originalLink) : '') || '') : ''
+  const mainViewUrl = doc ? (doc.driveViewUrl || (mainDriveId ? `https://drive.google.com/file/d/${mainDriveId}/preview` : doc.originalLink) || '') : ''
+
   const allFiles = doc ? [
     {
       id: 'main',
       label: doc.originalLink ? parseFileNameFromUrl(doc.originalLink, getStructuredMainFileName(doc)) : getStructuredMainFileName(doc),
       type: 'main' as const,
-      url: doc.driveViewUrl,
-      driveId: doc.driveFileId,
-      mimeType: doc.mimeType,
+      url: mainViewUrl,
+      driveId: mainDriveId,
+      mimeType: doc.mimeType || 'application/pdf',
     },
-    ...(doc.attachments ?? []).map((a, i) => ({
-      id: `att-${i}`,
-      label: a.title || `Đính kèm ${i + 1}`,
-      type: 'attachment' as const,
-      url: a.driveViewUrl,
-      driveId: a.driveFileId,
-      mimeType: a.mimeType,
-    })),
+    ...(doc.attachments ?? []).map((a, i) => {
+      const attDriveId = a.driveFileId || (a.originalLink ? extractDriveFileId(a.originalLink) : '') || ''
+      const attViewUrl = a.driveViewUrl || (attDriveId ? `https://drive.google.com/file/d/${attDriveId}/preview` : a.originalLink) || ''
+      return {
+        id: `att-${i}`,
+        label: a.title || `Đính kèm ${i + 1}`,
+        type: 'attachment' as const,
+        url: attViewUrl,
+        driveId: attDriveId,
+        mimeType: a.mimeType || 'application/pdf',
+      }
+    }),
   ] : []
 
   const handleCopyAll = useCallback(async () => {

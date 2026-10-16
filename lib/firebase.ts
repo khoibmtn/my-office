@@ -31,11 +31,32 @@ function getFirebaseApp() {
   })
 }
 
-const provider = new GoogleAuthProvider()
-provider.addScope('https://www.googleapis.com/auth/drive.file')
-provider.setCustomParameters({
-  prompt: 'select_account',
-})
+export const ADMIN_EMAIL = 'khoibm.tn@gmail.com'
+
+export function getGoogleAuthProvider(options?: {
+  selectAccount?: boolean
+  loginHint?: string
+}) {
+  const p = new GoogleAuthProvider()
+  p.addScope('https://www.googleapis.com/auth/drive.file')
+
+  const customParams: Record<string, string> = {}
+  if (options?.selectAccount) {
+    customParams.prompt = 'select_account'
+  }
+  if (options?.loginHint) {
+    customParams.login_hint = options.loginHint
+  } else if (!options?.selectAccount) {
+    // Auto-select linked admin account to prevent user picking wrong account
+    customParams.login_hint = ADMIN_EMAIL
+  }
+
+  p.setCustomParameters(customParams)
+  return p
+}
+
+// Default provider instance
+const provider = getGoogleAuthProvider()
 
 export function getFirebaseAuth() {
   const app = getFirebaseApp()
@@ -75,6 +96,7 @@ export function saveGoogleAccessToken(token: string) {
   if (typeof document !== 'undefined') {
     document.cookie = `google_access_token=${token}; path=/; max-age=3600; SameSite=Lax`
   }
+  window.dispatchEvent(new CustomEvent('google_token_updated', { detail: { token } }))
 }
 
 /**
@@ -87,6 +109,17 @@ export function clearGoogleAccessToken() {
   if (typeof document !== 'undefined') {
     document.cookie = `google_access_token=; path=/; max-age=0; SameSite=Lax`
   }
+  window.dispatchEvent(new Event('google_token_updated'))
+}
+
+export interface GoogleTokenExpiryInfo {
+  hasToken: boolean
+  isExpired: boolean
+  savedAt: number | null
+  minutesAgo: number | null
+  expiresInMinutes: number
+  remainingMs: number
+  remainingFormatted: string
 }
 
 /**
@@ -94,36 +127,85 @@ export function clearGoogleAccessToken() {
  * Google access tokens expire after 3600s (60 min).
  * We flag as expired after 55 min for proactive renewal.
  */
-export function getGoogleTokenExpiryInfo(): {
-  hasToken: boolean
-  isExpired: boolean
-  savedAt: number | null
-  minutesAgo: number | null
-} {
+export function getGoogleTokenExpiryInfo(): GoogleTokenExpiryInfo {
   if (typeof window === 'undefined') {
-    return { hasToken: false, isExpired: true, savedAt: null, minutesAgo: null }
+    return {
+      hasToken: false,
+      isExpired: true,
+      savedAt: null,
+      minutesAgo: null,
+      expiresInMinutes: 0,
+      remainingMs: 0,
+      remainingFormatted: 'Chưa có token',
+    }
   }
   const token = localStorage.getItem('google_access_token')
   if (!token) {
-    return { hasToken: false, isExpired: true, savedAt: null, minutesAgo: null }
+    return {
+      hasToken: false,
+      isExpired: true,
+      savedAt: null,
+      minutesAgo: null,
+      expiresInMinutes: 0,
+      remainingMs: 0,
+      remainingFormatted: 'Chưa có token',
+    }
   }
   const rawSavedAt = localStorage.getItem('google_access_token_saved_at')
   if (!rawSavedAt) {
-    return { hasToken: true, isExpired: false, savedAt: null, minutesAgo: null }
+    return {
+      hasToken: true,
+      isExpired: false,
+      savedAt: null,
+      minutesAgo: 0,
+      expiresInMinutes: 60,
+      remainingMs: 3600000,
+      remainingFormatted: 'Còn 60 phút',
+    }
   }
   const savedAt = parseInt(rawSavedAt, 10)
   if (isNaN(savedAt)) {
-    return { hasToken: true, isExpired: false, savedAt: null, minutesAgo: null }
+    return {
+      hasToken: true,
+      isExpired: false,
+      savedAt: null,
+      minutesAgo: 0,
+      expiresInMinutes: 60,
+      remainingMs: 3600000,
+      remainingFormatted: 'Còn 60 phút',
+    }
   }
   const diffMs = Date.now() - savedAt
   const minutesAgo = Math.floor(diffMs / 60000)
   const isExpired = minutesAgo >= 55
+  const remainingMs = Math.max(0, 3600000 - diffMs)
+  const expiresInMinutes = Math.max(0, Math.floor(remainingMs / 60000))
+
+  let remainingFormatted = ''
+  if (isExpired || remainingMs <= 0) {
+    remainingFormatted = 'Đã hết hạn'
+  } else {
+    const days = Math.floor(remainingMs / (24 * 3600000))
+    const hours = Math.floor((remainingMs % (24 * 3600000)) / 3600000)
+    const mins = Math.floor((remainingMs % 3600000) / 60000)
+
+    if (days > 0) {
+      remainingFormatted = hours > 0 ? `Còn ${days} ngày ${hours} giờ` : `Còn ${days} ngày`
+    } else if (hours > 0) {
+      remainingFormatted = mins > 0 ? `Còn ${hours} giờ ${mins} phút` : `Còn ${hours} giờ`
+    } else {
+      remainingFormatted = `Còn ${Math.max(1, mins)} phút`
+    }
+  }
 
   return {
     hasToken: true,
     isExpired,
     savedAt,
     minutesAgo,
+    expiresInMinutes,
+    remainingMs,
+    remainingFormatted,
   }
 }
 
@@ -221,19 +303,23 @@ async function _saveTokens(user: User) {
  * Tries popup first; if blocked by browser, automatically falls back to redirect.
  * If useRedirect is true, directly uses redirect.
  */
-export async function signInWithGoogle(useRedirect = false) {
+export async function signInWithGoogle(
+  useRedirect = false,
+  options?: { selectAccount?: boolean; loginHint?: string }
+) {
   const firebaseAuth = auth()
+  const p = getGoogleAuthProvider(options)
 
   if (useRedirect) {
     if (typeof window !== 'undefined') {
       sessionStorage.setItem('firebase_redirect_in_progress', 'true')
     }
-    await signInWithRedirect(firebaseAuth, provider)
+    await signInWithRedirect(firebaseAuth, p)
     return null
   }
 
   try {
-    const result = await signInWithPopup(firebaseAuth, provider)
+    const result = await signInWithPopup(firebaseAuth, p)
     const credential = GoogleAuthProvider.credentialFromResult(result)
     if (credential?.accessToken) {
       saveGoogleAccessToken(credential.accessToken)
@@ -250,7 +336,7 @@ export async function signInWithGoogle(useRedirect = false) {
       if (typeof window !== 'undefined') {
         sessionStorage.setItem('firebase_redirect_in_progress', 'true')
       }
-      await signInWithRedirect(firebaseAuth, provider)
+      await signInWithRedirect(firebaseAuth, p)
       return null
     }
     throw popupErr
@@ -259,28 +345,53 @@ export async function signInWithGoogle(useRedirect = false) {
 
 /**
  * Request or refresh Google Drive OAuth token without logging out.
- * Can be called anywhere (e.g. from Settings > Drive or DocumentForm) to re-acquire
- * the Google OAuth access token with drive.file scope.
+ * 1. Attempts silent refresh via /api/drive/token first (fast, no user prompt, uses server refresh token).
+ * 2. If silent refresh fails or options.skipSilent is true, triggers Google OAuth with auto-login_hint.
  */
-export async function requestGoogleDriveToken(useRedirect = false): Promise<{ success: boolean; token?: string; error?: string }> {
+export async function requestGoogleDriveToken(
+  useRedirect = false,
+  options?: {
+    selectAccount?: boolean
+    loginHint?: string
+    skipSilent?: boolean
+  }
+): Promise<{ success: boolean; token?: string; error?: string; method?: 'silent' | 'popup' | 'redirect' }> {
+  // 1. Silent refresh via server API if possible
+  if (!useRedirect && !options?.selectAccount && !options?.skipSilent) {
+    try {
+      const res = await fetch('/api/drive/token')
+      if (res.ok) {
+        const data = await res.json()
+        if (data?.success && data?.token) {
+          saveGoogleAccessToken(data.token)
+          return { success: true, token: data.token, method: 'silent' }
+        }
+      }
+    } catch (silentErr) {
+      console.warn('[Auth] Silent refresh /api/drive/token failed, continuing to OAuth:', silentErr)
+    }
+  }
+
+  // 2. Google OAuth with login_hint
   const firebaseAuth = auth()
+  const p = getGoogleAuthProvider(options)
 
   if (useRedirect) {
     if (typeof window !== 'undefined') {
       sessionStorage.setItem('firebase_redirect_in_progress', 'true')
       sessionStorage.setItem('firebase_redirect_return_url', window.location.pathname)
     }
-    await signInWithRedirect(firebaseAuth, provider)
-    return { success: true }
+    await signInWithRedirect(firebaseAuth, p)
+    return { success: true, method: 'redirect' }
   }
 
   try {
-    const result = await signInWithPopup(firebaseAuth, provider)
+    const result = await signInWithPopup(firebaseAuth, p)
     const credential = GoogleAuthProvider.credentialFromResult(result)
     if (credential?.accessToken) {
       saveGoogleAccessToken(credential.accessToken)
       _saveTokens(result.user)
-      return { success: true, token: credential.accessToken }
+      return { success: true, token: credential.accessToken, method: 'popup' }
     }
     return { success: false, error: 'Không nhận được access token từ Google' }
   } catch (popupErr: any) {
@@ -293,8 +404,8 @@ export async function requestGoogleDriveToken(useRedirect = false): Promise<{ su
         sessionStorage.setItem('firebase_redirect_in_progress', 'true')
         sessionStorage.setItem('firebase_redirect_return_url', window.location.pathname)
       }
-      await signInWithRedirect(firebaseAuth, provider)
-      return { success: true }
+      await signInWithRedirect(firebaseAuth, p)
+      return { success: true, method: 'redirect' }
     }
     return { success: false, error: popupErr?.message || 'Lỗi kết nối Google' }
   }

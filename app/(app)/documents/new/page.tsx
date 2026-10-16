@@ -191,6 +191,10 @@ function NewDocumentContent() {
     try {
       let link = originalLink
 
+      let uploadedDriveFileId = ''
+      let uploadedDriveViewUrl = ''
+      let uploadedMimeType = ''
+
       // Handle file upload
       if (mainFile) {
         setUploading(true)
@@ -213,8 +217,11 @@ function NewDocumentContent() {
           if (token) form.append('userAccessToken', token)
           const res = await fetch('/api/drive/upload', { method: 'POST', body: form })
           if (!res.ok) throw new Error(await res.text())
-          const { driveFileId } = await res.json()
-          link = `https://drive.google.com/file/d/${driveFileId}/view`
+          const uploadData = await res.json()
+          uploadedDriveFileId = uploadData.driveFileId || ''
+          uploadedDriveViewUrl = uploadData.driveViewUrl || (uploadedDriveFileId ? `https://drive.google.com/file/d/${uploadedDriveFileId}/preview` : '')
+          uploadedMimeType = uploadData.mimeType || mainFile.type
+          link = uploadedDriveViewUrl || `https://drive.google.com/file/d/${uploadedDriveFileId}/view`
         } catch (uploadErr) {
           setError(`Lỗi upload file: ${uploadErr instanceof Error ? uploadErr.message : String(uploadErr)}`)
           setSaving(false)
@@ -229,6 +236,10 @@ function NewDocumentContent() {
       const docId = await createDocument({
         title,
         originalLink: link,
+        driveFileId: uploadedDriveFileId,
+        driveViewUrl: uploadedDriveViewUrl,
+        mimeType: uploadedMimeType,
+        status: mainFile ? 'pending' : 'uploading',
         notes: notes || undefined,
         sender: sender || undefined,
         leader: leader || undefined,
@@ -254,6 +265,23 @@ function NewDocumentContent() {
           link,
           attachments.filter(a => a.originalLink).map(({ title, originalLink }) => ({ title, originalLink }))
         )
+      } else if (attachments.some(a => a.originalLink)) {
+        // Copy attachments to Drive in background if any
+        const attsToCopy = attachments.filter(a => a.originalLink).map(({ title, originalLink }) => ({ title, originalLink }))
+        if (attsToCopy.length > 0) {
+          const userAccessToken = typeof window !== 'undefined' ? localStorage.getItem('google_access_token') : null
+          fetch('/api/drive/copy', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              docId,
+              originalLink: link,
+              attachments: attsToCopy,
+              folderId: process.env.NEXT_PUBLIC_DRIVE_FOLDER_ID,
+              userAccessToken,
+            }),
+          }).catch(err => console.error('[Attachments background copy error]', err))
+        }
       }
 
       router.push('/documents')

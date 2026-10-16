@@ -14,6 +14,7 @@ import { DossierNavItem } from '@/components/dossiers/DossierTreeNav'
 import { NotificationBell } from '@/components/notifications/NotificationBell'
 import { useRecurringScheduler } from '@/hooks/useRecurringScheduler'
 import { GlobalDataProvider } from '@/contexts/GlobalDataProvider'
+import { DriveTokenBanner } from '@/components/drive/DriveTokenBanner'
 
 function InnerAppLayout({ children }: { children: React.ReactNode }) {
   useRecurringScheduler()
@@ -324,6 +325,9 @@ function InnerAppLayout({ children }: { children: React.ReactNode }) {
             </Button>
           )}
         </header>
+
+        {/* Drive OAuth Token Status & Auto-Renew Bar */}
+        <DriveTokenBanner />
 
         <main className="flex-1 overflow-y-auto">
           <Suspense fallback={
