@@ -147,7 +147,9 @@ function extractDocumentData() {
     '.' + pClean + 'file-items a',
     '#' + pClean + 'danhsachtep a',
     '.' + pClean + 'danhsachtep a',
-    // Specific to VB đi & bootstrap button dropdowns:
+    // Both VB đến and VB đi classes:
+    '.vanban-file-item a',
+    '#vanban-file-items a',
     '.vanbandi-file-item a',
     '#vanbandi-file-items a',
     '.dropdown-menu a',
@@ -182,8 +184,8 @@ function extractDocumentData() {
     let fileName = a.textContent.trim();
     let url = '';
     
-    // 1. Extract URL from ChangeFile('...') in href or onclick
-    const match = (href + ' ' + onclick).match(/ChangeFile\(['"](.+?)['"]\)/i);
+    // 1. Extract URL from ChangeFile...('...') in href or onclick (e.g. ChangeFile or ChangeFileVanBanDi)
+    const match = (href + ' ' + onclick).match(/ChangeFile[a-zA-Z0-9_]*\(\s*['"](.+?)['"]\s*\)/i);
     if (match) {
       url = match[1];
     } else if (href && href !== '#' && !href.startsWith('javascript:')) {
@@ -210,10 +212,19 @@ function extractDocumentData() {
     }
   });
 
-  // If downloadLink wasn't in allFiles, add it as main file
-  if (mainFileUrl && !seenUrls.has(mainFileUrl)) {
-    allFiles.unshift({ url: mainFileUrl, fileName: mainFileName || 'Văn bản chính' });
-    seenUrls.add(mainFileUrl);
+  // Ensure main file from downloadLink is at index 0
+  if (mainFileUrl) {
+    if (mainFileUrl.startsWith('//')) mainFileUrl = 'https:' + mainFileUrl;
+    else if (mainFileUrl.startsWith('/')) mainFileUrl = window.location.origin + mainFileUrl;
+
+    const existingIdx = allFiles.findIndex(f => f.url === mainFileUrl);
+    if (existingIdx > 0) {
+      const [mainItem] = allFiles.splice(existingIdx, 1);
+      allFiles.unshift(mainItem);
+    } else if (existingIdx === -1) {
+      allFiles.unshift({ url: mainFileUrl, fileName: mainFileName || 'Văn bản chính' });
+      seenUrls.add(mainFileUrl);
+    }
   }
 
   // If no main file URL from download link, use first file from dropdown
@@ -265,15 +276,21 @@ function extractDocumentData() {
   };
 }
 
+window.extractDocumentData = extractDocumentData;
+
 // Listen for messages from popup
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  if (request.action === 'extract-data') {
-    try {
-      const data = extractDocumentData();
-      sendResponse({ success: true, data });
-    } catch (err) {
-      sendResponse({ success: false, error: err.message });
+if (!window.__qlvb_listener_registered) {
+  window.__qlvb_listener_registered = true;
+  chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+    if (request.action === 'extract-data') {
+      try {
+        const fn = window.extractDocumentData || extractDocumentData;
+        const data = fn();
+        sendResponse({ success: true, data });
+      } catch (err) {
+        sendResponse({ success: false, error: err.message });
+      }
     }
-  }
-  return true; // Keep channel open for async
-});
+    return true; // Keep channel open for async
+  });
+}

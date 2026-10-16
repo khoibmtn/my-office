@@ -60,6 +60,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     els.btnSubmit().disabled = false;
   });
 
+  document.getElementById('btn-reload-ext')?.addEventListener('click', () => {
+    chrome.runtime.reload();
+  });
+
   const updatePriorityBg = () => {
     const prio = els.priority();
     const val = prio.value;
@@ -221,22 +225,35 @@ async function extractFromCurrentTab() {
       return;
     }
 
+    // Always inject the latest content.js to ensure active tab has updated functions
+    try {
+      await chrome.scripting.executeScript({
+        target: { tabId: tab.id },
+        files: ['content.js'],
+      });
+    } catch (injErr) {
+      console.log('Script injection warning:', injErr);
+    }
+
     let response;
     try {
       response = await chrome.tabs.sendMessage(tab.id, { action: 'extract-data' });
     } catch (connErr) {
-      console.log('Content script not loaded, injecting...');
+      console.log('SendMessage failed, trying direct execution fallback...');
+    }
+
+    // Fallback: directly execute extractDocumentData in page if sendMessage failed
+    if (!response || !response.success || !response.data) {
       try {
-        await chrome.scripting.executeScript({
+        const results = await chrome.scripting.executeScript({
           target: { tabId: tab.id },
-          files: ['content.js'],
+          func: () => (window.extractDocumentData ? window.extractDocumentData() : null),
         });
-        await new Promise(r => setTimeout(r, 300));
-        response = await chrome.tabs.sendMessage(tab.id, { action: 'extract-data' });
-      } catch (injectErr) {
-        // Injection failed -> Hide form
-        els.mainForm().style.display = 'none';
-        return;
+        if (results && results[0] && results[0].result) {
+          response = { success: true, data: results[0].result };
+        }
+      } catch (directErr) {
+        console.log('Direct execution failed:', directErr);
       }
     }
     
