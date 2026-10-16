@@ -294,6 +294,13 @@ export async function addTaskComment(
   return commentRef.id
 }
 
+export async function deleteTaskComment(commentId: string): Promise<void> {
+  const ref = doc(db(), TASK_COMMENTS, commentId)
+  await updateDoc(ref, {
+    deletedAt: serverTimestamp(),
+  })
+}
+
 export async function deleteTask(
   taskId: string,
   actorId: string

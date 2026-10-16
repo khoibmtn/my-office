@@ -10,7 +10,7 @@ import {
   FileText, Folder, History, Building, Building2,
   Users, AlertTriangle, Link2, Paperclip, ExternalLink,
   Download, Copy, Check, Plus, X, ChevronDown, ChevronUp,
-  Clock, Edit2, CheckSquare,
+  Clock, Edit2, CheckSquare, MessageSquarePlus,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useStaff } from '@/hooks/useStaff'
@@ -34,7 +34,8 @@ import { canEditTask, canChangeStatus, canDeleteTask, canAddComment, canAddSubta
 import { updateTaskStatus, deleteTask, updateTask } from '@/lib/tasks/mutations'
 import { deleteRecurringTaskScoped, updateRecurringTaskScoped, generateNextCompletionOccurrence, type RecurrenceMutationScope } from '@/lib/tasks/series'
 import { getTasksByIds } from '@/lib/tasks/dependencies'
-import type { Task, TaskComment, TaskActivity, TaskStatus, TaskPriority, UpdateTaskInput } from '@/types/tasks'
+import type { Task, TaskComment, TaskActivity, TaskStatus, TaskPriority, UpdateTaskInput, AttachedDocMetadata } from '@/types/tasks'
+import type { Document } from '@/types'
 import { TASK_PRIORITY_LABELS, TASK_PRIORITY_DOTS } from '@/lib/tasks/constants'
 
 interface TaskDetailProps {
@@ -105,6 +106,52 @@ export function TaskDetail({
   const [description, setDescription] = useState(task.description || '')
   const [isEditingDesc, setIsEditingDesc] = useState(false)
   const [copiedFileId, setCopiedFileId] = useState<string | null>(null)
+  const [externalDraftDoc, setExternalDraftDoc] = useState<AttachedDocMetadata | null>(null)
+
+  const handleShareDocToChat = (doc: Document) => {
+    const files = []
+    if (doc.driveViewUrl || doc.originalLink) {
+      files.push({
+        title: doc.title || doc.docNumber || 'Văn bản chính',
+        driveViewUrl: doc.driveViewUrl || doc.originalLink,
+        originalLink: doc.originalLink,
+        mimeType: doc.mimeType,
+        isAttachment: false,
+      })
+    }
+    if (doc.attachments?.length) {
+      for (const att of doc.attachments) {
+        const url = att.driveViewUrl || att.originalLink
+        if (url) {
+          files.push({
+            id: att.id,
+            title: att.title || 'Tệp đính kèm',
+            driveViewUrl: url,
+            originalLink: att.originalLink,
+            mimeType: att.mimeType,
+            isAttachment: true,
+          })
+        }
+      }
+    }
+    const meta: AttachedDocMetadata = {
+      docId: doc.id,
+      docNumber: doc.docNumber,
+      title: doc.title || doc.docNumber || 'Văn bản',
+      sender: doc.sender,
+      driveViewUrl: doc.driveViewUrl || doc.originalLink,
+      originalLink: doc.originalLink,
+      files,
+    }
+    setExternalDraftDoc(meta)
+  }
+
+  const handleLinkDocToTask = async (docId: string) => {
+    if (!task.documentIds?.includes(docId)) {
+      const next = [...(task.documentIds || []), docId]
+      await handleUpdateFields({ documentIds: next })
+    }
+  }
 
   // Toggle pickers directly on the page
   const [showDocPicker, setShowDocPicker] = useState(false)
@@ -967,6 +1014,17 @@ export function TaskDetail({
                         </div>
                       </button>
 
+                      {doc && (
+                        <button
+                          type="button"
+                          onClick={() => handleShareDocToChat(doc)}
+                          className="p-1 rounded text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors shrink-0"
+                          title="Gửi văn bản này vào ô chat trao đổi"
+                        >
+                          <MessageSquarePlus className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+
                       {_canEdit && (
                         <button
                           type="button"
@@ -1131,6 +1189,10 @@ export function TaskDetail({
             actorId={actorId}
             actorName={actorName}
             canComment={_canComment}
+            taskDocumentIds={task.documentIds || []}
+            onLinkDocumentToTask={handleLinkDocToTask}
+            externalDraftDoc={externalDraftDoc}
+            onClearExternalDraftDoc={() => setExternalDraftDoc(null)}
           />
         </div>
       </div>

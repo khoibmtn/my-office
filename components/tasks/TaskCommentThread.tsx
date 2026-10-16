@@ -1,9 +1,10 @@
 'use client'
 
-import React, { useState, useRef, useEffect } from 'react'
-import { Send } from 'lucide-react'
-import type { TaskComment } from '@/types/tasks'
-import { addTaskComment } from '@/lib/tasks/mutations'
+import React, { useRef, useEffect } from 'react'
+import type { TaskComment, AttachedDocMetadata } from '@/types/tasks'
+import { addTaskComment, deleteTaskComment } from '@/lib/tasks/mutations'
+import { MentionTextarea } from '@/components/chat/MentionTextarea'
+import { ChatMessageBubble } from '@/components/chat/ChatMessageBubble'
 
 interface TaskCommentThreadProps {
   taskId: string
@@ -11,112 +12,114 @@ interface TaskCommentThreadProps {
   actorId: string
   actorName: string
   canComment: boolean
+  taskDocumentIds?: string[]
+  onLinkDocumentToTask?: (docId: string, metadata?: any) => Promise<void> | void
+  onAttachFileToDoc?: (fileUrl: string, fileName: string) => void
+  onCreateDocFromMessage?: (content: string, metadata?: any) => void
+  externalDraftDoc?: AttachedDocMetadata | null
+  onClearExternalDraftDoc?: () => void
 }
 
-function formatTime(timestamp: any): string {
-  if (!timestamp) return ''
-  const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp.seconds * 1000)
-  const now = new Date()
-  const diff = now.getTime() - date.getTime()
-  const mins = Math.floor(diff / 60000)
-  if (mins < 1) return 'Vừa xong'
-  if (mins < 60) return `${mins} phút trước`
-  const hours = Math.floor(mins / 60)
-  if (hours < 24) return `${hours} giờ trước`
-  return date.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
-}
-
-export function TaskCommentThread({ taskId, comments, actorId, actorName, canComment }: TaskCommentThreadProps) {
-  const [content, setContent] = useState('')
-  const [sending, setSending] = useState(false)
+export function TaskCommentThread({
+  taskId,
+  comments,
+  actorId,
+  actorName,
+  canComment,
+  taskDocumentIds = [],
+  onLinkDocumentToTask,
+  onAttachFileToDoc,
+  onCreateDocFromMessage,
+  externalDraftDoc,
+  onClearExternalDraftDoc,
+}: TaskCommentThreadProps) {
   const bottomRef = useRef<HTMLDivElement>(null)
-  const textareaRef = useRef<HTMLTextAreaElement>(null)
+
+  // Filter non-deleted comments
+  const activeComments = comments.filter(c => !c.deletedAt)
 
   // Auto-scroll to bottom when new comments arrive
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [comments.length])
+  }, [activeComments.length])
 
-  const handleSend = async () => {
-    if (!content.trim() || sending) return
-    setSending(true)
-    try {
-      await addTaskComment(taskId, content.trim(), actorId, actorName)
-      setContent('')
-      textareaRef.current?.focus()
-    } catch (err) {
-      console.error('Failed to send comment:', err)
-    } finally {
-      setSending(false)
-    }
+  const handleSend = async (
+    content: string,
+    mentions: string[],
+    attachedDoc?: AttachedDocMetadata | null
+  ) => {
+    await addTaskComment(
+      taskId,
+      content,
+      actorId,
+      actorName,
+      mentions,
+      attachedDoc?.docId,
+      attachedDoc
+    )
   }
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault()
-      handleSend()
+  const handleDelete = async (commentId: string) => {
+    if (!confirm('Bạn có chắc muốn xóa tin nhắn này?')) return
+    try {
+      await deleteTaskComment(commentId)
+    } catch (err) {
+      console.error('Failed to delete comment:', err)
     }
   }
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full bg-slate-50">
       {/* Comment list */}
-      <div className="flex-1 overflow-y-auto px-3 py-2 space-y-3">
-        {comments.length === 0 ? (
-          <div className="flex items-center justify-center py-8 text-slate-400 text-xs">
-            Chưa có bình luận nào
+      <div className="flex-1 overflow-y-auto p-3 space-y-1">
+        {activeComments.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-12 text-slate-400 text-xs text-center px-4">
+            <div className="w-9 h-9 rounded-full bg-slate-200/60 flex items-center justify-center text-slate-400 mb-2">
+              💬
+            </div>
+            <p className="font-semibold text-slate-600">Chưa có trao đổi nào</p>
+            <p className="text-[11px] text-slate-400 mt-0.5">
+              Gõ @ để nhắc tên nhân viên hoặc đính kèm văn bản vào cuộc trao đổi
+            </p>
           </div>
         ) : (
-          comments.map((comment) => {
+          activeComments.map((comment) => {
             const isMe = comment.authorId === actorId
+            const isAlreadyInTask = taskDocumentIds.includes(comment.attachedDocId || '')
+
             return (
-              <div key={comment.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
-                <div className={`max-w-[80%] ${isMe ? 'order-2' : 'order-1'}`}>
-                  {!isMe && (
-                    <div className="text-[10px] font-medium text-slate-500 mb-0.5 px-1">
-                      {comment.authorName}
-                    </div>
-                  )}
-                  <div className={`rounded-2xl px-3 py-2 text-sm ${
-                    isMe
-                      ? 'bg-blue-500 text-white rounded-br-md'
-                      : 'bg-slate-100 text-slate-800 rounded-bl-md'
-                  }`}>
-                    {comment.content}
-                  </div>
-                  <div className={`text-[10px] text-slate-400 mt-0.5 px-1 ${isMe ? 'text-right' : ''}`}>
-                    {formatTime(comment.createdAt)}
-                  </div>
-                </div>
-              </div>
+              <ChatMessageBubble
+                key={comment.id}
+                id={comment.id}
+                authorId={comment.authorId}
+                authorName={comment.authorName}
+                content={comment.content}
+                createdAt={comment.createdAt}
+                isMe={isMe}
+                canDelete={isMe}
+                onDelete={() => handleDelete(comment.id)}
+                attachedDocId={comment.attachedDocId}
+                attachedDocMetadata={comment.attachedDocMetadata}
+                mentions={comment.mentions}
+                onLinkToTask={onLinkDocumentToTask ? (docId, meta) => onLinkDocumentToTask(docId, meta) : undefined}
+                isAlreadyInTask={isAlreadyInTask}
+                onAttachFileToDoc={onAttachFileToDoc}
+                onCreateDocFromMessage={onCreateDocFromMessage}
+              />
             )
           })
         )}
         <div ref={bottomRef} />
       </div>
 
-      {/* Input */}
+      {/* Input bar */}
       {canComment && (
-        <div className="border-t border-slate-200 p-2 shrink-0">
-          <div className="flex items-end gap-2">
-            <textarea
-              ref={textareaRef}
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="Nhập bình luận..."
-              rows={1}
-              className="flex-1 resize-none border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none max-h-20"
-            />
-            <button
-              onClick={handleSend}
-              disabled={!content.trim() || sending}
-              className="shrink-0 w-8 h-8 rounded-full bg-blue-500 hover:bg-blue-600 disabled:bg-slate-200 disabled:cursor-not-allowed flex items-center justify-center transition-colors"
-            >
-              <Send className="w-3.5 h-3.5 text-white" />
-            </button>
-          </div>
-        </div>
+        <MentionTextarea
+          onSend={handleSend}
+          contextDocIds={taskDocumentIds}
+          externalAttachedDoc={externalDraftDoc}
+          onClearExternalAttachedDoc={onClearExternalDraftDoc}
+        />
       )}
     </div>
   )
