@@ -4,6 +4,7 @@ import { Readable } from 'stream'
 import { google } from 'googleapis'
 import { initAdmin, getAdminFirestore, verifyIdTokenREST } from '@/lib/firebase-admin'
 import { syncToAlgolia } from '@/lib/algolia-server'
+import { isValidIngestSecret } from '@/lib/ingest-auth'
 import { FieldValue } from 'firebase-admin/firestore'
 
 function getDriveClient() {
@@ -124,21 +125,25 @@ export async function POST(request: NextRequest) {
     const notes = data.notes ?? ''
     const tags = data.tags ?? ''
     const firebaseIdToken = data.firebaseIdToken ?? ''
+    const ingestSecret = data.ingestSecret ?? ''
 
-    if (!firebaseIdToken) {
-      return NextResponse.json(
-        { error: 'TOKEN_EXPIRED', message: 'Vui lòng mở My Office và đăng nhập lại (Chưa có ID token).' },
-        { status: 401, headers: corsHeaders() }
-      )
-    }
+    // Tiện ích tự động (qlvb-watcher) xác thực bằng ingestSecret; người dùng (extension) bằng Firebase ID token
+    if (!isValidIngestSecret(ingestSecret)) {
+      if (!firebaseIdToken) {
+        return NextResponse.json(
+          { error: 'TOKEN_EXPIRED', message: 'Vui lòng mở My Office và đăng nhập lại (Chưa có ID token).' },
+          { status: 401, headers: corsHeaders() }
+        )
+      }
 
-    try {
-      await verifyIdTokenREST(firebaseIdToken)
-    } catch (authErr) {
-      return NextResponse.json(
-        { error: 'TOKEN_EXPIRED', message: 'Phiên đăng nhập đã hết hạn. Vui lòng mở lại trang My Office để đăng nhập.' },
-        { status: 401, headers: corsHeaders() }
-      )
+      try {
+        await verifyIdTokenREST(firebaseIdToken)
+      } catch (authErr) {
+        return NextResponse.json(
+          { error: 'TOKEN_EXPIRED', message: 'Phiên đăng nhập đã hết hạn. Vui lòng mở lại trang My Office để đăng nhập.' },
+          { status: 401, headers: corsHeaders() }
+        )
+      }
     }
 
     // Check for pre-uploaded files (from the new background upload approach)

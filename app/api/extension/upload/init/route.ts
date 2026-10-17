@@ -1,20 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { initAdmin, verifyIdTokenREST } from '@/lib/firebase-admin'
+import { isValidIngestSecret } from '@/lib/ingest-auth'
 
 export async function POST(request: NextRequest) {
   try {
     const { google } = await import('googleapis')
 
-    const { fileName, mimeType, firebaseIdToken } = await request.json()
-    
-    if (!firebaseIdToken) {
-      return NextResponse.json({ error: 'TOKEN_EXPIRED', message: 'Vui lòng mở My Office và đăng nhập lại (Chưa có ID token).' }, { status: 401, headers: { 'Access-Control-Allow-Origin': '*' } })
-    }
+    const { fileName, mimeType, firebaseIdToken, ingestSecret } = await request.json()
 
-    try {
-      await verifyIdTokenREST(firebaseIdToken)
-    } catch (authErr) {
-      return NextResponse.json({ error: 'TOKEN_EXPIRED', message: 'Phiên đăng nhập đã hết hạn. Vui lòng mở lại trang My Office để đăng nhập.' }, { status: 401, headers: { 'Access-Control-Allow-Origin': '*' } })
+    // Tiện ích tự động (qlvb-watcher) xác thực bằng ingestSecret; người dùng (extension) bằng Firebase ID token
+    if (!isValidIngestSecret(ingestSecret)) {
+      if (!firebaseIdToken) {
+        return NextResponse.json({ error: 'TOKEN_EXPIRED', message: 'Vui lòng mở My Office và đăng nhập lại (Chưa có ID token).' }, { status: 401, headers: { 'Access-Control-Allow-Origin': '*' } })
+      }
+
+      try {
+        await verifyIdTokenREST(firebaseIdToken)
+      } catch (authErr) {
+        return NextResponse.json({ error: 'TOKEN_EXPIRED', message: 'Phiên đăng nhập đã hết hạn. Vui lòng mở lại trang My Office để đăng nhập.' }, { status: 401, headers: { 'Access-Control-Allow-Origin': '*' } })
+      }
     }
     
     if (!fileName) return NextResponse.json({ error: 'fileName required' }, { status: 400 })
