@@ -17,10 +17,12 @@ interface Field {
   display: string
 }
 interface Rule { id: number; text: string }
+interface Schedule { enabled: boolean; intervalMin: number; startHour: number; endHour: number; days: number[]; text?: string }
 interface ConfigView {
   fields: Field[]
   watch: { status: number; label: string }[]
   rules: Rule[]
+  schedule: Schedule
   status: {
     lastRunAt: string | null
     lastRunText: string | null
@@ -32,6 +34,12 @@ interface ConfigView {
   }
   workerUrl: string
 }
+
+const INTERVALS = [15, 30, 60, 90, 120, 180, 240]
+const DAYS = [
+  { d: 1, label: 'T2' }, { d: 2, label: 'T3' }, { d: 3, label: 'T4' }, { d: 4, label: 'T5' },
+  { d: 5, label: 'T6' }, { d: 6, label: 'T7' }, { d: 0, label: 'CN' },
+]
 
 const WATCH_OPTIONS = [
   { status: 18, label: 'Chờ xử lý' },
@@ -70,6 +78,7 @@ export default function QlvbWatcherSettingsPage() {
   const [values, setValues] = useState<Record<string, string>>({})
   const [watch, setWatch] = useState<number[]>([])
   const [newRule, setNewRule] = useState('')
+  const [sched, setSched] = useState<Schedule | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
   const [flash, setFlash] = useState<{ ok: boolean; text: string } | null>(null)
 
@@ -78,6 +87,7 @@ export default function QlvbWatcherSettingsPage() {
       const v = await api<ConfigView>('config')
       setView(v)
       setWatch(v.watch.map((w) => w.status))
+      setSched(v.schedule)
     } catch (e) {
       setFlash({ ok: false, text: (e as Error).message })
     }
@@ -119,7 +129,7 @@ export default function QlvbWatcherSettingsPage() {
       <div>
         <h1 className="text-2xl font-bold flex items-center gap-2"><BellRing className="w-6 h-6 text-blue-600" /> QLVB Watcher</h1>
         <p className="text-gray-500 mt-1">
-          Theo dõi văn bản mới trên qlvb.hpnet.vn, báo qua Telegram, đẩy sang My Office. Chạy trên Cloudflare Worker, kiểm mỗi 2 phút (giờ hành chính).
+          Theo dõi văn bản mới trên qlvb.hpnet.vn, báo qua Telegram, đẩy sang My Office. Chạy trên Cloudflare Worker, kiểm theo lịch bên dưới.
         </p>
       </div>
 
@@ -142,6 +152,63 @@ export default function QlvbWatcherSettingsPage() {
             <div>{s!.hasCookie ? 'Đang có phiên' : 'Chưa có'}{s!.loginFailAt ? <span className="text-red-600 font-medium"> · đăng nhập thất bại lúc {vnTime(s!.loginFailAt)}</span> : null}</div>
             <div className="text-gray-500">Việc chờ</div><div>{s!.pending}</div>
             {s!.lastRunText && <pre className="col-span-2 mt-2 bg-gray-50 rounded-md p-3 text-xs whitespace-pre-wrap font-sans text-gray-700">{s!.lastRunText}</pre>}
+          </div>
+        )}
+      </section>
+
+      {/* Lịch kiểm tra */}
+      <section className="bg-white border border-gray-200 rounded-xl p-5">
+        <h2 className="font-semibold mb-1">Lịch kiểm tra</h2>
+        <p className="text-xs text-gray-500 mb-4">
+          Mỗi lần kiểm chỉ gửi 1 yêu cầu danh sách tới QLVB (thêm 1 yêu cầu chi tiết cho mỗi văn bản mới), dùng lại phiên đăng nhập sẵn có.
+          Lần kiểm bị lỗi kết nối sẽ tự thử lại sau 5 phút. Lệnh /check trong Telegram luôn chạy, kể cả ngoài lịch.
+        </p>
+        {!sched ? (
+          <div className="text-gray-400 text-sm">Đang tải…</div>
+        ) : (
+          <div className="space-y-4 text-sm">
+            <label className="flex items-center gap-2">
+              <input type="checkbox" checked={sched.enabled} onChange={(e) => setSched({ ...sched, enabled: e.target.checked })} />
+              Bật kiểm tự động
+            </label>
+            <div className="flex flex-wrap items-center gap-2">
+              <span>Mỗi</span>
+              <select
+                className="border border-gray-300 rounded-md px-2 py-1.5"
+                value={sched.intervalMin}
+                onChange={(e) => setSched({ ...sched, intervalMin: Number(e.target.value) })}
+              >
+                {[...new Set([...INTERVALS, sched.intervalMin])].sort((a, b) => a - b).map((m) => (
+                  <option key={m} value={m}>{m % 60 === 0 ? `${m / 60} giờ` : `${m} phút`}</option>
+                ))}
+              </select>
+              <span>, từ</span>
+              <select className="border border-gray-300 rounded-md px-2 py-1.5" value={sched.startHour}
+                onChange={(e) => setSched({ ...sched, startHour: Number(e.target.value) })}>
+                {Array.from({ length: 24 }, (_, h) => <option key={h} value={h}>{String(h).padStart(2, '0')}:00</option>)}
+              </select>
+              <span>đến</span>
+              <select className="border border-gray-300 rounded-md px-2 py-1.5" value={sched.endHour}
+                onChange={(e) => setSched({ ...sched, endHour: Number(e.target.value) })}>
+                {Array.from({ length: 24 }, (_, i) => i + 1).map((h) => <option key={h} value={h}>{String(h).padStart(2, '0')}:00</option>)}
+              </select>
+            </div>
+            <div className="flex flex-wrap gap-3">
+              {DAYS.map(({ d, label }) => (
+                <label key={d} className="flex items-center gap-1.5">
+                  <input
+                    type="checkbox"
+                    checked={sched.days.includes(d)}
+                    onChange={(e) => setSched({ ...sched, days: e.target.checked ? [...sched.days, d] : sched.days.filter((x) => x !== d) })}
+                  />
+                  {label}
+                </label>
+              ))}
+            </div>
+            <p className="text-xs text-gray-500">Hiện tại: {view?.schedule.text}</p>
+            <Button onClick={() => run('schedule', () => api('schedule', sched))} disabled={!!busy}>
+              {busy === 'schedule' ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />} Lưu lịch
+            </Button>
           </div>
         )}
       </section>
@@ -208,7 +275,7 @@ export default function QlvbWatcherSettingsPage() {
             </Button>
           ))}
         </div>
-        <p className="text-xs text-gray-500 mt-2">Cloudflare chỉ kết nối được QLVB khoảng một nửa số lần (lỗi 522). Gặp lỗi kết nối thì bấm lại sau ít phút.</p>
+        <p className="text-xs text-gray-500 mt-2">Cloudflare chỉ kết nối được QLVB khoảng một nửa số lần (lỗi 522). Gặp lỗi kết nối thì bấm lại sau ít phút, hoặc gõ /check trong Telegram (tự thử lại tới 30 phút).</p>
       </section>
 
       {/* Rules */}

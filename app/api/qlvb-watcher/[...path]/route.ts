@@ -11,7 +11,7 @@ export const dynamic = 'force-dynamic'
 export const maxDuration = 60
 
 const ADMIN_EMAIL = 'khoibm.tn@gmail.com'
-const ALLOWED = new Set(['config', 'rules', 'action'])
+const ALLOWED = new Set(['config', 'rules', 'action', 'schedule'])
 
 async function proxy(req: NextRequest, path: string[]) {
   const base = process.env.QLVB_WATCHER_URL
