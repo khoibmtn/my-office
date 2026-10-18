@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
-import { Building2, Users, Shield, Tag, Settings, FolderSync } from 'lucide-react'
+import { Building2, Users, Shield, Tag, Settings, FolderSync, BellRing } from 'lucide-react'
 import { useRole } from '@/hooks/useRole'
 
 const SETTINGS_TABS = [
@@ -12,6 +12,7 @@ const SETTINGS_TABS = [
   { id: 'tags', label: 'Nhãn', icon: Tag, href: '/settings/tags' },
   { id: 'general', label: 'Chung', icon: Settings, href: '/settings/general' },
   { id: 'drive', label: 'Drive', icon: FolderSync, href: '/settings/drive' },
+  { id: 'qlvb-watcher', label: 'QLVB Watcher', icon: BellRing, href: '/settings/qlvb-watcher' },
 ] as const
 
 export default function SettingsLayout({ children }: { children: React.ReactNode }) {
@@ -43,7 +44,7 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
             const Icon = tab.icon
             const isActive = activeTab === tab.id
             // Admin sees all tabs; staff sees only certain tabs
-            if (!isAdmin && ['permissions', 'general', 'drive'].includes(tab.id)) {
+            if (!isAdmin && ['permissions', 'general', 'drive', 'qlvb-watcher'].includes(tab.id)) {
               return null
             }
             return (
