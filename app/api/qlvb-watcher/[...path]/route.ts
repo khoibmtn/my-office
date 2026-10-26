@@ -4,7 +4,7 @@ import { verifyIdTokenREST } from '@/lib/firebase-admin'
 /**
  * Proxy tới API cấu hình của qlvb-watcher (Cloudflare Worker).
  * Chỉ admin (Google account ADMIN_EMAIL) được gọi; khoá quản trị Worker chỉ nằm ở server (Vercel env).
- *   QLVB_WATCHER_URL        = https://qlvb-watcher.spa-xumay.workers.dev
+ *   QLVB_WATCHER_URL        = https://qlvb-watcher.khoibm.workers.dev
  *   QLVB_WATCHER_ADMIN_KEY  = ADMIN_KEY của Worker
  */
 export const dynamic = 'force-dynamic'
