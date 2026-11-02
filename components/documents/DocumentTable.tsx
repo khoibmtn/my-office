@@ -405,14 +405,14 @@ function DocumentCard({
       <div className="flex items-center gap-1.5 flex-wrap">
         {(perms.canToggleComplete || (perms.canCompleteAssigned && doc.assigneeId === currentStaffId)) ? (
           <button
-            className={`status-chip ${eff.cls} !p-1.5 sm:!py-1 sm:!px-2`}
+            className={`status-chip ${eff.cls} min-w-[40px] min-h-[40px] !p-2 sm:!py-1 sm:!px-2`}
             onClick={() => onToggleComplete(doc)}
             title={doc.status === 'completed' ? 'Bấm để chuyển về trạng thái chờ' : 'Bấm để đánh dấu hoàn thành'}
           >
             {eff.icon}
           </button>
         ) : (
-          <span className={`status-chip ${eff.cls} !p-1.5 sm:!py-1 sm:!px-2 opacity-60 cursor-default`}>
+          <span className={`status-chip ${eff.cls} min-w-[40px] min-h-[40px] !p-2 sm:!py-1 sm:!px-2 opacity-60 cursor-default`}>
             {eff.icon}
           </span>
         )}
@@ -420,7 +420,7 @@ function DocumentCard({
         <div className="flex-1" />
 
         {doc.status === 'upload_failed' && perms.canEditDocument ? (
-          <Button size="sm" variant="outline" onClick={() => onRetry(doc)} disabled={retrying === doc.id}>
+          <Button size="sm" variant="outline" className="min-w-[40px] min-h-[40px]" onClick={() => onRetry(doc)} disabled={retrying === doc.id}>
             {retrying === doc.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
           </Button>
         ) : doc.status !== 'uploading' && (
@@ -448,14 +448,14 @@ function DocumentCard({
                 }
                 await navigator.clipboard.writeText(lines.join('\n'))
               }}
-              className="p-2 rounded-lg text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors"
+              className="min-w-[40px] min-h-[40px] inline-flex items-center justify-center p-2 rounded-lg text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors"
               title="Copy thông tin giao việc"
             >
               <Send className="h-4 w-4" />
             </button>
             <button
               onClick={() => onView(doc.id)}
-              className="p-2 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+              className="min-w-[40px] min-h-[40px] inline-flex items-center justify-center p-2 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
               title="Xem"
             >
               <Eye className="h-4 w-4" />
@@ -463,7 +463,7 @@ function DocumentCard({
             {onCreateTask && (
               <button
                 onClick={() => onCreateTask(doc)}
-                className="p-2 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
+                className="min-w-[40px] min-h-[40px] inline-flex items-center justify-center p-2 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
                 title="Tạo công việc từ văn bản này"
               >
                 <ClipboardList className="h-4 w-4" />
@@ -472,7 +472,7 @@ function DocumentCard({
             {perms.canEditDocument && (
               <Link
                 href={`/documents/${doc.id}/edit`}
-                className="p-2 rounded-lg text-slate-400 hover:text-amber-600 hover:bg-amber-50 transition-colors"
+                className="min-w-[40px] min-h-[40px] inline-flex items-center justify-center p-2 rounded-lg text-slate-400 hover:text-amber-600 hover:bg-amber-50 transition-colors"
                 title="Sửa"
               >
                 <Pencil className="h-4 w-4" />
@@ -482,7 +482,7 @@ function DocumentCard({
         )}
         {perms.canDeleteDocument && (
           <button
-            className="p-2 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+            className="min-w-[40px] min-h-[40px] inline-flex items-center justify-center p-2 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors"
             onClick={() => onDelete(doc.id, doc.title)}
             disabled={deleting === doc.id}
             title="Xóa"
@@ -2531,6 +2531,32 @@ export function DocumentTable({ documents, storagePrefix = 'myoffice_docTable', 
         .doc-card:active {
           background: #f8fafc;
           transform: scale(0.99);
+        }
+
+        @media (max-width: 767px) {
+          .filter-group {
+            max-width: 100%;
+          }
+          .filter-group select,
+          .search-box input,
+          .assign-select {
+            font-size: 16px !important;
+          }
+          .filter-group select {
+            min-height: 40px;
+            max-width: 100%;
+          }
+          .search-box {
+            min-height: 40px;
+          }
+          .doc-card button,
+          .doc-card a {
+            min-width: 40px;
+            min-height: 40px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+          }
         }
       `}</style>
     </>

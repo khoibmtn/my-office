@@ -1,15 +1,18 @@
 'use client'
 
 import React from 'react'
+import Link from 'next/link'
 import {
   CheckCircle2, Clock, AlertCircle, Ban,
-  TrendingUp, ArrowUp, Calendar, Users,
+  TrendingUp, ArrowUp, Calendar,
 } from 'lucide-react'
-import type { TaskStats } from '@/types/tasks'
+import type { ComputedTaskStats } from '@/lib/tasks/firestore'
 
 interface TaskDashboardProps {
-  stats: TaskStats | null
-  recentCompleted?: number
+  stats: ComputedTaskStats | null
+  assigneeId?: string
+  includeCollaborator?: boolean
+  departmentId?: string
 }
 
 interface StatCardProps {
@@ -19,30 +22,62 @@ interface StatCardProps {
   color: string
   bgColor: string
   subtitle?: string
+  href: string
 }
 
-function StatCard({ icon: Icon, label, value, color, bgColor, subtitle }: StatCardProps) {
+export function buildTasksFilterHref(params: {
+  status?: string
+  assigneeId?: string
+  includeCollaborator?: boolean
+  departmentId?: string
+}): string {
+  const sp = new URLSearchParams()
+  if (params.status) sp.set('status', params.status)
+  if (params.assigneeId && params.assigneeId !== 'all') {
+    sp.set('assigneeId', params.assigneeId)
+    if (params.includeCollaborator) {
+      sp.set('includeCollaborator', '1')
+    }
+  }
+  if (params.departmentId && params.departmentId !== 'all') {
+    sp.set('departmentId', params.departmentId)
+  }
+  const qs = sp.toString()
+  return qs ? `/tasks?${qs}` : '/tasks'
+}
+
+function StatCard({ icon: Icon, label, value, color, bgColor, subtitle, href }: StatCardProps) {
   return (
-    <div className="bg-white rounded-xl border border-slate-200 p-4 hover:shadow-md transition-shadow">
+    <Link
+      href={href}
+      className="bg-white rounded-xl border border-slate-200 p-4 hover:shadow-md hover:border-blue-300 transition-all block group"
+    >
       <div className="flex items-start justify-between">
         <div>
-          <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">{label}</p>
-          <p className={`text-3xl font-bold mt-1 ${color}`}>{value}</p>
+          <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider group-hover:text-slate-600">
+            {label}
+          </p>
+          <p className={`text-3xl font-bold mt-1 ${color} group-hover:underline`}>{value}</p>
           {subtitle && <p className="text-[10px] text-slate-400 mt-0.5">{subtitle}</p>}
         </div>
         <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${bgColor}`}>
           <Icon className={`w-5 h-5 ${color}`} />
         </div>
       </div>
-    </div>
+    </Link>
   )
 }
 
-export function TaskDashboard({ stats, recentCompleted = 0 }: TaskDashboardProps) {
+export function TaskDashboard({
+  stats,
+  assigneeId,
+  includeCollaborator,
+  departmentId,
+}: TaskDashboardProps) {
   if (!stats) {
     return (
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {[1, 2, 3, 4].map(i => (
+        {[1, 2, 3, 4].map((i) => (
           <div key={i} className="bg-white rounded-xl border border-slate-200 p-4 h-24 animate-pulse">
             <div className="h-3 bg-slate-200 rounded w-20 mb-3" />
             <div className="h-8 bg-slate-200 rounded w-12" />
@@ -52,28 +87,13 @@ export function TaskDashboard({ stats, recentCompleted = 0 }: TaskDashboardProps
     )
   }
 
-  const total = stats.pending + stats.inProgress + stats.blocked + stats.completed + stats.cancelled
-  const active = stats.pending + stats.inProgress + stats.blocked
-  const completionRate = total > 0 ? Math.round((stats.completed / total) * 100) : 0
+  const total = stats.total
+  const completionRate = stats.completionRate
 
   return (
     <div className="space-y-6">
-      {/* Main stats */}
+      {/* Khối thẻ chính: Quá hạn / Đến hạn 7 ngày / Đang thực hiện / Hoàn thành tuần */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <StatCard
-          icon={Clock}
-          label="Chờ xử lý"
-          value={stats.pending}
-          color="text-slate-700"
-          bgColor="bg-slate-100"
-        />
-        <StatCard
-          icon={TrendingUp}
-          label="Đang thực hiện"
-          value={stats.inProgress}
-          color="text-blue-600"
-          bgColor="bg-blue-50"
-        />
         <StatCard
           icon={AlertCircle}
           label="Quá hạn"
@@ -81,6 +101,25 @@ export function TaskDashboard({ stats, recentCompleted = 0 }: TaskDashboardProps
           color="text-red-600"
           bgColor="bg-red-50"
           subtitle={stats.overdue > 0 ? 'Cần xử lý ngay!' : 'Tốt lắm!'}
+          href={buildTasksFilterHref({ status: 'overdue', assigneeId, includeCollaborator, departmentId })}
+        />
+        <StatCard
+          icon={Calendar}
+          label="Đến hạn 7 ngày"
+          value={stats.dueIn7Days}
+          color="text-amber-600"
+          bgColor="bg-amber-50"
+          subtitle="Sắp tới hạn trong 7 ngày"
+          href={buildTasksFilterHref({ status: 'due7', assigneeId, includeCollaborator, departmentId })}
+        />
+        <StatCard
+          icon={TrendingUp}
+          label="Đang thực hiện"
+          value={stats.inProgress}
+          color="text-blue-600"
+          bgColor="bg-blue-50"
+          subtitle={`${stats.open} việc đang mở`}
+          href={buildTasksFilterHref({ status: 'in_progress', assigneeId, includeCollaborator, departmentId })}
         />
         <StatCard
           icon={CheckCircle2}
@@ -88,17 +127,28 @@ export function TaskDashboard({ stats, recentCompleted = 0 }: TaskDashboardProps
           value={stats.completedThisWeek}
           color="text-emerald-600"
           bgColor="bg-emerald-50"
+          subtitle="Từ thứ Hai tuần này"
+          href={buildTasksFilterHref({ status: 'done_week', assigneeId, includeCollaborator, departmentId })}
         />
       </div>
 
-      {/* Secondary stats */}
+      {/* Thẻ phụ: Chờ xử lý / Bị chặn / Hoàn thành tháng / Tỷ lệ hoàn thành */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <StatCard
+          icon={Clock}
+          label="Chờ xử lý"
+          value={stats.pending}
+          color="text-slate-700"
+          bgColor="bg-slate-100"
+          href={buildTasksFilterHref({ status: 'pending', assigneeId, includeCollaborator, departmentId })}
+        />
         <StatCard
           icon={Ban}
           label="Bị chặn"
           value={stats.blocked}
           color="text-red-500"
           bgColor="bg-red-50"
+          href={buildTasksFilterHref({ status: 'blocked', assigneeId, includeCollaborator, departmentId })}
         />
         <StatCard
           icon={CheckCircle2}
@@ -106,13 +156,7 @@ export function TaskDashboard({ stats, recentCompleted = 0 }: TaskDashboardProps
           value={stats.completedThisMonth}
           color="text-emerald-600"
           bgColor="bg-emerald-50"
-        />
-        <StatCard
-          icon={Users}
-          label="Tổng active"
-          value={active}
-          color="text-indigo-600"
-          bgColor="bg-indigo-50"
+          href={buildTasksFilterHref({ status: 'done_month', assigneeId, includeCollaborator, departmentId })}
         />
         <div className="bg-white rounded-xl border border-slate-200 p-4 hover:shadow-md transition-shadow">
           <div className="flex items-start justify-between">
@@ -124,7 +168,6 @@ export function TaskDashboard({ stats, recentCompleted = 0 }: TaskDashboardProps
               <ArrowUp className="w-5 h-5 text-violet-600" />
             </div>
           </div>
-          {/* Mini progress bar */}
           <div className="mt-2 h-1.5 bg-slate-100 rounded-full overflow-hidden">
             <div
               className="h-full bg-violet-500 rounded-full transition-all duration-500"
@@ -134,7 +177,7 @@ export function TaskDashboard({ stats, recentCompleted = 0 }: TaskDashboardProps
         </div>
       </div>
 
-      {/* Status distribution */}
+      {/* Phân bố trạng thái */}
       <div className="bg-white rounded-xl border border-slate-200 p-4">
         <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Phân bố trạng thái</h3>
         <div className="flex h-4 rounded-full overflow-hidden bg-slate-100">

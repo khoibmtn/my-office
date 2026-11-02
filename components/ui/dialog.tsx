@@ -1,5 +1,6 @@
 import * as React from 'react'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
+import { X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const Dialog = DialogPrimitive.Root
@@ -28,12 +29,20 @@ const DialogContent = React.forwardRef<
     <DialogPrimitive.Content
       ref={ref}
       className={cn(
-        'fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 bg-white p-6 shadow-lg rounded-xl border border-slate-200',
-        className
+        'fixed inset-0 z-50 grid w-full h-dvh max-w-lg content-start gap-4 overflow-y-auto bg-white p-6 shadow-lg rounded-none border border-slate-200 sm:inset-auto sm:left-[50%] sm:top-[50%] sm:h-auto sm:max-h-[90dvh] sm:translate-x-[-50%] sm:translate-y-[-50%] sm:rounded-xl sm:content-normal',
+        className,
+        'max-sm:inset-0 max-sm:h-dvh max-sm:max-w-none max-sm:rounded-none max-sm:transform-none'
       )}
       {...props}
     >
       {children}
+      <DialogPrimitive.Close
+        aria-label="Đóng"
+        className="tap fixed top-2 right-2 sm:absolute sm:top-3 sm:right-3 z-10 w-11 h-11 rounded-full bg-white/90 text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
+      >
+        <X className="h-5 w-5" />
+        <span className="sr-only">Đóng</span>
+      </DialogPrimitive.Close>
     </DialogPrimitive.Content>
   </DialogPortal>
 ))

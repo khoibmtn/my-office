@@ -1,4 +1,4 @@
-import type { TaskStatus, TaskPriority, ActivityEventType } from '@/types/tasks'
+import type { TaskStatus, TaskPriority, ActivityEventType, MisfirePolicy } from '@/types/tasks'
 
 // ===== Status Configuration =====
 
@@ -109,7 +109,7 @@ export const DEFAULT_ROLLING_WINDOW_DAYS = 14
 export const DEFAULT_LEAD_DAYS = 0
 export const DEFAULT_DUE_OFFSET_MINUTES = 0
 export const DEFAULT_TIMEZONE = 'Asia/Ho_Chi_Minh'
-export const DEFAULT_MISFIRE_POLICY = 'CREATE_MISSED' as const
+export const DEFAULT_MISFIRE_POLICY: MisfirePolicy = 'CREATE_MISSED'
 
 // ===== Derived State =====
 

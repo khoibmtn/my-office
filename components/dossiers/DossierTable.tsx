@@ -289,7 +289,7 @@ export function DossierTable({
   }
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-4 min-w-0 max-w-full">
       {/* Alert toast for archived dossier click */}
       {archivedAlert && (
         <div className="flex items-center justify-between p-3 bg-purple-50 border border-purple-200 rounded-xl text-xs font-semibold text-purple-900 shadow-sm animate-in fade-in duration-200">
@@ -304,12 +304,12 @@ export function DossierTable({
       )}
 
       {/* Toolbar: Tabs & Search */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-white p-3 rounded-xl border border-slate-200 shadow-2xs">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-white p-3 rounded-xl border border-slate-200 shadow-2xs min-w-0 max-w-full">
         {/* Status Tabs */}
-        <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-lg text-xs font-semibold">
+        <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-lg text-xs font-semibold w-full sm:w-auto max-w-full overflow-x-auto flex-wrap sm:flex-nowrap">
           <button
             onClick={() => handleSetTab('active')}
-            className={`px-3 py-1.5 rounded-md transition-all ${
+            className={`px-3 py-1.5 min-h-[36px] sm:min-h-0 rounded-md transition-all ${
               tab === 'active'
                 ? 'bg-white text-blue-700 shadow-2xs font-bold'
                 : 'text-slate-600 hover:text-slate-900'
@@ -319,7 +319,7 @@ export function DossierTable({
           </button>
           <button
             onClick={() => handleSetTab('archived')}
-            className={`px-3 py-1.5 rounded-md transition-all ${
+            className={`px-3 py-1.5 min-h-[36px] sm:min-h-0 rounded-md transition-all ${
               tab === 'archived'
                 ? 'bg-white text-purple-700 shadow-2xs font-bold'
                 : 'text-slate-600 hover:text-slate-900'
@@ -329,7 +329,7 @@ export function DossierTable({
           </button>
           <button
             onClick={() => handleSetTab('all')}
-            className={`px-3 py-1.5 rounded-md transition-all ${
+            className={`px-3 py-1.5 min-h-[36px] sm:min-h-0 rounded-md transition-all ${
               tab === 'all'
                 ? 'bg-white text-slate-800 shadow-2xs font-bold'
                 : 'text-slate-600 hover:text-slate-900'
@@ -350,7 +350,7 @@ export function DossierTable({
               if (e.key === 'Escape') setSearch('')
             }}
             placeholder="Tìm tên hoặc nội dung hồ sơ..."
-            className="w-full pl-9 pr-8 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-50 focus:bg-white"
+            className="w-full pl-9 pr-8 py-1.5 border border-slate-200 rounded-lg text-base md:text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-50 focus:bg-white"
           />
           {search && (
             <button
@@ -364,8 +364,244 @@ export function DossierTable({
         </div>
       </div>
 
-      {/* Main Tree Table */}
-      <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-2xs">
+      {/* Mobile Card List (< sm) */}
+      <div className="sm:hidden flex flex-col gap-2.5 min-w-0 max-w-full">
+        {loading ? (
+          <div className="py-10 px-4 text-center bg-white rounded-xl border border-slate-200 text-slate-500 text-xs flex items-center justify-center gap-2">
+            <Loader2 className="w-5 h-5 animate-spin text-blue-600" />
+            <span>Đang tải danh sách hồ sơ...</span>
+          </div>
+        ) : treeOrderedDossiers.length === 0 ? (
+          <div className="py-10 px-4 text-center bg-white rounded-xl border border-slate-200 text-slate-400 text-xs">
+            Không tìm thấy hồ sơ nào phù hợp.
+          </div>
+        ) : (
+          treeOrderedDossiers.map(dossier => {
+            const count = docCounts[dossier.id] || 0
+            const hasChildren = dossiers.some(c => c.parentId === dossier.id)
+            const isExpanded = expandedIds.has(dossier.id)
+            const isArchived = !!dossier.isArchived
+            const unreadCount = isExpanded ? (unreadMap[dossier.id] || 0) : getSubtreeUnread(dossier.id)
+            const rootIndex = activeRootDossiers.findIndex(r => r.id === dossier.id)
+            const isFirstRoot = rootIndex === 0
+            const isLastRoot = rootIndex === activeRootDossiers.length - 1
+            const isShared = (dossier.sharedWith || []).length > 0
+            const folderColor = isArchived ? '#a855f7' : (dossier.color || '#3b82f6')
+
+            return (
+              <div
+                key={dossier.id}
+                className={`rounded-xl border p-3 bg-white shadow-2xs transition-colors min-w-0 max-w-full ${
+                  isArchived ? 'border-purple-200 bg-purple-50/20' : 'border-slate-200'
+                } ${dossier.level === 2 ? 'ml-3' : dossier.level === 3 ? 'ml-6' : ''}`}
+              >
+                <div className="flex items-start gap-2 min-w-0">
+                  {hasChildren ? (
+                    <button
+                      onClick={e => toggleExpand(dossier.id, e)}
+                      className="min-w-[40px] min-h-[40px] -ml-1 -mt-1 inline-flex items-center justify-center text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg shrink-0 transition-colors"
+                      title={isExpanded ? 'Thu gọn hồ sơ con' : 'Mở rộng hồ sơ con'}
+                    >
+                      {isExpanded ? (
+                        <MinusSquare className="w-4 h-4 text-blue-600" />
+                      ) : (
+                        <PlusSquare className="w-4 h-4 text-slate-500" />
+                      )}
+                    </button>
+                  ) : null}
+
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      {isShared ? (
+                        <FolderSymlink className="w-4 h-4 shrink-0" style={{ color: folderColor }} />
+                      ) : (
+                        <Folder className="w-4 h-4 shrink-0" style={{ color: folderColor, fill: folderColor }} />
+                      )}
+                      <button
+                        onClick={() => handleDossierClick(dossier)}
+                        className={`font-semibold text-sm hover:underline text-left truncate max-w-full ${
+                          isArchived ? 'text-purple-900 opacity-80' : 'text-slate-800 hover:text-blue-600'
+                        }`}
+                      >
+                        <Highlight text={dossier.name} query={search} />
+                      </button>
+                      {unreadCount > 0 && (
+                        <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-bold text-white bg-red-600 rounded-full shrink-0">
+                          {unreadCount > 99 ? '99+' : unreadCount}
+                        </span>
+                      )}
+                      <span className={`px-1.5 py-0.5 rounded text-[10px] font-mono shrink-0 ${
+                        dossier.level === 1
+                          ? 'bg-blue-100 text-blue-800 border border-blue-200 font-bold'
+                          : dossier.level === 2
+                          ? 'bg-amber-100 text-amber-800 border border-amber-200'
+                          : 'bg-purple-100 text-purple-800 border border-purple-200'
+                      }`}>
+                        Cấp {dossier.level}
+                      </span>
+                      {dossier.sharedWith && dossier.sharedWith.length > 0 && (
+                        <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] bg-teal-50 text-teal-700 border border-teal-200 font-semibold">
+                          <Users className="w-3 h-3" />
+                          <span>{dossier.sharedWith.length}</span>
+                        </span>
+                      )}
+                    </div>
+
+                    {dossier.description && (
+                      <p className="text-xs text-slate-500 italic line-clamp-2 mt-1">
+                        <Highlight text={dossier.description} query={search} />
+                      </p>
+                    )}
+
+                    <div className="flex items-center gap-2 flex-wrap mt-2 text-[11px] text-slate-500">
+                      <span className="font-mono">{formatDate(dossier.createdAt)}</span>
+                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full font-semibold ${
+                        count > 0 ? 'bg-blue-100 text-blue-800' : 'bg-slate-100 text-slate-500'
+                      }`}>
+                        <FileText className="w-3 h-3" />
+                        <span>{count} văn bản</span>
+                      </span>
+                      {isArchived ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full font-semibold bg-purple-100 text-purple-800 border border-purple-200">
+                          <Archive className="w-3 h-3" />
+                          Đã lưu trữ
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                          Đang hoạt động
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Mobile Card Actions */}
+                <div className="flex items-center justify-end gap-1 flex-wrap mt-2 pt-2 border-t border-slate-100">
+                  {canEditThisDossier(dossier) && dossier.level === 1 && !isArchived && (
+                    <>
+                      <button
+                        onClick={e => {
+                          e.stopPropagation()
+                          handleReorder(dossier.id, 'up')
+                        }}
+                        disabled={isFirstRoot || reorderingId === dossier.id}
+                        className="min-w-[40px] min-h-[40px] inline-flex items-center justify-center rounded-lg text-slate-600 hover:bg-slate-100 disabled:text-slate-300"
+                        title="Chuyển vị trí lên trên"
+                      >
+                        <ChevronUp className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={e => {
+                          e.stopPropagation()
+                          handleReorder(dossier.id, 'down')
+                        }}
+                        disabled={isLastRoot || reorderingId === dossier.id}
+                        className="min-w-[40px] min-h-[40px] inline-flex items-center justify-center rounded-lg text-slate-600 hover:bg-slate-100 disabled:text-slate-300"
+                        title="Chuyển vị trí xuống dưới"
+                      >
+                        <ChevronDown className="w-4 h-4" />
+                      </button>
+                    </>
+                  )}
+                  {perms.canCreateDossier && dossier.level < 3 && !isArchived && (
+                    <button
+                      onClick={e => {
+                        e.stopPropagation()
+                        onAddSubDossier(dossier)
+                      }}
+                      className="min-w-[40px] min-h-[40px] inline-flex items-center justify-center text-blue-600 hover:bg-blue-50 rounded-lg"
+                      title="Thêm hồ sơ con"
+                    >
+                      <FolderPlus className="w-4 h-4" />
+                    </button>
+                  )}
+                  {canEditThisDossier(dossier) && (
+                    <button
+                      onClick={e => {
+                        e.stopPropagation()
+                        onEditDossier(dossier)
+                      }}
+                      className="min-w-[40px] min-h-[40px] inline-flex items-center justify-center text-slate-600 hover:bg-slate-100 rounded-lg"
+                      title="Chỉnh sửa thông tin hồ sơ"
+                    >
+                      <Pencil className="w-4 h-4" />
+                    </button>
+                  )}
+                  {canEditThisDossier(dossier) && !isArchived && (
+                    <button
+                      onClick={e => {
+                        e.stopPropagation()
+                        setMovingDossier(dossier)
+                      }}
+                      className="min-w-[40px] min-h-[40px] inline-flex items-center justify-center text-amber-600 hover:bg-amber-50 rounded-lg"
+                      title="Di chuyển hồ sơ"
+                    >
+                      <FolderSymlink className="w-4 h-4" />
+                    </button>
+                  )}
+                  {onShareDossier && canEditThisDossier(dossier) && !isArchived && (
+                    <button
+                      onClick={e => {
+                        e.stopPropagation()
+                        onShareDossier(dossier)
+                      }}
+                      className="min-w-[40px] min-h-[40px] inline-flex items-center justify-center text-teal-600 hover:bg-teal-50 rounded-lg"
+                      title="Chia sẻ hồ sơ"
+                    >
+                      <Share2 className="w-4 h-4" />
+                    </button>
+                  )}
+                  {onTransferDossier && perms.canTransferDossier && !isArchived && (
+                    <button
+                      onClick={e => {
+                        e.stopPropagation()
+                        onTransferDossier(dossier)
+                      }}
+                      className="min-w-[40px] min-h-[40px] inline-flex items-center justify-center text-indigo-600 hover:bg-indigo-50 rounded-lg"
+                      title="Chuyển quyền sở hữu"
+                    >
+                      <UserCheck className="w-4 h-4" />
+                    </button>
+                  )}
+                  {canEditThisDossier(dossier) && (
+                    <button
+                      onClick={e => handleToggleArchive(dossier, e)}
+                      disabled={archivingId === dossier.id}
+                      className={`min-w-[40px] min-h-[40px] inline-flex items-center justify-center rounded-lg ${
+                        isArchived ? 'text-purple-700 hover:bg-purple-50' : 'text-amber-700 hover:bg-amber-50'
+                      }`}
+                      title={isArchived ? 'Bỏ lưu trữ' : 'Lưu trữ hồ sơ'}
+                    >
+                      {archivingId === dossier.id ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : isArchived ? (
+                        <ArchiveRestore className="w-4 h-4" />
+                      ) : (
+                        <Archive className="w-4 h-4" />
+                      )}
+                    </button>
+                  )}
+                  {canDeleteThisDossier(dossier) && (
+                    <button
+                      onClick={e => {
+                        e.stopPropagation()
+                        onDeleteDossier(dossier)
+                      }}
+                      className="min-w-[40px] min-h-[40px] inline-flex items-center justify-center text-red-600 hover:bg-red-50 rounded-lg"
+                      title="Xóa hồ sơ"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+              </div>
+            )
+          })
+        )}
+      </div>
+
+      {/* Main Tree Table (>= sm) */}
+      <div className="hidden sm:block overflow-x-auto max-w-full rounded-xl border border-slate-200 bg-white shadow-2xs">
         <table className="w-full text-left text-xs border-collapse">
           <thead>
             <tr className="bg-gradient-to-r from-slate-800 to-slate-700 text-slate-100 font-semibold uppercase text-[11px] tracking-wider border-b border-slate-700">

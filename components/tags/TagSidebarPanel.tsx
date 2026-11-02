@@ -63,7 +63,7 @@ export function TagSidebarPanel({ selectedTagId, onSelectTag }: TagSidebarPanelP
                     e.stopPropagation()
                     setEditingTag(t)
                   }}
-                  className="opacity-0 group-hover:opacity-100 p-0.5 text-slate-400 hover:text-blue-600 hover:bg-slate-200/60 rounded transition-all"
+                  className="opacity-0 group-hover:opacity-100 hover-reveal p-0.5 text-slate-400 hover:text-blue-600 hover:bg-slate-200/60 rounded transition-all"
                   title="Sửa hoặc gộp nhãn này"
                 >
                   <Pencil className="w-3 h-3" />

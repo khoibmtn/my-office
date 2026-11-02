@@ -39,9 +39,9 @@ export const TaskStatusBadge = React.memo(function TaskStatusBadge({ status, der
   const isSmall = size === 'sm'
 
   return (
-    <div className="flex items-center gap-1.5 flex-nowrap">
-      <span className={`inline-flex items-center gap-1 rounded-full border font-medium ${colors.bg} ${colors.text} ${colors.border} ${isSmall ? 'px-2 py-0.5 text-[11px]' : 'px-2.5 py-1 text-xs'}`}>
-        <Icon className={isSmall ? 'w-3 h-3' : 'w-3.5 h-3.5'} />
+    <div className="flex items-center gap-1.5 flex-wrap sm:flex-nowrap">
+      <span className={`inline-flex items-center gap-1 rounded-full border font-medium whitespace-nowrap ${colors.bg} ${colors.text} ${colors.border} ${isSmall ? 'px-2 py-0.5 text-[11px]' : 'px-2.5 py-1 text-xs'}`}>
+        <Icon className={isSmall ? 'w-3 h-3 shrink-0' : 'w-3.5 h-3.5 shrink-0'} />
         {label}
       </span>
 
@@ -51,9 +51,9 @@ export const TaskStatusBadge = React.memo(function TaskStatusBadge({ status, der
         return (
           <span
             key={state}
-            className={`inline-flex items-center gap-1 rounded-full font-medium ${dColors.bg} ${dColors.text} ${isSmall ? 'px-1.5 py-0.5 text-[10px]' : 'px-2 py-0.5 text-[11px]'}`}
+            className={`inline-flex items-center gap-1 rounded-full font-medium whitespace-nowrap ${dColors.bg} ${dColors.text} ${isSmall ? 'px-1.5 py-0.5 text-[10px]' : 'px-2 py-0.5 text-[11px]'}`}
           >
-            <DIcon className={isSmall ? 'w-2.5 h-2.5' : 'w-3 h-3'} />
+            <DIcon className={isSmall ? 'w-2.5 h-2.5 shrink-0' : 'w-3 h-3 shrink-0'} />
             {DERIVED_STATE_LABELS[state]}
           </span>
         )

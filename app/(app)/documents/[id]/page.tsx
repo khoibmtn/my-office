@@ -21,5 +21,9 @@ export default function DocumentPage() {
     </div>
   )
   if (doc === null) return <div className="p-8 text-slate-500">Không tìm thấy văn bản.</div>
-  return <DocumentViewer doc={doc} />
+  return (
+    <div className="w-full min-h-dvh lg:h-dvh min-w-0 max-w-full">
+      <DocumentViewer doc={doc} />
+    </div>
+  )
 }

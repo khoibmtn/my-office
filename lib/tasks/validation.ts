@@ -1,5 +1,5 @@
 import type { TaskStatus } from '@/types/tasks'
-import { VALID_TRANSITIONS, CLOSED_STATUSES } from './constants'
+import { VALID_TRANSITIONS, CLOSED_STATUSES, TASK_STATUS_LABELS } from './constants'
 
 /**
  * Check if a status transition is valid per the state machine.
@@ -20,6 +20,44 @@ export function computeIsClosed(status: TaskStatus): boolean {
 }
 
 /**
+ * A subtask is considered closed/done if `isClosed` is true or its `status` is in `CLOSED_STATUSES`
+ * ('completed' | 'cancelled'). Cancelled subtasks do NOT block completing the parent task.
+ */
+export function isSubtaskClosed(subtask: {
+  status: TaskStatus
+  isClosed?: boolean
+  deletedAt?: unknown
+}): boolean {
+  return Boolean(subtask.isClosed || CLOSED_STATUSES.includes(subtask.status))
+}
+
+/**
+ * Returns true if any non-deleted subtask is still open (not closed and status not in CLOSED_STATUSES).
+ */
+export function hasIncompleteSubtasksFromList(
+  subtasks: { status: TaskStatus; isClosed?: boolean; deletedAt?: unknown }[]
+): boolean {
+  return subtasks
+    .filter(s => !s.deletedAt)
+    .some(s => !isSubtaskClosed(s))
+}
+
+/**
+ * Compute parent task progress (0-100) from its subtasks when `progressMode === 'subtask'`.
+ * - Soft-deleted subtasks are ignored.
+ * - Cancelled subtasks (`status === 'cancelled'`) are excluded from the denominator.
+ * - Closed/completed subtasks count toward the numerator.
+ */
+export function computeParentSubtaskProgress(
+  subtasks: { status: TaskStatus; isClosed?: boolean; deletedAt?: unknown }[]
+): number {
+  const countable = subtasks.filter(s => !s.deletedAt && s.status !== 'cancelled')
+  if (countable.length === 0) return 0
+  const completedCount = countable.filter(s => isSubtaskClosed(s)).length
+  return Math.round((completedCount / countable.length) * 100)
+}
+
+/**
  * Validate a status change, including business rules.
  *
  * @param currentStatus - Current task status
@@ -32,17 +70,19 @@ export function validateStatusChange(
   newStatus: TaskStatus,
   hasIncompleteSubtasks: boolean = false
 ): { valid: boolean; error?: string } {
-  if (!isValidTransition(currentStatus, newStatus)) {
-    return {
-      valid: false,
-      error: `Không thể chuyển từ "${currentStatus}" sang "${newStatus}"`,
-    }
-  }
-
   if (newStatus === 'completed' && hasIncompleteSubtasks) {
     return {
       valid: false,
-      error: 'Không thể hoàn thành khi còn subtask chưa xong',
+      error: 'Không thể hoàn thành khi còn việc con (subtask) chưa xong',
+    }
+  }
+
+  if (!isValidTransition(currentStatus, newStatus)) {
+    const fromLabel = TASK_STATUS_LABELS[currentStatus] || currentStatus
+    const toLabel = TASK_STATUS_LABELS[newStatus] || newStatus
+    return {
+      valid: false,
+      error: `Không thể chuyển trạng thái từ "${fromLabel}" (${currentStatus}) sang "${toLabel}" (${newStatus})`,
     }
   }
 
@@ -81,4 +121,36 @@ export function detectDependencyCycle(
   }
 
   return dfs(toTask)
+}
+
+/**
+ * Validate a full list of dependency IDs to be set on `fromTask`.
+ * Rejects self-dependency or any cycle in `graph`.
+ */
+export function validateDependencyList(
+  fromTask: string,
+  dependsOnTaskIds: string[],
+  graph: Record<string, string[]>
+): { valid: boolean; error?: string; cyclicTaskId?: string } {
+  const workingGraph: Record<string, string[]> = {
+    ...graph,
+    [fromTask]: [],
+  }
+
+  for (const depId of dependsOnTaskIds) {
+    if (!depId) continue
+    if (detectDependencyCycle(fromTask, depId, workingGraph)) {
+      return {
+        valid: false,
+        cyclicTaskId: depId,
+        error:
+          fromTask === depId
+            ? 'Không thể tạo phụ thuộc vòng: công việc không thể phụ thuộc vào chính nó'
+            : 'Không thể thêm phụ thuộc: phát hiện phụ thuộc vòng giữa các công việc',
+      }
+    }
+    workingGraph[fromTask] = [...workingGraph[fromTask], depId]
+  }
+
+  return { valid: true }
 }

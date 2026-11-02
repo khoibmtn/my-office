@@ -39,7 +39,8 @@ import { CoDepartmentPicker } from '@/components/tasks/CoDepartmentPicker'
 import { useDocuments } from '@/hooks/useDocuments'
 import { useDossiers } from '@/hooks/useDossiers'
 import { useRole } from '@/hooks/useRole'
-import { createTask } from '@/lib/tasks/mutations'
+import { createTask, type CreateTaskInput } from '@/lib/tasks/mutations'
+import { validateDependencyList } from '@/lib/tasks/validation'
 import type { TaskPriority, TaskTemplate } from '@/types/tasks'
 import { TASK_PRIORITY_LABELS, TASK_PRIORITY_DOTS } from '@/lib/tasks/constants'
 import type { Dossier, Document } from '@/types'
@@ -299,8 +300,15 @@ export function TaskCreateForm({
   const [selectedDossierIds, setSelectedDossierIds] = useState<string[]>(initialData?.dossierIds || [])
   const [dependsOnTaskIds, setDependsOnTaskIds] = useState<string[]>([])
 
-  // Subtasks checklist state
-  const [subtasks, setSubtasks] = useState<{ id: string; title: string }[]>(() => {
+  // Subtasks checklist state (inherits parent assigneeId, departmentId, dueDate unless overridden)
+  const [subtasks, setSubtasks] = useState<{
+    id: string
+    title: string
+    assigneeId?: string
+    departmentId?: string
+    dueDate?: string
+    expanded?: boolean
+  }[]>(() => {
     return (initialData?.subtasks || []).map((t, i) => ({ id: `init-${i}`, title: t }))
   })
   const [newSubtaskTitle, setNewSubtaskTitle] = useState('')
@@ -352,28 +360,48 @@ export function TaskCreateForm({
       return
     }
 
+    if (dependsOnTaskIds.length > 0) {
+      const graph: Record<string, string[]> = {}
+      for (const t of existingTasks) {
+        graph[t.id] = t.dependsOnTaskIds || []
+      }
+      const depValidation = validateDependencyList('__new_task__', dependsOnTaskIds, graph)
+      if (!depValidation.valid) {
+        setError(depValidation.error || 'Phụ thuộc không hợp lệ')
+        return
+      }
+    }
+
     setSaving(true)
     setError(null)
 
     try {
       const chosenStaff = activeStaff.find(s => s.id === assigneeId || (s as any).staffId === assigneeId)
-      const input: any = {
+      const parentDueDateTs = dueDate ? Timestamp.fromDate(new Date(dueDate + 'T23:59:59')) : undefined
+      const input: CreateTaskInput = {
         title: title.trim(),
         description: description.trim() || undefined,
         priority,
         assigneeId: assigneeId || undefined,
         assigneeName: chosenStaff?.shortName || chosenStaff?.fullName || undefined,
+        assigneeDepartmentId: chosenStaff?.primaryDepartmentId ?? null,
         collaboratorIds: collaboratorIds.length > 0 ? collaboratorIds : undefined,
         departmentId: departmentId || undefined,
         cooperatingDepartmentIds: cooperatingDepartmentIds.length > 0 ? cooperatingDepartmentIds : undefined,
         tagIds: selectedTagIds.length > 0 ? selectedTagIds : undefined,
         dossierIds: selectedDossierIds.length > 0 ? selectedDossierIds : undefined,
         documentIds: selectedDocIds.length > 0 ? selectedDocIds : undefined,
-        source: initialData?.documentIds?.length ? 'document' : 'manual',
+        templateId: selectedTemplateId || undefined,
+        source: selectedTemplateId
+          ? 'template'
+          : initialData?.documentIds?.length
+            ? 'document'
+            : 'manual',
+        progressMode: subtasks.length > 0 ? 'subtask' : 'manual',
       }
 
-      if (dueDate) {
-        input.dueDate = Timestamp.fromDate(new Date(dueDate + 'T23:59:59'))
+      if (parentDueDateTs) {
+        input.dueDate = parentDueDateTs
       }
       if (startDate) {
         input.startDate = Timestamp.fromDate(new Date(startDate + 'T00:00:00'))
@@ -384,26 +412,34 @@ export function TaskCreateForm({
 
       if (dependsOnTaskIds.length > 0) {
         input.dependsOnTaskIds = dependsOnTaskIds
-        const uncompletedDeps = existingTasks.filter(
-          t => dependsOnTaskIds.includes(t.id) && t.status !== 'completed'
-        )
-        if (uncompletedDeps.length > 0) {
-          input.status = 'blocked'
-          input.blockedReason = 'dependency'
-          input.blockedByTaskIds = uncompletedDeps.map(t => t.id)
-        }
       }
 
       const taskId = await createTask(input, staffId || 'unknown', staffName || 'Admin')
 
-      // Create pre-created subtasks
+      // Create pre-created subtasks (defaulting to parent's assigneeId, departmentId, dueDate, overridable per subtask)
       if (subtasks.length > 0) {
         for (let i = 0; i < subtasks.length; i++) {
+          const st = subtasks[i]
+          const subAssigneeId = st.assigneeId !== undefined ? st.assigneeId : (assigneeId || '')
+          const subChosenStaff = subAssigneeId
+            ? activeStaff.find(s => s.id === subAssigneeId || (s as any).staffId === subAssigneeId)
+            : undefined
+          const subDepartmentId = st.departmentId !== undefined ? st.departmentId : (departmentId || '')
+          const subDueDateStr = st.dueDate !== undefined ? st.dueDate : dueDate
+          const subDueDateTs = subDueDateStr
+            ? Timestamp.fromDate(new Date(subDueDateStr + 'T23:59:59'))
+            : undefined
+
           await createTask({
-            title: subtasks[i].title,
+            title: st.title,
             parentTaskId: taskId,
             priority,
             sortOrder: i,
+            assigneeId: subAssigneeId || undefined,
+            assigneeName: subChosenStaff ? (subChosenStaff.shortName || subChosenStaff.fullName) : undefined,
+            assigneeDepartmentId: subChosenStaff?.primaryDepartmentId ?? null,
+            departmentId: subDepartmentId || undefined,
+            dueDate: subDueDateTs,
             dossierIds: selectedDossierIds.length > 0 ? selectedDossierIds : undefined,
             documentIds: selectedDocIds.length > 0 ? selectedDocIds : undefined,
           }, staffId || 'unknown', staffName || 'Admin')
@@ -561,6 +597,29 @@ export function TaskCreateForm({
               />
             </div>
           </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label className="text-xs font-semibold text-slate-700 mb-1 block">Ngày bắt đầu</Label>
+              <Input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="text-xs h-9"
+              />
+            </div>
+            <div>
+              <Label className="text-xs font-semibold text-slate-700 mb-1 block">Thời lượng ước tính (phút)</Label>
+              <Input
+                type="number"
+                min={0}
+                value={estimatedMinutes}
+                onChange={(e) => setEstimatedMinutes(e.target.value)}
+                placeholder="VD: 60"
+                className="text-xs h-9"
+              />
+            </div>
+          </div>
         </SectionCard>
 
         {/* Assignment */}
@@ -653,47 +712,113 @@ export function TaskCreateForm({
             </div>
 
             {subtasks.length > 0 && (
-              <div className="border border-slate-200 rounded-lg divide-y divide-slate-100 bg-slate-50/50 max-h-48 overflow-y-auto">
+              <div className="border border-slate-200 rounded-lg divide-y divide-slate-100 bg-slate-50/50 max-h-60 overflow-y-auto">
                 {subtasks.map((st, index) => (
-                  <div key={st.id} className="flex items-center gap-2 px-3 py-2 bg-white hover:bg-slate-50 group">
-                    <span className="text-[11px] font-bold text-slate-400 w-5 shrink-0">#{index + 1}</span>
-                    <input
-                      type="text"
-                      value={st.title}
-                      onChange={(e) => {
-                        const val = e.target.value
-                        setSubtasks(prev => prev.map((s, i) => i === index ? { ...s, title: val } : s))
-                      }}
-                      className="flex-1 min-w-0 text-xs text-slate-800 bg-transparent border-none focus:outline-none focus:ring-1 focus:ring-blue-400 rounded px-1"
-                    />
-                    <div className="flex items-center gap-0.5 opacity-60 group-hover:opacity-100 transition-opacity shrink-0">
-                      <button
-                        type="button"
-                        onClick={() => handleMoveSubtask(index, 'up')}
-                        disabled={index === 0}
-                        className="p-1 text-slate-400 hover:text-slate-700 disabled:opacity-20"
-                        title="Di chuyển lên"
-                      >
-                        <ChevronUp className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleMoveSubtask(index, 'down')}
-                        disabled={index === subtasks.length - 1}
-                        className="p-1 text-slate-400 hover:text-slate-700 disabled:opacity-20"
-                        title="Di chuyển xuống"
-                      >
-                        <ChevronDown className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveSubtask(st.id)}
-                        className="p-1 text-slate-400 hover:text-red-600"
-                        title="Xóa việc con"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                  <div key={st.id} className="bg-white hover:bg-slate-50 group">
+                    <div className="flex items-center gap-2 px-3 py-2">
+                      <span className="text-[11px] font-bold text-slate-400 w-5 shrink-0">#{index + 1}</span>
+                      <input
+                        type="text"
+                        value={st.title}
+                        onChange={(e) => {
+                          const val = e.target.value
+                          setSubtasks(prev => prev.map((s, i) => i === index ? { ...s, title: val } : s))
+                        }}
+                        className="flex-1 min-w-0 text-xs text-slate-800 bg-transparent border-none focus:outline-none focus:ring-1 focus:ring-blue-400 rounded px-1"
+                      />
+                      <div className="hover-reveal flex items-center gap-0.5 opacity-60 group-hover:opacity-100 transition-opacity shrink-0">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setSubtasks(prev =>
+                              prev.map((s, i) => (i === index ? { ...s, expanded: !s.expanded } : s))
+                            )
+                          }
+                          className={`p-1 hover:text-blue-600 ${
+                            st.expanded || st.assigneeId !== undefined || st.departmentId !== undefined || st.dueDate !== undefined
+                              ? 'text-blue-600'
+                              : 'text-slate-400'
+                          }`}
+                          title="Tuỳ chỉnh phân công / hạn riêng cho việc con"
+                        >
+                          <Settings2 className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleMoveSubtask(index, 'up')}
+                          disabled={index === 0}
+                          className="p-1 text-slate-400 hover:text-slate-700 disabled:opacity-20"
+                          title="Di chuyển lên"
+                        >
+                          <ChevronUp className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleMoveSubtask(index, 'down')}
+                          disabled={index === subtasks.length - 1}
+                          className="p-1 text-slate-400 hover:text-slate-700 disabled:opacity-20"
+                          title="Di chuyển xuống"
+                        >
+                          <ChevronDown className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveSubtask(st.id)}
+                          className="p-1 text-slate-400 hover:text-red-600"
+                          title="Xóa việc con"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </div>
+                    {st.expanded && (
+                      <div className="px-3 pb-2.5 pt-1 border-t border-slate-100 bg-slate-50/70 grid grid-cols-1 sm:grid-cols-3 gap-2 text-[11px]">
+                        <div>
+                          <label className="text-[10px] font-semibold text-slate-500 block mb-0.5">Người xử lý</label>
+                          <select
+                            value={st.assigneeId !== undefined ? st.assigneeId : assigneeId}
+                            onChange={(e) => {
+                              const val = e.target.value
+                              setSubtasks(prev => prev.map((s, i) => i === index ? { ...s, assigneeId: val } : s))
+                            }}
+                            className="w-full px-2 py-1 border border-slate-200 rounded bg-white text-xs text-slate-700"
+                          >
+                            <option value="">-- Chưa giao (kế thừa cha) --</option>
+                            {activeStaff.map(s => (
+                              <option key={s.id} value={s.id}>{s.shortName || s.fullName}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-semibold text-slate-500 block mb-0.5">Đơn vị</label>
+                          <select
+                            value={st.departmentId !== undefined ? st.departmentId : departmentId}
+                            onChange={(e) => {
+                              const val = e.target.value
+                              setSubtasks(prev => prev.map((s, i) => i === index ? { ...s, departmentId: val } : s))
+                            }}
+                            className="w-full px-2 py-1 border border-slate-200 rounded bg-white text-xs text-slate-700"
+                          >
+                            <option value="">-- Kế thừa việc cha --</option>
+                            {departments.map(d => (
+                              <option key={d.id} value={d.id}>{d.name}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-semibold text-slate-500 block mb-0.5">Hạn hoàn thành</label>
+                          <input
+                            type="date"
+                            value={st.dueDate !== undefined ? st.dueDate : dueDate}
+                            onChange={(e) => {
+                              const val = e.target.value
+                              setSubtasks(prev => prev.map((s, i) => i === index ? { ...s, dueDate: val } : s))
+                            }}
+                            className="w-full px-2 py-1 border border-slate-200 rounded bg-white text-xs text-slate-700"
+                          />
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>

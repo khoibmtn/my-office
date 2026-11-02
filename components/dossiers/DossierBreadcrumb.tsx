@@ -22,10 +22,10 @@ export function DossierBreadcrumb({
   isSharedRoot = false,
 }: DossierBreadcrumbProps) {
   return (
-    <nav className="flex items-center gap-1.5 text-sm text-slate-700 overflow-x-auto select-none py-0.5">
+    <nav className="flex items-center gap-1.5 text-sm text-slate-700 overflow-x-auto max-w-full min-w-0 select-none py-0.5">
       <button
         onClick={() => onNavigate(null)}
-        className="flex items-center gap-1.5 font-bold shrink-0 text-slate-800 hover:text-blue-600 transition-colors"
+        className="flex items-center gap-1.5 min-h-[40px] md:min-h-0 font-bold shrink-0 text-slate-800 hover:text-blue-600 transition-colors"
       >
         {isSharedRoot ? (
           <FolderSymlink className="w-5 h-5 text-blue-600 shrink-0" />
@@ -40,11 +40,11 @@ export function DossierBreadcrumb({
         return (
           <React.Fragment key={item.id}>
             <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />
-            <div className="flex items-center gap-1.5 shrink-0">
+            <div className="flex items-center gap-1.5 shrink-0 min-w-0">
               <button
                 onClick={() => onNavigate(item)}
                 disabled={isLast}
-                className={`flex items-center gap-1 font-semibold truncate max-w-[220px] transition-colors ${
+                className={`flex items-center gap-1 min-h-[40px] md:min-h-0 font-semibold truncate max-w-[160px] sm:max-w-[220px] transition-colors ${
                   isLast
                     ? 'text-blue-900 font-bold cursor-default'
                     : 'hover:text-blue-600 text-slate-600'
@@ -62,7 +62,7 @@ export function DossierBreadcrumb({
                 <button
                   type="button"
                   onClick={() => onToggleIncludeSubDossiers(!includeSubDossiers)}
-                  className={`ml-1.5 px-2.5 py-0.5 text-xs font-semibold rounded-full border transition-all flex items-center gap-1 cursor-pointer select-none ${
+                  className={`ml-1.5 px-2.5 py-0.5 min-h-[36px] md:min-h-0 text-xs font-semibold rounded-full border transition-all flex items-center gap-1 cursor-pointer select-none shrink-0 ${
                     includeSubDossiers
                       ? 'bg-blue-50 text-blue-700 border-blue-300 shadow-2xs hover:bg-blue-100'
                       : 'bg-amber-50 text-slate-600 border-amber-200/80 hover:bg-amber-100'

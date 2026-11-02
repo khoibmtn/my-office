@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useMemo, useCallback } from 'react'
+import React, { useState, useMemo, useCallback, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   GripVertical,
@@ -18,15 +18,24 @@ import {
 import type { Task, TaskStatus } from '@/types/tasks'
 import { useStaff } from '@/hooks/useStaff'
 import { useDepartments } from '@/hooks/useDepartments'
+import { useRole } from '@/hooks/useRole'
+import { useOrganization } from '@/hooks/useOrganization'
 import { TaskStatusBadge } from './TaskStatusBadge'
 import { TaskPriorityBadge } from './TaskPriorityBadge'
 import { computeDerivedStates } from '@/lib/tasks/progress'
-import { isValidTransition } from '@/lib/tasks/validation'
-import { updateTaskStatus } from '@/lib/tasks/mutations'
-import { TASK_STATUS_LABELS, TASK_STATUS_COLORS } from '@/lib/tasks/constants'
+import {
+  isValidTransition,
+  isSubtaskClosed,
+  hasIncompleteSubtasksFromList,
+  computeParentSubtaskProgress,
+} from '@/lib/tasks/validation'
+import { buildTaskActorContext } from '@/lib/tasks/permissions'
+import { changeTaskStatus } from '@/lib/tasks/mutations'
+import { TASK_STATUS_LABELS, TASK_STATUS_COLORS, VALID_TRANSITIONS } from '@/lib/tasks/constants'
 
 interface KanbanBoardProps {
   tasks: Task[]
+  allTasks?: Task[]
   actorId: string
   actorName: string
 }
@@ -91,32 +100,72 @@ function getDueDateStatus(dueDate: any, isClosed: boolean): { text: string; isOv
   }
 }
 
-export function KanbanBoard({ tasks, actorId, actorName }: KanbanBoardProps) {
+export function KanbanBoard({ tasks, allTasks, actorId, actorName }: KanbanBoardProps) {
   const router = useRouter()
   const { staff, getStaffName } = useStaff()
   const { departments } = useDepartments()
+  const { staffId, staffName, role, isAdmin } = useRole()
+  const { currentStaff, hasPermission } = useOrganization()
+
+  const actorCtx = useMemo(
+    () =>
+      buildTaskActorContext({
+        staffId: staffId || actorId,
+        staffName: staffName || actorName,
+        role,
+        isAdmin,
+        currentStaff,
+        hasPermission,
+        fallbackId: actorId,
+        fallbackName: actorName,
+      }),
+    [staffId, staffName, role, isAdmin, currentStaff, hasPermission, actorId, actorName]
+  )
 
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null)
   const [dragOverColumn, setDragOverColumn] = useState<TaskStatus | null>(null)
   // Optimistic status overrides for instant UI updates
   const [optimisticStatusMap, setOptimisticStatusMap] = useState<Record<string, TaskStatus>>({})
+  const [errorMsg, setErrorMsg] = useState<string | null>(null)
+  const [openMenuTaskId, setOpenMenuTaskId] = useState<string | null>(null)
 
-  // Compute subtask counts for parent tasks
-  const subtaskStats = useMemo(() => {
-    const stats: Record<string, { total: number; completed: number }> = {}
-    for (const t of tasks) {
-      if (t.parentTaskId) {
-        if (!stats[t.parentTaskId]) {
-          stats[t.parentTaskId] = { total: 0, completed: 0 }
+  useEffect(() => {
+    if (!openMenuTaskId) return
+    const handleOutsideClick = () => setOpenMenuTaskId(null)
+    document.addEventListener('click', handleOutsideClick)
+    return () => document.removeEventListener('click', handleOutsideClick)
+  }, [openMenuTaskId])
+
+  // Compute subtask counts for parent tasks using `allTasks` (including subtasks) when provided
+  // (cancelled subtasks do NOT block parent completion and are excluded from denominator)
+  const { subtasksByParentId, subtaskStats } = useMemo(() => {
+    const source = allTasks ?? tasks
+    const grouped: Record<string, Task[]> = {}
+    for (const t of source) {
+      if (t.parentTaskId && !t.deletedAt) {
+        if (!grouped[t.parentTaskId]) {
+          grouped[t.parentTaskId] = []
         }
-        stats[t.parentTaskId].total += 1
-        if (t.status === 'completed') {
-          stats[t.parentTaskId].completed += 1
-        }
+        grouped[t.parentTaskId].push(t)
       }
     }
-    return stats
-  }, [tasks])
+
+    const stats: Record<
+      string,
+      { total: number; completed: number; hasIncomplete: boolean; progress: number }
+    > = {}
+    for (const [parentId, subs] of Object.entries(grouped)) {
+      const countable = subs.filter(s => s.status !== 'cancelled')
+      const completed = countable.filter(s => isSubtaskClosed(s)).length
+      stats[parentId] = {
+        total: countable.length,
+        completed,
+        hasIncomplete: hasIncompleteSubtasksFromList(subs),
+        progress: computeParentSubtaskProgress(subs),
+      }
+    }
+    return { subtasksByParentId: grouped, subtaskStats: stats }
+  }, [allTasks, tasks])
 
   // Get department name helper
   const getDeptName = useCallback(
@@ -179,38 +228,37 @@ export function KanbanBoard({ tasks, actorId, actorName }: KanbanBoardProps) {
     }
   }
 
-  // Smart status transition: executes intermediate steps if required by state machine
+  // Direct status transition via changeTaskStatus (no fake intermediate steps)
   const executeStatusTransition = async (task: Task, targetStatus: TaskStatus) => {
     const current = task.status
     if (current === targetStatus) return
+
+    setErrorMsg(null)
+
+    if (!isValidTransition(current, targetStatus)) {
+      const fromLabel = TASK_STATUS_LABELS[current] || current
+      const toLabel = TASK_STATUS_LABELS[targetStatus] || targetStatus
+      setErrorMsg(`Không thể chuyển trực tiếp từ "${fromLabel}" sang "${toLabel}"`)
+      return
+    }
+
+    const stStats = subtaskStats[task.id]
+    if (targetStatus === 'completed' && stStats?.hasIncomplete) {
+      setErrorMsg('Không thể hoàn thành khi còn việc con (subtask) chưa xong')
+      return
+    }
 
     // Optimistic UI update
     setOptimisticStatusMap(prev => ({ ...prev, [task.id]: targetStatus }))
 
     try {
-      if (isValidTransition(current, targetStatus)) {
-        await updateTaskStatus(task.id, targetStatus, actorId, actorName)
-      } else {
-        // Multi-step transition resolution
-        if (current === 'pending' && targetStatus === 'completed') {
-          await updateTaskStatus(task.id, 'in_progress', actorId, actorName)
-          await updateTaskStatus(task.id, 'completed', actorId, actorName)
-        } else if (current === 'completed' && targetStatus === 'in_progress') {
-          await updateTaskStatus(task.id, 'pending', actorId, actorName)
-          await updateTaskStatus(task.id, 'in_progress', actorId, actorName)
-        } else if (current === 'in_progress' && targetStatus === 'pending') {
-          await updateTaskStatus(task.id, 'blocked', actorId, actorName, 'Chuyển về chờ xử lý')
-          await updateTaskStatus(task.id, 'pending', actorId, actorName)
-        } else if (current === 'blocked' && targetStatus === 'completed') {
-          await updateTaskStatus(task.id, 'in_progress', actorId, actorName)
-          await updateTaskStatus(task.id, 'completed', actorId, actorName)
-        } else {
-          // Direct fallback attempt
-          await updateTaskStatus(task.id, targetStatus, actorId, actorName)
-        }
-      }
-    } catch (err) {
+      await changeTaskStatus(task.id, targetStatus, actorCtx.actor, {
+        // undefined → changeTaskStatus reads subtasks from Firestore itself
+        subtasks: subtasksByParentId[task.id],
+      })
+    } catch (err: any) {
       console.error('Failed to update task status:', err)
+      setErrorMsg(err?.message || 'Không thể chuyển trạng thái công việc')
       // Revert optimistic on failure
       setOptimisticStatusMap(prev => {
         const next = { ...prev }
@@ -235,7 +283,24 @@ export function KanbanBoard({ tasks, actorId, actorName }: KanbanBoardProps) {
   }
 
   return (
-    <div className="flex gap-4 h-full overflow-x-auto pb-4 select-none">
+    <div className="flex flex-col h-full">
+      {errorMsg && (
+        <div className="mb-3 flex items-center justify-between gap-2 px-3.5 py-2.5 rounded-xl bg-red-50 border border-red-200 text-xs text-red-700 font-medium">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />
+            <span>{errorMsg}</span>
+          </div>
+          <button
+            type="button"
+            aria-label="Đóng thông báo lỗi"
+            onClick={() => setErrorMsg(null)}
+            className="text-red-500 hover:text-red-700 text-xs font-bold px-1.5 max-md:min-w-[40px] max-md:min-h-[40px] max-md:-my-1.5 max-md:-mr-2 max-md:inline-flex max-md:items-center max-md:justify-center"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+      <div className="flex gap-3 md:gap-4 flex-1 overflow-x-auto max-md:snap-x max-md:snap-mandatory pb-4 select-none">
       {KANBAN_COLUMNS.map(({ status, title, color, bgHeader }) => {
         const columnTasks = getColumnTasks(status)
         const isDragOver = dragOverColumn === status
@@ -243,7 +308,7 @@ export function KanbanBoard({ tasks, actorId, actorName }: KanbanBoardProps) {
         return (
           <div
             key={status}
-            className={`flex flex-col w-80 shrink-0 rounded-xl bg-slate-100/70 border-t-4 ${color} transition-all duration-150 ${
+            className={`flex flex-col w-[85vw] snap-start md:w-80 md:snap-align-none shrink-0 rounded-xl bg-slate-100/70 border-t-4 ${color} transition-all duration-150 ${
               isDragOver ? 'ring-2 ring-blue-500 bg-blue-50/50 scale-[1.01]' : 'border border-slate-200/80'
             }`}
             onDragOver={(e) => handleDragOver(e, status)}
@@ -276,6 +341,8 @@ export function KanbanBoard({ tasks, actorId, actorName }: KanbanBoardProps) {
                 const dueStatus = getDueDateStatus(task.dueDate, task.isClosed)
                 const assigneeName = resolveStaffName(task.assigneeId, task.assigneeName)
                 const deptName = getDeptName(task.departmentId)
+                const validNextStatuses = VALID_TRANSITIONS[task.status] || []
+                const isMenuOpen = openMenuTaskId === task.id
 
                 return (
                   <div
@@ -289,7 +356,7 @@ export function KanbanBoard({ tasks, actorId, actorName }: KanbanBoardProps) {
                       isDragging ? 'opacity-40 scale-95 ring-2 ring-blue-400' : 'shadow-2xs'
                     }`}
                   >
-                    {/* Top Row: Department / Tags & Priority */}
+                    {/* Top Row: Department / Tags & Priority + Mobile Status Menu */}
                     <div className="flex items-center justify-between gap-1 mb-2">
                       <div className="flex items-center gap-1.5 flex-wrap min-w-0">
                         {deptName && (
@@ -303,7 +370,53 @@ export function KanbanBoard({ tasks, actorId, actorName }: KanbanBoardProps) {
                           </span>
                         )}
                       </div>
-                      <TaskPriorityBadge priority={task.priority} size="sm" showLabel={true} />
+                      <div className="flex items-center gap-1 shrink-0">
+                        <TaskPriorityBadge priority={task.priority} size="sm" showLabel={true} />
+                        <div className="relative md:hidden" onClick={(e) => e.stopPropagation()}>
+                          <button
+                            type="button"
+                            aria-label="Chuyển trạng thái"
+                            title="Chuyển trạng thái"
+                            aria-expanded={isMenuOpen}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setOpenMenuTaskId(prev => (prev === task.id ? null : task.id))
+                            }}
+                            className="min-w-[40px] min-h-[40px] w-10 h-10 -mr-2 -my-2 inline-flex items-center justify-center rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-100 active:bg-slate-200 transition-colors"
+                          >
+                            <span className="text-base font-bold leading-none">⋯</span>
+                          </button>
+
+                          {isMenuOpen && (
+                            <div
+                              className="absolute right-0 top-full mt-1 w-48 bg-white rounded-xl shadow-lg border border-slate-200 py-1 z-30"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <div className="px-3 py-1.5 text-[10px] font-semibold text-slate-400 uppercase tracking-wider border-b border-slate-100">
+                                Chuyển trạng thái
+                              </div>
+                              {validNextStatuses.map((nextStatus) => {
+                                const statusColors = TASK_STATUS_COLORS[nextStatus]
+                                return (
+                                  <button
+                                    key={nextStatus}
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      setOpenMenuTaskId(null)
+                                      void executeStatusTransition(task, nextStatus)
+                                    }}
+                                    className="w-full min-h-[40px] px-3 py-2 text-left text-xs font-medium text-slate-700 hover:bg-slate-50 active:bg-slate-100 flex items-center gap-2 transition-colors"
+                                  >
+                                    <span className={`w-2 h-2 rounded-full shrink-0 ${statusColors.dot}`} />
+                                    <span>{TASK_STATUS_LABELS[nextStatus]}</span>
+                                  </button>
+                                )
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      </div>
                     </div>
 
                     {/* Task Title */}
@@ -396,13 +509,15 @@ export function KanbanBoard({ tasks, actorId, actorName }: KanbanBoardProps) {
 
               {columnTasks.length === 0 && (
                 <div className="text-center py-10 px-4 rounded-lg border-2 border-dashed border-slate-200 text-xs text-slate-400">
-                  Kéo thả công việc vào đây
+                  <span className="hidden md:inline">Kéo thả công việc vào đây</span>
+                  <span className="md:hidden">Chạm ⋯ để chuyển trạng thái</span>
                 </div>
               )}
             </div>
           </div>
         )
       })}
+      </div>
     </div>
   )
 }

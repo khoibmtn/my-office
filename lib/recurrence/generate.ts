@@ -6,9 +6,108 @@
  * based on a RecurrenceRule.
  */
 
-import type { RecurrenceRule } from './types'
+import type { RecurrenceRule, MisfirePolicy } from './types'
 
 const MAX_OCCURRENCES = 1000 // Safety cap
+const DAY_MS = 86400000
+
+/**
+ * Normalize misfirePolicy from possible legacy lowercase values
+ * ('create_missed' | 'skip_missed') to canonical uppercase ('CREATE_MISSED' | 'SKIP_MISSED').
+ */
+export function normalizeMisfirePolicy(policy?: string | null): MisfirePolicy {
+  if (!policy) return 'CREATE_MISSED'
+  const normalized = String(policy).trim().toUpperCase()
+  if (normalized === 'SKIP_MISSED') return 'SKIP_MISSED'
+  return 'CREATE_MISSED'
+}
+
+function getTimezoneOffsetMs(utcMs: number, timezone: string): number {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: timezone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(new Date(utcMs))
+
+  const y = Number(parts.find(p => p.type === 'year')?.value ?? 0)
+  const m = Number(parts.find(p => p.type === 'month')?.value ?? 1)
+  const d = Number(parts.find(p => p.type === 'day')?.value ?? 1)
+  const rawHour = Number(parts.find(p => p.type === 'hour')?.value ?? 0)
+  const h = rawHour === 24 ? 0 : rawHour
+  const min = Number(parts.find(p => p.type === 'minute')?.value ?? 0)
+  const s = Number(parts.find(p => p.type === 'second')?.value ?? 0)
+
+  const wallAsUtcMs = Date.UTC(y, m - 1, d, h, min, s, 0)
+  const truncatedUtcMs = Math.floor(utcMs / 1000) * 1000
+  return wallAsUtcMs - truncatedUtcMs
+}
+
+/**
+ * Get the exact instant corresponding to 00:00:00.000 of "today" in the given IANA timezone
+ * (e.g. Asia/Ho_Chi_Minh -> 17:00:00.000Z of the previous UTC calendar day).
+ */
+export function getStartOfTodayInTimezone(
+  now: Date = new Date(),
+  timezone: string = 'Asia/Ho_Chi_Minh'
+): Date {
+  try {
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone: timezone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).formatToParts(now)
+    const year = Number(parts.find(p => p.type === 'year')?.value ?? now.getUTCFullYear())
+    const month = Number(parts.find(p => p.type === 'month')?.value ?? (now.getUTCMonth() + 1))
+    const day = Number(parts.find(p => p.type === 'day')?.value ?? now.getUTCDate())
+
+    const midnightWallUtcGuess = Date.UTC(year, month - 1, day, 0, 0, 0, 0)
+    const firstOffset = getTimezoneOffsetMs(midnightWallUtcGuess, timezone)
+    const candidateMs = midnightWallUtcGuess - firstOffset
+    const secondOffset = getTimezoneOffsetMs(candidateMs, timezone)
+    return new Date(midnightWallUtcGuess - secondOffset)
+  } catch {
+    return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0))
+  }
+}
+
+/**
+ * Resolve the effective windowStart for occurrence generation, applying misfirePolicy.
+ * When SKIP_MISSED: windowStart = max(lastGenerated + 1 day (or startDate), today 00:00 Asia/Ho_Chi_Minh).
+ * When CREATE_MISSED: windowStart = lastGenerated + 1 day (or startDate, or now).
+ */
+export function resolveWindowStart(params: {
+  lastGeneratedDate?: Date | null
+  startDate?: Date | null
+  misfirePolicy?: string | null
+  now?: Date
+  timezone?: string
+}): Date {
+  const now = params.now ?? new Date()
+  const tz = params.timezone || 'Asia/Ho_Chi_Minh'
+  const policy = normalizeMisfirePolicy(params.misfirePolicy)
+
+  let baseStart: Date
+  if (params.lastGeneratedDate) {
+    baseStart = new Date(params.lastGeneratedDate.getTime() + DAY_MS)
+  } else if (params.startDate) {
+    baseStart = new Date(params.startDate.getTime())
+  } else {
+    baseStart = new Date(now.getTime())
+  }
+
+  if (policy === 'SKIP_MISSED') {
+    const todayStart = getStartOfTodayInTimezone(now, tz)
+    return baseStart.getTime() > todayStart.getTime() ? baseStart : todayStart
+  }
+
+  return baseStart
+}
 
 /**
  * Resolve the last day of a given month.
@@ -30,25 +129,41 @@ export function resolveLastDay(year: number, month: number): number {
  *   4. Filter to [windowStart, windowEnd]
  *   5. Cap at MAX_OCCURRENCES
  */
+export interface GenerateOccurrencesOptions {
+  misfirePolicy?: MisfirePolicy | 'create_missed' | 'skip_missed' | string | null
+  now?: Date
+}
+
 export function generateOccurrences(
   rule: RecurrenceRule,
   windowStart: Date,
-  windowEnd: Date
+  windowEnd: Date,
+  options?: GenerateOccurrencesOptions
 ): Date[] {
-  if (windowEnd < windowStart) return []
+  let effectiveStart = windowStart
+  if (options?.misfirePolicy && normalizeMisfirePolicy(options.misfirePolicy) === 'SKIP_MISSED') {
+    const todayStart = getStartOfTodayInTimezone(
+      options.now ?? new Date(),
+      rule.timezone || 'Asia/Ho_Chi_Minh'
+    )
+    if (todayStart.getTime() > effectiveStart.getTime()) {
+      effectiveStart = todayStart
+    }
+  }
 
-  const results: Date[] = []
+  if (windowEnd < effectiveStart) return []
+
   const anchor = new Date(rule.anchorDate)
 
   switch (rule.frequency) {
     case 'daily':
-      return generateDaily(rule, anchor, windowStart, windowEnd)
+      return generateDaily(rule, anchor, effectiveStart, windowEnd)
     case 'weekly':
-      return generateWeekly(rule, anchor, windowStart, windowEnd)
+      return generateWeekly(rule, anchor, effectiveStart, windowEnd)
     case 'monthly':
-      return generateMonthly(rule, anchor, windowStart, windowEnd)
+      return generateMonthly(rule, anchor, effectiveStart, windowEnd)
     case 'yearly':
-      return generateYearly(rule, anchor, windowStart, windowEnd)
+      return generateYearly(rule, anchor, effectiveStart, windowEnd)
     default:
       return []
   }
@@ -329,4 +444,13 @@ export function occurrenceDocId(seriesId: string, date: Date): string {
   const m = String(date.getMonth() + 1).padStart(2, '0')
   const d = String(date.getDate()).padStart(2, '0')
   return `${seriesId}__${y}-${m}-${d}`
+}
+
+/**
+ * Generate a deterministic document ID for an after_completion occurrence
+ * based on the completed predecessor task ID.
+ * Format: "{seriesId}_after_{previousTaskId}"
+ */
+export function afterCompletionDocId(seriesId: string, previousTaskId: string): string {
+  return `${seriesId}_after_${previousTaskId}`
 }

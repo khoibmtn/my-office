@@ -123,3 +123,31 @@ textarea:focus {
 .focus-ring:focus-visible {
   box-shadow: 0 0 0 2px #fff, 0 0 0 4px #3b82f6;
 }
+
+@layer utilities {
+  /* Touch target utility (>= 44x44px) */
+  .tap,
+  button[aria-label="Thông báo"] {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  /* Reveal hover-only actions on touch devices */
+  @media (hover: none) {
+    .hover-reveal {
+      opacity: 1 !important;
+    }
+  }
+}
+
+/* Prevent iOS Safari auto-zoom on form controls (< 768px) */
+@media (max-width: 767px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}

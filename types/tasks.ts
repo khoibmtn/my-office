@@ -1,5 +1,8 @@
 import { Timestamp } from 'firebase/firestore'
 import type { Attachment } from './index'
+import type { MisfirePolicy } from '@/lib/recurrence/types'
+
+export type { MisfirePolicy }
 
 // ===== Task Status & Priority =====
 
@@ -147,7 +150,7 @@ export interface TaskSeries {
   status: 'active' | 'paused' | 'ended'
   startDate: Timestamp
   endDate: Timestamp | null            // null = infinite
-  misfirePolicy: 'CREATE_MISSED' | 'SKIP_MISSED'
+  misfirePolicy: MisfirePolicy
 
   // Generation
   rollingWindowDays: number            // Scheduler generates this far ahead (default: 14)

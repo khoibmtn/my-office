@@ -43,7 +43,7 @@ export interface RecurrenceRule {
   timezone: string
 }
 
-export type MisfirePolicy = 'create_missed' | 'skip_missed'
+export type MisfirePolicy = 'CREATE_MISSED' | 'SKIP_MISSED'
 
 export interface SeriesScheduleConfig {
   rule: RecurrenceRule

@@ -3,7 +3,7 @@
 import React, { useEffect, useState, useMemo, useCallback, useRef, Suspense } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
-import { Loader2, FileText, LogIn, LogOut, Settings, Menu, X, User, Folder, ChevronDown, ChevronRight, CheckSquare, LayoutDashboard, Kanban, CalendarDays, RefreshCw, PlusCircle } from 'lucide-react'
+import { Loader2, FileText, LogIn, LogOut, Settings, Menu, X, User, Folder, ChevronDown, ChevronRight, CheckSquare, LayoutDashboard, Kanban, CalendarDays, RefreshCw, PlusCircle, Search } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { useRole } from '@/hooks/useRole'
 import { usePermissions } from '@/hooks/usePermissions'
@@ -15,6 +15,7 @@ import { NotificationBell } from '@/components/notifications/NotificationBell'
 import { useRecurringScheduler } from '@/hooks/useRecurringScheduler'
 import { GlobalDataProvider } from '@/contexts/GlobalDataProvider'
 import { DriveTokenBanner } from '@/components/drive/DriveTokenBanner'
+import { MobileTabBar } from '@/components/layout/MobileTabBar'
 
 function InnerAppLayout({ children }: { children: React.ReactNode }) {
   useRecurringScheduler()
@@ -31,9 +32,24 @@ function InnerAppLayout({ children }: { children: React.ReactNode }) {
 
   // Resizable sidebar width (min 200px, default 260px, max 480px)
   const [sidebarWidth, setSidebarWidth] = useState(260)
+  const [isDesktop, setIsDesktop] = useState(false)
   const isResizingRef = useRef(false)
   const sidebarWidthRef = useRef(sidebarWidth)
   sidebarWidthRef.current = sidebarWidth
+
+  // Track lg breakpoint (>= 1024px) so inline sidebarWidth only applies on desktop
+  useEffect(() => {
+    const mql = window.matchMedia('(min-width:1024px)')
+    const handleChange = () => setIsDesktop(mql.matches)
+    handleChange()
+    if (mql.addEventListener) {
+      mql.addEventListener('change', handleChange)
+      return () => mql.removeEventListener('change', handleChange)
+    } else {
+      mql.addListener(handleChange)
+      return () => mql.removeListener(handleChange)
+    }
+  }, [])
 
   // Restore saved width from localStorage
   useEffect(() => {
@@ -75,12 +91,41 @@ function InnerAppLayout({ children }: { children: React.ReactNode }) {
 
   const handleSelectTag = (tagId: string | null) => {
     setSelectedTagId(tagId)
+    setSidebarOpen(false)
     if (tagId) {
       router.push(`/documents?tagId=${encodeURIComponent(tagId)}`)
     } else {
       router.push('/documents')
     }
   }
+
+  const headerInfo = useMemo(() => {
+    if (pathname.startsWith('/tasks/kanban')) {
+      return { title: 'Kanban', Icon: Kanban }
+    }
+    if (pathname.startsWith('/tasks/calendar')) {
+      return { title: 'Lịch', Icon: CalendarDays }
+    }
+    if (pathname.startsWith('/tasks/recurring')) {
+      return { title: 'Định kỳ', Icon: RefreshCw }
+    }
+    if (pathname.startsWith('/tasks')) {
+      return { title: 'Công việc', Icon: CheckSquare }
+    }
+    if (pathname.startsWith('/dossiers')) {
+      return { title: 'Hồ sơ', Icon: Folder }
+    }
+    if (pathname.startsWith('/dashboard') || pathname === '/') {
+      return { title: 'Dashboard', Icon: LayoutDashboard }
+    }
+    if (pathname.startsWith('/settings')) {
+      return { title: 'Cài đặt', Icon: Settings }
+    }
+    if (pathname.startsWith('/search')) {
+      return { title: 'Tìm kiếm', Icon: Search }
+    }
+    return { title: 'Văn bản', Icon: FileText }
+  }, [pathname])
 
   const NAV = useMemo(() => {
     const items = [
@@ -109,30 +154,31 @@ function InnerAppLayout({ children }: { children: React.ReactNode }) {
   // Show loading spinner while auto-authenticating (usually < 1s)
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+      <div className="min-h-dvh flex items-center justify-center bg-slate-50">
         <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
       </div>
     )
   }
 
   return (
-    <div className="h-screen flex bg-slate-50 overflow-hidden">
+    <div className="h-dvh w-full max-w-full flex bg-slate-50 overflow-hidden">
       {/* Mobile overlay */}
       {sidebarOpen && (
         <div
           className="fixed inset-0 bg-black/30 z-40 lg:hidden transition-opacity"
           onClick={() => setSidebarOpen(false)}
+          aria-hidden="true"
         />
       )}
 
       {/* Sidebar — fixed height, resizable width on desktop */}
       <aside
-        style={{ width: `${sidebarWidth}px` }}
+        style={isDesktop ? { width: `${sidebarWidth}px` } : undefined}
         className={`
-          fixed inset-y-0 left-0 z-50 bg-white border-r border-slate-200
-          flex flex-col h-screen relative group/sidebar
+          fixed inset-y-0 left-0 z-50 w-[85vw] max-w-[320px] lg:w-[260px] lg:max-w-none bg-white border-r border-slate-200
+          flex flex-col h-dvh group/sidebar
           transform transition-transform duration-200 ease-out
-          lg:translate-x-0 lg:static lg:shrink-0 lg:z-auto
+          lg:translate-x-0 lg:relative lg:shrink-0 lg:z-auto
           ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
         `}
       >
@@ -151,7 +197,8 @@ function InnerAppLayout({ children }: { children: React.ReactNode }) {
             {!isGuest && <NotificationBell userId={user?.uid || null} />}
             <button
               onClick={() => setSidebarOpen(false)}
-              className="lg:hidden p-1 rounded hover:bg-slate-100 transition-colors"
+              aria-label="Đóng menu"
+              className="tap lg:hidden -mr-2 rounded-lg hover:bg-slate-100 transition-colors"
             >
               <X className="w-5 h-5 text-slate-500" />
             </button>
@@ -176,7 +223,7 @@ function InnerAppLayout({ children }: { children: React.ReactNode }) {
                             : 'text-slate-600'
                         }`}
                       >
-                        <Icon className="h-4.5 w-4.5 shrink-0 text-blue-600" />
+                        <Icon className="h-[18px] w-[18px] shrink-0 text-blue-600" />
                         <span className="flex-1">{label}</span>
                         <ChevronDown className="w-4 h-4 text-slate-400 shrink-0" />
                       </div>
@@ -187,13 +234,14 @@ function InnerAppLayout({ children }: { children: React.ReactNode }) {
                 ) : (
                   <Link
                     href={href}
+                    onClick={() => setSidebarOpen(false)}
                     className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors shrink-0 ${
                       active
                         ? 'bg-slate-100 text-slate-900 font-semibold'
                         : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
                     }`}
                   >
-                    <Icon className="h-4.5 w-4.5 shrink-0 text-blue-600" />
+                    <Icon className="h-[18px] w-[18px] shrink-0 text-blue-600" />
                     <span className="flex-1">{label}</span>
                   </Link>
                 )}
@@ -226,7 +274,7 @@ function InnerAppLayout({ children }: { children: React.ReactNode }) {
               {addMenuOpen && (
                 <>
                   <div className="fixed inset-0 z-40" onClick={() => setAddMenuOpen(false)} />
-                  <div className="absolute bottom-full left-0 right-0 mb-1 z-50 bg-white border border-slate-200 rounded-lg shadow-lg overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-150">
+                  <div className="absolute bottom-full left-0 right-0 mb-1 z-50 bg-white border border-slate-200 rounded-lg shadow-lg overflow-hidden">
                     <button
                       onClick={() => { setAddMenuOpen(false); setSidebarOpen(false); router.push('/tasks/new') }}
                       className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
@@ -296,30 +344,31 @@ function InnerAppLayout({ children }: { children: React.ReactNode }) {
       </aside>
 
       {/* Main content — scrolls independently */}
-      <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
+      <div className="flex-1 flex flex-col min-w-0 max-w-full h-dvh overflow-hidden">
         {/* Mobile header */}
         <header className="lg:hidden flex items-center h-14 px-4 bg-white border-b border-slate-200 shrink-0 z-30">
           <button
             onClick={() => setSidebarOpen(true)}
-            className="p-2 -ml-1 rounded-lg hover:bg-slate-100 transition-colors"
+            aria-label="Mở menu"
+            className="tap -ml-2 w-11 h-11 rounded-lg hover:bg-slate-100 transition-colors shrink-0"
           >
             <Menu className="w-5 h-5 text-slate-600" />
           </button>
-          <div className="flex items-center gap-2 ml-3">
-            <FileText className="w-5 h-5 text-blue-600" />
-            <span className="font-semibold text-slate-900">Văn bản</span>
+          <div className="flex items-center gap-2 ml-2 min-w-0">
+            <headerInfo.Icon className="w-5 h-5 text-blue-600 shrink-0" />
+            <span className="font-semibold text-slate-900 truncate">{headerInfo.title}</span>
           </div>
           <div className="flex-1" />
           {!isGuest && (
-            <div className="mr-2">
+            <div className="mr-1 flex items-center shrink-0">
               <NotificationBell userId={user?.uid || null} />
             </div>
           )}
           {perms.canAddDocument && (
             <Button
               size="sm"
-              className="h-8 text-xs"
-              onClick={() => router.push('/documents/new')}
+              className="tap min-h-[44px] min-w-[44px] h-11 px-3 text-xs shrink-0"
+              onClick={() => router.push(pathname.startsWith('/tasks') ? '/tasks/new' : '/documents/new')}
             >
               + Thêm
             </Button>
@@ -329,7 +378,7 @@ function InnerAppLayout({ children }: { children: React.ReactNode }) {
         {/* Drive OAuth Token Status & Auto-Renew Bar */}
         <DriveTokenBanner />
 
-        <main className="flex-1 overflow-y-auto">
+        <main className="flex-1 w-full max-w-full overflow-y-auto overflow-x-hidden pb-[calc(4rem+env(safe-area-inset-bottom))] lg:pb-0">
           <Suspense fallback={
             <div className="h-full flex items-center justify-center bg-slate-50">
               <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
@@ -338,6 +387,8 @@ function InnerAppLayout({ children }: { children: React.ReactNode }) {
             {children}
           </Suspense>
         </main>
+
+        <MobileTabBar items={NAV} canAddDocument={perms.canAddDocument} />
       </div>
     </div>
   )

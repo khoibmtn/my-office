@@ -111,6 +111,7 @@ export interface Document {
   coAssigneeIds?: string[]   // Người phối hợp (mảng staffId)
   coAssignees?: string[]     // Legacy/Short names người phối hợp
   dossierIds?: string[]      // Danh sách ID các hồ sơ chứa văn bản này
+  taskIds?: string[]         // Danh sách ID các công việc liên kết với văn bản này
   priority?: string
   notes?: string
   tags?: string[]            // Legacy tag names

@@ -1,168 +1,297 @@
 'use client'
 
-import React, { useState, useMemo } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
-  Loader2, User, Users, CheckCircle2, Clock, AlertCircle,
-  TrendingUp, ArrowRight, ShieldCheck, UserCheck, BarChart3,
-  Calendar, Layers, Filter
+  Loader2, User, Users, AlertCircle, FileText,
+  Building2, Filter, ArrowRight,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useRole } from '@/hooks/useRole'
-import { useTasks } from '@/hooks/useTasks'
+import {
+  useTasks,
+  isVisibleTask,
+  computeTaskStats,
+  filterTasksByParams,
+  toMillis,
+} from '@/hooks/useTasks'
 import { useStaff } from '@/hooks/useStaff'
-import { useDepartments } from '@/hooks/useDepartments'
-import { TaskDashboard } from '@/components/tasks/TaskDashboard'
+import { useOrganization } from '@/hooks/useOrganization'
+import { useDocuments } from '@/hooks/useDocuments'
+import { checkPermissionForRole } from '@/lib/permissions'
+import { TaskDashboard, buildTasksFilterHref } from '@/components/tasks/TaskDashboard'
 import { TaskTable } from '@/components/tasks/TaskTable'
+
+function formatShortDate(val: unknown): string {
+  const ms = toMillis(val)
+  if (ms === null) return '—'
+  return new Date(ms).toLocaleDateString('vi-VN', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  })
+}
 
 export default function DashboardPage() {
   const router = useRouter()
-  const { staffId, staffName, isAdmin } = useRole()
-  const { staff: staffList } = useStaff()
-  const { departments } = useDepartments()
+  const { role, staffId, staffName, isAdmin, isTruongPhong, isPhoPhong } = useRole()
+  const { staff: staffList, getStaffName } = useStaff()
+  const { departments, currentStaff, hasPermission, permissionMatrix } = useOrganization()
+  const { documents } = useDocuments()
   const { tasks: allTasks, loading } = useTasks({ view: 'all' })
 
-  // View mode toggle: 'personal' (individual staff) vs 'manager' (lead/admin)
-  const [viewMode, setViewMode] = useState<'personal' | 'manager'>(isAdmin ? 'manager' : 'personal')
+  // Keep `now` in state and refresh every 60s so `useMemo` hooks don't recalculate on every render
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 60_000)
+    return () => clearInterval(timer)
+  }, [])
+
+  // Check `org:manage_staff` permission for the "Quản lý nhân sự" button
+  const canManageStaff = useMemo(() => {
+    if (isAdmin) return true
+    return (
+      hasPermission('org:manage_staff') ||
+      checkPermissionForRole(permissionMatrix, role, 'org:manage_staff')
+    )
+  }, [isAdmin, hasPermission, permissionMatrix, role])
+
+  const isDepartmentLeader = useMemo(() => {
+    return !isAdmin && (isTruongPhong || isPhoPhong || role === 'truong_phong' || role === 'pho_phong')
+  }, [isAdmin, isTruongPhong, isPhoPhong, role])
+
+  // View mode toggle: 'manager' (scoped by role) vs 'personal' (own tasks only)
+  const [viewMode, setViewMode] = useState<'personal' | 'manager'>('manager')
   const [selectedDeptFilter, setSelectedDeptFilter] = useState<string>('all')
 
-  // Top level active tasks (exclude subtasks from top-level counts)
-  const topLevelTasks = useMemo(() => {
-    return allTasks.filter(t => !t.parentTaskId && !t.deletedAt)
-  }, [allTasks])
-
-  const now = Date.now()
-
-  // Dynamic global/manager stats
-  const globalStats = useMemo(() => {
-    return {
-      id: 'dynamic',
-      scope: 'global' as const,
-      scopeId: 'all',
-      pending: topLevelTasks.filter(t => t.status === 'pending').length,
-      inProgress: topLevelTasks.filter(t => t.status === 'in_progress').length,
-      blocked: topLevelTasks.filter(t => t.status === 'blocked').length,
-      completed: topLevelTasks.filter(t => t.status === 'completed').length,
-      cancelled: topLevelTasks.filter(t => t.status === 'cancelled').length,
-      overdue: topLevelTasks.filter(t => {
-        if (t.isClosed || !t.dueDate) return false
-        const due = (t.dueDate as any).toMillis ? (t.dueDate as any).toMillis() : (t.dueDate as any).seconds * 1000
-        return due < now
-      }).length,
-      completedThisWeek: topLevelTasks.filter(t => t.status === 'completed').length,
-      completedThisMonth: topLevelTasks.filter(t => t.status === 'completed').length,
-      updatedAt: null as any,
+  // Current staff's department IDs (for truong_phong / pho_phong scoping, supports >=2 departments)
+  const myDepartmentIds = useMemo(() => {
+    const ids = new Set<string>()
+    if (currentStaff?.primaryDepartmentId) ids.add(currentStaff.primaryDepartmentId)
+    currentStaff?.departmentIds?.forEach((id) => {
+      if (id) ids.add(id)
+    })
+    if (staffId) {
+      departments.forEach((d) => {
+        if (d.headStaffId === staffId || d.deputyStaffIds?.includes(staffId)) {
+          ids.add(d.id)
+        }
+      })
     }
-  }, [topLevelTasks, now])
+    return Array.from(ids)
+  }, [currentStaff, staffId, departments])
 
-  // Personal tasks
-  const personalTasks = useMemo(() => {
-    if (!staffId) return []
-    return topLevelTasks.filter(t =>
-      t.assigneeId === staffId ||
-      t.collaboratorIds?.includes(staffId)
+  const isPersonalScope = viewMode === 'personal' || (!isAdmin && !isDepartmentLeader)
+  const activeAssigneeParam = isPersonalScope ? staffId || '__none__' : undefined
+  const activeIncludeCollaborator = isPersonalScope
+  const baseDeptParam =
+    !isPersonalScope && isDepartmentLeader
+      ? myDepartmentIds.length > 0
+        ? myDepartmentIds.join(',')
+        : '__none__'
+      : undefined
+
+  // Step 1: filter visible top-level tasks (not deleted, visibleFrom <= now, parentTaskId == null)
+  const visibleTasks = useMemo(() => {
+    return allTasks.filter((t) => isVisibleTask(t, now))
+  }, [allTasks, now])
+
+  // Step 2: scope tasks by role using exact same filter helper as /tasks page
+  const scopedTasks = useMemo(() => {
+    return filterTasksByParams(
+      visibleTasks,
+      {
+        assigneeId: activeAssigneeParam,
+        includeCollaborator: activeIncludeCollaborator,
+        departmentId: baseDeptParam,
+      },
+      now
     )
-  }, [topLevelTasks, staffId])
+  }, [visibleTasks, activeAssigneeParam, activeIncludeCollaborator, baseDeptParam, now])
 
-  // Dynamic personal stats
-  const personalStats = useMemo(() => {
-    return {
-      id: 'personal',
-      scope: 'user' as const,
-      scopeId: staffId || 'unknown',
-      pending: personalTasks.filter(t => t.status === 'pending').length,
-      inProgress: personalTasks.filter(t => t.status === 'in_progress').length,
-      blocked: personalTasks.filter(t => t.status === 'blocked').length,
-      completed: personalTasks.filter(t => t.status === 'completed').length,
-      cancelled: personalTasks.filter(t => t.status === 'cancelled').length,
-      overdue: personalTasks.filter(t => {
-        if (t.isClosed || !t.dueDate) return false
-        const due = (t.dueDate as any).toMillis ? (t.dueDate as any).toMillis() : (t.dueDate as any).seconds * 1000
-        return due < now
-      }).length,
-      completedThisWeek: personalTasks.filter(t => t.status === 'completed').length,
-      completedThisMonth: personalTasks.filter(t => t.status === 'completed').length,
-      updatedAt: null as any,
+  // Scoped departments for department breakdown & filter dropdown
+  const scopedDepartments = useMemo(() => {
+    if (isAdmin && !isPersonalScope) {
+      return departments
     }
-  }, [personalTasks, staffId, now])
+    if (isDepartmentLeader && !isPersonalScope) {
+      return departments.filter((d) => myDepartmentIds.includes(d.id))
+    }
+    return departments.filter(
+      (d) =>
+        myDepartmentIds.includes(d.id) ||
+        scopedTasks.some((t) => (t.departmentId || t.assigneeDepartmentId) === d.id)
+    )
+  }, [departments, isAdmin, isDepartmentLeader, isPersonalScope, myDepartmentIds, scopedTasks])
 
-  // Global overdue tasks
-  const globalOverdueList = useMemo(() => {
-    return topLevelTasks.filter(t => {
-      if (t.isClosed || !t.dueDate) return false
-      const due = (t.dueDate as any).toMillis ? (t.dueDate as any).toMillis() : (t.dueDate as any).seconds * 1000
-      return due < now
-    })
-  }, [topLevelTasks, now])
+  // Block 1: Main stats computed via pure helper `computeTaskStats`
+  const dashboardStats = useMemo(() => {
+    return computeTaskStats(scopedTasks, now)
+  }, [scopedTasks, now])
 
-  // Personal overdue tasks
-  const personalOverdueList = useMemo(() => {
-    return personalTasks.filter(t => {
-      if (t.isClosed || !t.dueDate) return false
-      const due = (t.dueDate as any).toMillis ? (t.dueDate as any).toMillis() : (t.dueDate as any).seconds * 1000
-      return due < now
-    })
-  }, [personalTasks, now])
+  const personTableDeptParam =
+    selectedDeptFilter !== 'all' ? selectedDeptFilter : baseDeptParam
 
-  // Personal active tasks
-  const personalActiveTasks = useMemo(() => {
-    return personalTasks.filter(t => !t.isClosed)
-  }, [personalTasks])
-
-  // Staff performance & workload aggregation for Manager view
-  const staffWorkload = useMemo(() => {
-    const activeStaff = staffList.filter(s => s.isActive)
-    return activeStaff.map(s => {
-      const assigned = topLevelTasks.filter(t => t.assigneeId === s.id)
-      const total = assigned.length
-      const inProgress = assigned.filter(t => t.status === 'in_progress').length
-      const pending = assigned.filter(t => t.status === 'pending').length
-      const blocked = assigned.filter(t => t.status === 'blocked').length
-      const completed = assigned.filter(t => t.status === 'completed').length
-      const overdue = assigned.filter(t => {
-        if (t.isClosed || !t.dueDate) return false
-        const due = (t.dueDate as any).toMillis ? (t.dueDate as any).toMillis() : (t.dueDate as any).seconds * 1000
-        return due < now
-      }).length
-
-      const completionRate = total > 0 ? Math.round((completed / total) * 100) : 0
-      const activeCount = inProgress + pending + blocked
-
-      let workloadStatus: 'overload' | 'normal' | 'light' = 'normal'
-      if (overdue > 0 || activeCount >= 8) {
-        workloadStatus = 'overload'
-      } else if (activeCount <= 1) {
-        workloadStatus = 'light'
+  // Block 2: "Quá hạn & sắp đến hạn theo người" (người, số quá hạn, số đến hạn 7 ngày, đang mở)
+  const byPersonRows = useMemo(() => {
+    const activeStaff = staffList.filter((s) => {
+      if (!s.isActive) return false
+      if (isPersonalScope) {
+        return s.id === staffId
       }
-
-      const deptId = s.primaryDepartmentId || (s.departmentIds && s.departmentIds[0])
-      const dept = departments.find(d => d.id === deptId)?.name || 'Chưa xếp'
-
-      return {
-        staff: s,
-        dept,
-        total,
-        inProgress,
-        pending,
-        blocked,
-        completed,
-        overdue,
-        activeCount,
-        completionRate,
-        workloadStatus,
+      if (isDepartmentLeader) {
+        const inMyDept =
+          (s.primaryDepartmentId && myDepartmentIds.includes(s.primaryDepartmentId)) ||
+          Boolean(s.departmentIds?.some((d) => myDepartmentIds.includes(d))) ||
+          scopedTasks.some((t) => t.assigneeId === s.id)
+        if (!inMyDept) return false
       }
-    }).filter(item => {
-      if (selectedDeptFilter === 'all') return true
-      return (
-        item.staff.primaryDepartmentId === selectedDeptFilter ||
-        item.staff.departmentIds?.includes(selectedDeptFilter)
-      )
-    }).sort((a, b) => {
-      // Prioritize staff with overdue or highest active tasks
-      if (b.overdue !== a.overdue) return b.overdue - a.overdue
-      return b.activeCount - a.activeCount
+      if (selectedDeptFilter !== 'all') {
+        return (
+          s.primaryDepartmentId === selectedDeptFilter ||
+          Boolean(s.departmentIds?.includes(selectedDeptFilter))
+        )
+      }
+      return true
     })
-  }, [staffList, topLevelTasks, departments, selectedDeptFilter, now])
+
+    return activeStaff
+      .map((s) => {
+        const assigned = filterTasksByParams(
+          visibleTasks,
+          {
+            assigneeId: s.id,
+            includeCollaborator: activeIncludeCollaborator,
+            departmentId: personTableDeptParam,
+          },
+          now
+        )
+        const sStats = computeTaskStats(assigned, now)
+        const deptId = s.primaryDepartmentId || (s.departmentIds && s.departmentIds[0]) || null
+        const deptName = departments.find((d) => d.id === deptId)?.name || 'Chưa xếp'
+
+        return {
+          staff: s,
+          deptId,
+          deptName,
+          overdue: sStats.overdue,
+          due7: sStats.dueIn7Days,
+          open: sStats.open,
+          inProgress: sStats.inProgress,
+          completed: sStats.completed,
+          completionRate: sStats.completionRate,
+        }
+      })
+      .sort((a, b) => {
+        if (b.overdue !== a.overdue) return b.overdue - a.overdue
+        if (b.due7 !== a.due7) return b.due7 - a.due7
+        return b.open - a.open
+      })
+  }, [
+    staffList,
+    isPersonalScope,
+    isDepartmentLeader,
+    staffId,
+    myDepartmentIds,
+    scopedTasks,
+    selectedDeptFilter,
+    visibleTasks,
+    activeIncludeCollaborator,
+    personTableDeptParam,
+    now,
+    departments,
+  ])
+
+  // Block 3: "Quá hạn & sắp đến hạn theo khoa" (dùng departmentId, fallback assigneeDepartmentId)
+  const byDepartmentRows = useMemo(() => {
+    return scopedDepartments
+      .map((dept) => {
+        const deptTasks = filterTasksByParams(
+          visibleTasks,
+          {
+            departmentId: dept.id,
+            assigneeId: activeAssigneeParam,
+            includeCollaborator: activeIncludeCollaborator,
+          },
+          now
+        )
+        const dStats = computeTaskStats(deptTasks, now)
+        return {
+          dept,
+          overdue: dStats.overdue,
+          due7: dStats.dueIn7Days,
+          open: dStats.open,
+          inProgress: dStats.inProgress,
+          completed: dStats.completed,
+          total: dStats.total,
+          completionRate: dStats.completionRate,
+        }
+      })
+      .sort((a, b) => {
+        if (b.overdue !== a.overdue) return b.overdue - a.overdue
+        if (b.due7 !== a.due7) return b.due7 - a.due7
+        return b.open - a.open
+      })
+  }, [scopedDepartments, visibleTasks, activeAssigneeParam, activeIncludeCollaborator, now])
+
+  // Block 4: "Văn bản quá hạn" từ useDocuments() (deadline < now && status !== 'completed')
+  const overdueDocuments = useMemo(() => {
+    return documents
+      .filter((doc) => {
+        if (doc.status === 'completed') return false
+        const deadlineMs = toMillis(doc.deadline)
+        if (deadlineMs === null || deadlineMs >= now) return false
+
+        if (isPersonalScope) {
+          if (!staffId) return false
+          return (
+            doc.assigneeId === staffId ||
+            Boolean(doc.coAssigneeIds?.includes(staffId)) ||
+            Boolean(staffName && doc.assignee === staffName)
+          )
+        }
+
+        if (isAdmin) return true
+
+        if (isDepartmentLeader) {
+          const checkStaffInMyDept = (sid?: string) => {
+            if (!sid) return false
+            const st = staffList.find((s) => s.id === sid)
+            if (!st) return false
+            return (
+              Boolean(st.primaryDepartmentId && myDepartmentIds.includes(st.primaryDepartmentId)) ||
+              Boolean(st.departmentIds?.some((d) => myDepartmentIds.includes(d)))
+            )
+          }
+          if (checkStaffInMyDept(doc.assigneeId)) return true
+          if (doc.coAssigneeIds?.some((cid) => checkStaffInMyDept(cid))) return true
+          return false
+        }
+
+        return false
+      })
+      .sort((a, b) => (toMillis(a.deadline) ?? 0) - (toMillis(b.deadline) ?? 0))
+  }, [
+    documents,
+    now,
+    isPersonalScope,
+    isAdmin,
+    isDepartmentLeader,
+    staffId,
+    staffName,
+    staffList,
+    myDepartmentIds,
+  ])
+
+  // Overdue task list for quick action
+  const overdueTaskList = useMemo(() => {
+    return filterTasksByParams(
+      scopedTasks,
+      { status: 'overdue' },
+      now
+    )
+  }, [scopedTasks, now])
 
   if (loading) {
     return (
@@ -174,329 +303,452 @@ export default function DashboardPage() {
 
   return (
     <div className="p-4 lg:p-6 max-w-7xl mx-auto space-y-6">
-      {/* Header with Role & View Mode Switch */}
+      {/* Header with Role Scope & View Mode Switch */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-slate-200">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
             <span>📊</span>
-            {viewMode === 'personal' ? 'Tiến độ Công việc Cá nhân' : 'Báo cáo Quản lý & Giám sát Nhân sự'}
+            {isPersonalScope
+              ? 'Tiến độ Công việc Cá nhân'
+              : isAdmin
+              ? 'Dashboard Điều hành Toàn đơn vị'
+              : 'Dashboard Điều hành Khoa / Phòng'}
           </h1>
           <p className="text-sm text-slate-500 mt-0.5">
-            {viewMode === 'personal'
-              ? `Xin chào ${staffName || 'bạn'} • Theo dõi hiệu suất và danh sách công việc của riêng bạn`
-              : 'Theo dõi tiến độ toàn đơn vị, đôn đốc công việc quá hạn và phân bổ khối lượng làm việc nhân sự'}
+            {isPersonalScope
+              ? `Xin chào ${staffName || 'bạn'} • Theo dõi tiến độ và hạn xử lý công việc của bạn`
+              : isAdmin
+              ? 'Giám sát công việc quá hạn, sắp đến hạn theo nhân sự, khoa phòng và văn bản quá hạn toàn đơn vị'
+              : 'Giám sát công việc quá hạn, sắp đến hạn của khoa/phòng phụ trách'}
           </p>
         </div>
 
-        {/* View Mode Toggle Button */}
-        <div className="inline-flex bg-slate-100 p-1 rounded-xl border border-slate-200 self-start sm:self-auto shrink-0 shadow-2xs">
-          <button
-            onClick={() => setViewMode('personal')}
-            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-              viewMode === 'personal'
-                ? 'bg-white text-blue-700 shadow-xs'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <User className="w-3.5 h-3.5" />
-            Tiến độ cá nhân
-          </button>
-          <button
-            onClick={() => setViewMode('manager')}
-            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-              viewMode === 'manager'
-                ? 'bg-white text-blue-700 shadow-xs'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <Users className="w-3.5 h-3.5" />
-            Quản lý nhân sự
-          </button>
+        {/* View Mode Toggle — Nút "Quản lý nhân sự" chỉ hiện với quyền org:manage_staff */}
+        {canManageStaff && (
+          <div className="inline-flex bg-slate-100 p-1 rounded-xl border border-slate-200 self-start sm:self-auto shrink-0 shadow-2xs">
+            <button
+              onClick={() => setViewMode('personal')}
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                viewMode === 'personal'
+                  ? 'bg-white text-blue-700 shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <User className="w-3.5 h-3.5" />
+              Tiến độ cá nhân
+            </button>
+            <button
+              onClick={() => setViewMode('manager')}
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                viewMode === 'manager'
+                  ? 'bg-white text-blue-700 shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <Users className="w-3.5 h-3.5" />
+              Quản lý nhân sự
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* ========================================================================= */}
+      {/* KHỐI 1: KHỐI THẺ SỐ LIỆU (Quá hạn / Đến hạn 7 ngày / Đang thực hiện / Hoàn thành tuần) */}
+      {/* ========================================================================= */}
+      <TaskDashboard
+        stats={dashboardStats}
+        assigneeId={activeAssigneeParam}
+        includeCollaborator={activeIncludeCollaborator}
+        departmentId={baseDeptParam}
+      />
+
+      {/* ========================================================================= */}
+      {/* KHỐI 2: QUÁ HẠN & SẮP ĐẾN HẠN THEO KHOA (dùng departmentId, fallback assigneeDepartmentId) */}
+      {/* ========================================================================= */}
+      <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-2xs">
+        <div className="p-4 border-b border-slate-100 flex items-center justify-between">
+          <div>
+            <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
+              <Building2 className="w-4 h-4 text-indigo-600" />
+              Quá hạn & sắp đến hạn theo khoa / phòng
+            </h2>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Bấm vào từng con số để mở danh sách công việc theo bộ lọc tương ứng
+            </p>
+          </div>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs border-collapse">
+            <thead>
+              <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-500 font-semibold uppercase tracking-wider">
+                <th className="py-3 px-4">Khoa / Phòng</th>
+                <th className="py-3 px-3 text-center">Quá hạn</th>
+                <th className="py-3 px-3 text-center">Đến hạn 7 ngày</th>
+                <th className="py-3 px-3 text-center">Đang mở</th>
+                <th className="py-3 px-4 w-44">Tỷ lệ hoàn thành</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {byDepartmentRows.map((row) => (
+                <tr key={row.dept.id} className="hover:bg-slate-50/60 transition-colors">
+                  <td className="py-3 px-4 font-semibold text-slate-900 text-sm">
+                    <Link
+                      href={buildTasksFilterHref({
+                        departmentId: row.dept.id,
+                        assigneeId: activeAssigneeParam,
+                        includeCollaborator: activeIncludeCollaborator,
+                      })}
+                      className="hover:text-blue-600 hover:underline"
+                    >
+                      {row.dept.name}
+                    </Link>
+                  </td>
+                  <td className="py-3 px-3 text-center">
+                    <Link
+                      href={buildTasksFilterHref({
+                        status: 'overdue',
+                        departmentId: row.dept.id,
+                        assigneeId: activeAssigneeParam,
+                        includeCollaborator: activeIncludeCollaborator,
+                      })}
+                      className={`inline-block font-bold px-2.5 py-0.5 rounded-full transition-colors ${
+                        row.overdue > 0
+                          ? 'text-red-600 bg-red-50 border border-red-200 hover:bg-red-100'
+                          : 'text-slate-400 hover:text-slate-700 hover:bg-slate-100'
+                      }`}
+                    >
+                      {row.overdue}
+                    </Link>
+                  </td>
+                  <td className="py-3 px-3 text-center">
+                    <Link
+                      href={buildTasksFilterHref({
+                        status: 'due7',
+                        departmentId: row.dept.id,
+                        assigneeId: activeAssigneeParam,
+                        includeCollaborator: activeIncludeCollaborator,
+                      })}
+                      className={`inline-block font-bold px-2.5 py-0.5 rounded-full transition-colors ${
+                        row.due7 > 0
+                          ? 'text-amber-700 bg-amber-50 border border-amber-200 hover:bg-amber-100'
+                          : 'text-slate-400 hover:text-slate-700 hover:bg-slate-100'
+                      }`}
+                    >
+                      {row.due7}
+                    </Link>
+                  </td>
+                  <td className="py-3 px-3 text-center">
+                    <Link
+                      href={buildTasksFilterHref({
+                        status: 'open',
+                        departmentId: row.dept.id,
+                        assigneeId: activeAssigneeParam,
+                        includeCollaborator: activeIncludeCollaborator,
+                      })}
+                      className="inline-block font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 px-2.5 py-0.5 rounded-full transition-colors"
+                    >
+                      {row.open}
+                    </Link>
+                  </td>
+                  <td className="py-3 px-4">
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 bg-slate-100 rounded-full h-2 overflow-hidden">
+                        <div
+                          className={`h-full rounded-full transition-all ${
+                            row.completionRate >= 80
+                              ? 'bg-emerald-500'
+                              : row.completionRate >= 50
+                              ? 'bg-blue-600'
+                              : 'bg-amber-500'
+                          }`}
+                          style={{ width: `${row.completionRate}%` }}
+                        />
+                      </div>
+                      <span className="font-bold text-slate-700 min-w-[36px] text-right">
+                        {row.completionRate}%
+                      </span>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+              {byDepartmentRows.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="py-6 text-center text-slate-400">
+                    Chưa có dữ liệu khoa/phòng trong phạm vi hiện tại
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
 
       {/* ========================================================================= */}
-      {/* PERSONAL VIEW */}
+      {/* KHỐI 3: QUÁ HẠN & SẮP ĐẾN HẠN THEO NGƯỜI (người, số quá hạn, số đến hạn 7 ngày, đang mở) */}
       {/* ========================================================================= */}
-      {viewMode === 'personal' && (
-        <div className="space-y-6">
-          <TaskDashboard stats={personalStats} />
-
-          {/* Personal Overdue tasks */}
-          {personalOverdueList.length > 0 && (
-            <div className="bg-red-50/50 border border-red-200 rounded-2xl p-4 sm:p-5">
-              <h2 className="text-sm font-bold text-red-700 mb-3 flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 text-red-600" />
-                Công việc của bạn bị quá hạn ({personalOverdueList.length}) - Cần xử lý gấp!
-              </h2>
-              <div className="bg-white rounded-xl border border-red-200 shadow-2xs overflow-hidden">
-                <TaskTable tasks={personalOverdueList} />
-              </div>
-            </div>
-          )}
-
-          {/* Personal Active Tasks */}
-          <div className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-5 shadow-2xs">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                  <TrendingUp className="w-4 h-4 text-blue-600" />
-                  Công việc của bạn đang tiến hành ({personalActiveTasks.length})
-                </h2>
-                <p className="text-xs text-slate-500 mt-0.5">Các công việc bạn được giao xử lý hoặc phối hợp</p>
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => router.push('/tasks')}
-                className="text-xs text-blue-600 hover:bg-blue-50"
-              >
-                Xem tất cả tại danh sách
-                <ArrowRight className="w-3.5 h-3.5 ml-1" />
-              </Button>
-            </div>
-
-            <div className="rounded-xl border border-slate-200 overflow-hidden">
-              <TaskTable
-                tasks={personalActiveTasks}
-                emptyMessage="Tuyệt vời! Bạn không còn công việc nào đang chờ xử lý."
-              />
-            </div>
+      <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-2xs">
+        <div className="p-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
+              <Users className="w-4 h-4 text-blue-600" />
+              Quá hạn & sắp đến hạn theo người
+            </h2>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Theo dõi số việc quá hạn, đến hạn 7 ngày tới và việc đang mở của từng cán bộ
+            </p>
           </div>
-        </div>
-      )}
 
-      {/* ========================================================================= */}
-      {/* MANAGER VIEW */}
-      {/* ========================================================================= */}
-      {viewMode === 'manager' && (
-        <div className="space-y-6">
-          <TaskDashboard stats={globalStats} />
-
-          {/* Department Breakdown Cards */}
-          {departments.length > 0 && (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-              {departments.map(dept => {
-                const deptTasks = topLevelTasks.filter(t => t.departmentId === dept.id)
-                const total = deptTasks.length
-                const active = deptTasks.filter(t => !t.isClosed).length
-                const completed = deptTasks.filter(t => t.status === 'completed').length
-                const overdue = deptTasks.filter(t => {
-                  if (t.isClosed || !t.dueDate) return false
-                  const due = (t.dueDate as any).toMillis ? (t.dueDate as any).toMillis() : (t.dueDate as any).seconds * 1000
-                  return due < now
-                }).length
-                const rate = total > 0 ? Math.round((completed / total) * 100) : 0
-
-                return (
-                  <div key={dept.id} className="bg-white rounded-xl border border-slate-200 p-4 hover:shadow-md transition-shadow">
-                    <div className="flex items-center justify-between mb-2">
-                      <h3 className="text-sm font-bold text-slate-800 truncate">{dept.name}</h3>
-                      {overdue > 0 && (
-                        <span className="text-[10px] font-bold text-red-600 bg-red-50 px-1.5 py-0.5 rounded-full border border-red-200">
-                          {overdue} quá hạn
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-4 text-xs text-slate-500 mb-2">
-                      <span>Tổng: <b className="text-slate-800">{total}</b></span>
-                      <span>Đang làm: <b className="text-blue-600">{active}</b></span>
-                      <span>Xong: <b className="text-emerald-600">{completed}</b></span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                        <div
-                          className={`h-full rounded-full transition-all ${rate >= 80 ? 'bg-emerald-500' : rate >= 50 ? 'bg-blue-500' : 'bg-amber-500'}`}
-                          style={{ width: `${rate}%` }}
-                        />
-                      </div>
-                      <span className="text-[11px] font-bold text-slate-600">{rate}%</span>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          )}
-
-          {/* Department filter bar for workload */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs">
-            <div>
-              <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                <Users className="w-4 h-4 text-blue-600" />
-                Bảng Theo dõi Tiến độ & Tải Công việc Nhân sự
-              </h2>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Giám sát khối lượng công việc, tỷ lệ hoàn thành và cảnh báo quá hạn của từng nhân viên
-              </p>
-            </div>
-
+          {scopedDepartments.length > 1 && (
             <div className="flex items-center gap-2">
               <Filter className="w-3.5 h-3.5 text-slate-400" />
               <select
                 value={selectedDeptFilter}
-                onChange={e => setSelectedDeptFilter(e.target.value)}
+                onChange={(e) => setSelectedDeptFilter(e.target.value)}
                 className="text-xs border border-slate-200 rounded-lg px-2.5 py-1.5 bg-slate-50 text-slate-700 font-medium"
               >
                 <option value="all">Tất cả phòng ban</option>
-                {departments.map(d => (
-                  <option key={d.id} value={d.id}>{d.name}</option>
+                {scopedDepartments.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.name}
+                  </option>
                 ))}
               </select>
             </div>
-          </div>
-
-          {/* Staff Workload Table */}
-          <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-2xs">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs border-collapse">
-                <thead>
-                  <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-500 font-semibold uppercase tracking-wider">
-                    <th className="py-3 px-4">Nhân sự</th>
-                    <th className="py-3 px-3">Phòng ban</th>
-                    <th className="py-3 px-3 text-center">Tổng việc</th>
-                    <th className="py-3 px-3 text-center">Đang làm</th>
-                    <th className="py-3 px-3 text-center">Quá hạn</th>
-                    <th className="py-3 px-3 text-center">Hoàn thành</th>
-                    <th className="py-3 px-4 w-40">Tiến độ hoàn thành</th>
-                    <th className="py-3 px-3 text-center">Đánh giá tải</th>
-                    <th className="py-3 px-3 text-right">Chi tiết</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {staffWorkload.map(item => (
-                    <tr key={item.staff.id} className="hover:bg-slate-50/60 transition-colors">
-                      {/* Staff info */}
-                      <td className="py-3 px-4">
-                        <div className="flex items-center gap-2.5">
-                          <div className="w-7 h-7 rounded-full bg-blue-100 text-blue-700 font-bold text-xs flex items-center justify-center shrink-0">
-                            {item.staff.shortName.charAt(0).toUpperCase()}
-                          </div>
-                          <div>
-                            <div className="font-semibold text-slate-900 text-sm">{item.staff.fullName}</div>
-                            <div className="text-[11px] text-slate-400">@{item.staff.shortName}</div>
-                          </div>
-                        </div>
-                      </td>
-
-                      {/* Dept */}
-                      <td className="py-3 px-3 text-slate-600 font-medium">
-                        {item.dept}
-                      </td>
-
-                      {/* Total */}
-                      <td className="py-3 px-3 text-center font-bold text-slate-800">
-                        {item.total}
-                      </td>
-
-                      {/* In Progress */}
-                      <td className="py-3 px-3 text-center">
-                        <span className="font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">
-                          {item.inProgress}
-                        </span>
-                      </td>
-
-                      {/* Overdue */}
-                      <td className="py-3 px-3 text-center">
-                        {item.overdue > 0 ? (
-                          <span className="font-bold text-red-600 bg-red-50 border border-red-200 px-2 py-0.5 rounded-full">
-                            {item.overdue}
-                          </span>
-                        ) : (
-                          <span className="text-slate-400">0</span>
-                        )}
-                      </td>
-
-                      {/* Completed */}
-                      <td className="py-3 px-3 text-center text-emerald-600 font-semibold">
-                        {item.completed}
-                      </td>
-
-                      {/* Progress Bar & Rate */}
-                      <td className="py-3 px-4">
-                        <div className="flex items-center gap-2">
-                          <div className="flex-1 bg-slate-100 rounded-full h-2 overflow-hidden">
-                            <div
-                              className={`h-full rounded-full transition-all ${
-                                item.completionRate >= 80
-                                  ? 'bg-emerald-500'
-                                  : item.completionRate >= 50
-                                  ? 'bg-blue-600'
-                                  : 'bg-amber-500'
-                              }`}
-                              style={{ width: `${item.completionRate}%` }}
-                            />
-                          </div>
-                          <span className="font-bold text-slate-700 min-w-[32px] text-right">
-                            {item.completionRate}%
-                          </span>
-                        </div>
-                      </td>
-
-                      {/* Workload Status */}
-                      <td className="py-3 px-3 text-center">
-                        {item.workloadStatus === 'overload' ? (
-                          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-red-700 bg-red-100/80 px-2 py-0.5 rounded-full">
-                            ⚠️ Quá tải / Chậm
-                          </span>
-                        ) : item.workloadStatus === 'light' ? (
-                          <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-full">
-                            🟢 Sẵn sàng nhận việc
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">
-                            ✓ Bình thường
-                          </span>
-                        )}
-                      </td>
-
-                      {/* Action */}
-                      <td className="py-3 px-3 text-right">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => router.push(`/tasks?assigneeId=${item.staff.id}`)}
-                          className="text-xs text-blue-600 hover:bg-blue-50 px-2 h-7"
-                        >
-                          Xem việc
-                        </Button>
-                      </td>
-                    </tr>
-                  ))}
-
-                  {staffWorkload.length === 0 && (
-                    <tr>
-                      <td colSpan={9} className="py-8 text-center text-slate-400">
-                        Không tìm thấy nhân sự phù hợp
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          {/* Overdue tasks toàn viện */}
-          {globalOverdueList.length > 0 && (
-            <div className="bg-white rounded-2xl border border-red-200 p-4 sm:p-5 shadow-2xs">
-              <div className="flex items-center justify-between mb-3">
-                <h2 className="text-sm font-bold text-red-600 flex items-center gap-2">
-                  <AlertCircle className="w-4 h-4 text-red-600" />
-                  Danh sách công việc quá hạn toàn đơn vị cần đôn đốc ({globalOverdueList.length})
-                </h2>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => router.push('/tasks')}
-                  className="text-xs text-red-600 border-red-200 hover:bg-red-50"
-                >
-                  Xử lý ngay
-                </Button>
-              </div>
-              <div className="rounded-xl border border-red-100 overflow-hidden">
-                <TaskTable tasks={globalOverdueList} />
-              </div>
-            </div>
           )}
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs border-collapse">
+            <thead>
+              <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-500 font-semibold uppercase tracking-wider">
+                <th className="py-3 px-4">Người xử lý</th>
+                <th className="py-3 px-3">Khoa / Phòng</th>
+                <th className="py-3 px-3 text-center">Quá hạn</th>
+                <th className="py-3 px-3 text-center">Đến hạn 7 ngày</th>
+                <th className="py-3 px-3 text-center">Đang mở</th>
+                <th className="py-3 px-4 w-40">Tỷ lệ hoàn thành</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {byPersonRows.map((item) => {
+                return (
+                  <tr key={item.staff.id} className="hover:bg-slate-50/60 transition-colors">
+                    <td className="py-3 px-4">
+                      <Link
+                        href={buildTasksFilterHref({
+                          assigneeId: item.staff.id,
+                          includeCollaborator: activeIncludeCollaborator,
+                          departmentId: personTableDeptParam,
+                        })}
+                        className="flex items-center gap-2.5 group"
+                      >
+                        <div className="w-7 h-7 rounded-full bg-blue-100 text-blue-700 font-bold text-xs flex items-center justify-center shrink-0">
+                          {item.staff.shortName.charAt(0).toUpperCase()}
+                        </div>
+                        <div>
+                          <div className="font-semibold text-slate-900 text-sm group-hover:text-blue-600 group-hover:underline">
+                            {item.staff.fullName}
+                          </div>
+                          <div className="text-[11px] text-slate-400">@{item.staff.shortName}</div>
+                        </div>
+                      </Link>
+                    </td>
+                    <td className="py-3 px-3 text-slate-600 font-medium">{item.deptName}</td>
+                    <td className="py-3 px-3 text-center">
+                      <Link
+                        href={buildTasksFilterHref({
+                          status: 'overdue',
+                          assigneeId: item.staff.id,
+                          includeCollaborator: activeIncludeCollaborator,
+                          departmentId: personTableDeptParam,
+                        })}
+                        className={`inline-block font-bold px-2.5 py-0.5 rounded-full transition-colors ${
+                          item.overdue > 0
+                            ? 'text-red-600 bg-red-50 border border-red-200 hover:bg-red-100'
+                            : 'text-slate-400 hover:text-slate-700 hover:bg-slate-100'
+                        }`}
+                      >
+                        {item.overdue}
+                      </Link>
+                    </td>
+                    <td className="py-3 px-3 text-center">
+                      <Link
+                        href={buildTasksFilterHref({
+                          status: 'due7',
+                          assigneeId: item.staff.id,
+                          includeCollaborator: activeIncludeCollaborator,
+                          departmentId: personTableDeptParam,
+                        })}
+                        className={`inline-block font-bold px-2.5 py-0.5 rounded-full transition-colors ${
+                          item.due7 > 0
+                            ? 'text-amber-700 bg-amber-50 border border-amber-200 hover:bg-amber-100'
+                            : 'text-slate-400 hover:text-slate-700 hover:bg-slate-100'
+                        }`}
+                      >
+                        {item.due7}
+                      </Link>
+                    </td>
+                    <td className="py-3 px-3 text-center">
+                      <Link
+                        href={buildTasksFilterHref({
+                          status: 'open',
+                          assigneeId: item.staff.id,
+                          includeCollaborator: activeIncludeCollaborator,
+                          departmentId: personTableDeptParam,
+                        })}
+                        className="inline-block font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 px-2.5 py-0.5 rounded-full transition-colors"
+                      >
+                        {item.open}
+                      </Link>
+                    </td>
+                    <td className="py-3 px-4">
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1 bg-slate-100 rounded-full h-2 overflow-hidden">
+                          <div
+                            className={`h-full rounded-full transition-all ${
+                              item.completionRate >= 80
+                                ? 'bg-emerald-500'
+                                : item.completionRate >= 50
+                                ? 'bg-blue-600'
+                                : 'bg-amber-500'
+                            }`}
+                            style={{ width: `${item.completionRate}%` }}
+                          />
+                        </div>
+                        <span className="font-bold text-slate-700 min-w-[36px] text-right">
+                          {item.completionRate}%
+                        </span>
+                      </div>
+                    </td>
+                  </tr>
+                )
+              })}
+              {byPersonRows.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="py-8 text-center text-slate-400">
+                    Không tìm thấy nhân sự phù hợp
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* ========================================================================= */}
+      {/* KHỐI 4: VĂN BẢN QUÁ HẠN (từ useDocuments: deadline < now và status !== 'completed') */}
+      {/* ========================================================================= */}
+      <div className="bg-white rounded-2xl border border-red-200 overflow-hidden shadow-2xs">
+        <div className="p-4 border-b border-red-100 bg-red-50/40 flex items-center justify-between">
+          <div>
+            <h2 className="text-base font-bold text-red-700 flex items-center gap-2">
+              <FileText className="w-4 h-4 text-red-600" />
+              Văn bản quá hạn ({overdueDocuments.length})
+            </h2>
+            <p className="text-xs text-red-600/80 mt-0.5">
+              Các văn bản đã quá hạn xử lý và chưa hoàn thành trong phạm vi theo dõi
+            </p>
+          </div>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => router.push('/documents')}
+            className="text-xs text-red-600 border-red-200 hover:bg-red-50"
+          >
+            Xem danh sách văn bản
+            <ArrowRight className="w-3.5 h-3.5 ml-1" />
+          </Button>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs border-collapse">
+            <thead>
+              <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-500 font-semibold uppercase tracking-wider">
+                <th className="py-3 px-4">Số hiệu / Trích yếu</th>
+                <th className="py-3 px-3">Cơ quan ban hành</th>
+                <th className="py-3 px-3">Người xử lý</th>
+                <th className="py-3 px-3 text-right">Hạn xử lý</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {overdueDocuments.map((doc) => {
+                const assigneeLabel =
+                  (doc.assigneeId ? getStaffName(doc.assigneeId) : doc.assignee) || 'Chưa phân công'
+                return (
+                  <tr key={doc.id} className="hover:bg-red-50/30 transition-colors">
+                    <td className="py-3 px-4">
+                      <Link
+                        href={`/documents/${doc.id}`}
+                        className="font-semibold text-slate-900 hover:text-blue-600 hover:underline block"
+                      >
+                        {doc.docNumber ? `[${doc.docNumber}] ` : ''}
+                        {doc.title}
+                      </Link>
+                    </td>
+                    <td className="py-3 px-3 text-slate-600">{doc.sender || '—'}</td>
+                    <td className="py-3 px-3">
+                      {doc.assigneeId ? (
+                        <Link
+                          href={buildTasksFilterHref({
+                            status: 'overdue',
+                            assigneeId: doc.assigneeId,
+                            departmentId: baseDeptParam,
+                          })}
+                          className="text-blue-600 font-medium hover:underline"
+                        >
+                          {assigneeLabel}
+                        </Link>
+                      ) : (
+                        <span className="text-slate-600">{assigneeLabel}</span>
+                      )}
+                    </td>
+                    <td className="py-3 px-3 text-right font-bold text-red-600">
+                      {formatShortDate(doc.deadline)}
+                    </td>
+                  </tr>
+                )
+              })}
+              {overdueDocuments.length === 0 && (
+                <tr>
+                  <td colSpan={4} className="py-6 text-center text-slate-400">
+                    Không có văn bản nào bị quá hạn
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Danh sách công việc quá hạn cần xử lý ngay */}
+      {overdueTaskList.length > 0 && (
+        <div className="bg-white rounded-2xl border border-red-200 p-4 sm:p-5 shadow-2xs">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-sm font-bold text-red-600 flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 text-red-600" />
+              Danh sách công việc quá hạn cần đôn đốc ({overdueTaskList.length})
+            </h2>
+            <Link
+              href={buildTasksFilterHref({
+                status: 'overdue',
+                assigneeId: activeAssigneeParam,
+                includeCollaborator: activeIncludeCollaborator,
+                departmentId: baseDeptParam,
+              })}
+            >
+              <Button
+                size="sm"
+                variant="outline"
+                className="text-xs text-red-600 border-red-200 hover:bg-red-50"
+              >
+                Xử lý ngay
+              </Button>
+            </Link>
+          </div>
+          <div className="rounded-xl border border-red-100 overflow-hidden">
+            <TaskTable tasks={overdueTaskList} />
+          </div>
         </div>
       )}
     </div>

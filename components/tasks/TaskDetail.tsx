@@ -18,6 +18,7 @@ import { useDepartments } from '@/hooks/useDepartments'
 import { useOrganization } from '@/hooks/useOrganization'
 import { useDocuments } from '@/hooks/useDocuments'
 import { useDossiers } from '@/hooks/useDossiers'
+import { useTasks } from '@/hooks/useTasks'
 import { TaskStatusBadge } from './TaskStatusBadge'
 import { TaskPriorityBadge } from './TaskPriorityBadge'
 import { TaskCommentThread } from './TaskCommentThread'
@@ -29,12 +30,12 @@ import { CoAssigneePicker } from '@/components/documents/CoAssigneePicker'
 import { CoDepartmentPicker } from '@/components/tasks/CoDepartmentPicker'
 import { RecurringScopeModal } from './RecurringScopeModal'
 import { computeDerivedStates } from '@/lib/tasks/progress'
-import { isValidTransition } from '@/lib/tasks/validation'
-import { canEditTask, canChangeStatus, canDeleteTask, canAddComment, canAddSubtask } from '@/lib/tasks/permissions'
-import { updateTaskStatus, deleteTask, updateTask } from '@/lib/tasks/mutations'
-import { deleteRecurringTaskScoped, updateRecurringTaskScoped, generateNextCompletionOccurrence, type RecurrenceMutationScope } from '@/lib/tasks/series'
+import { isValidTransition, validateDependencyList } from '@/lib/tasks/validation'
+import { buildTaskActorContext, canEditTask, canAssignTask, canChangeStatus, canDeleteTask, canAddComment, canAddSubtask } from '@/lib/tasks/permissions'
+import { changeTaskStatus, deleteTask, updateTask, type UpdateTaskInput } from '@/lib/tasks/mutations'
+import { deleteRecurringTaskScoped, updateRecurringTaskScoped, type RecurrenceMutationScope } from '@/lib/tasks/series'
 import { getTasksByIds } from '@/lib/tasks/dependencies'
-import type { Task, TaskComment, TaskActivity, TaskStatus, TaskPriority, UpdateTaskInput, AttachedDocMetadata } from '@/types/tasks'
+import type { Task, TaskComment, TaskActivity, TaskStatus, TaskPriority, AttachedDocMetadata } from '@/types/tasks'
 import type { Document } from '@/types'
 import { TASK_PRIORITY_LABELS, TASK_PRIORITY_DOTS } from '@/lib/tasks/constants'
 
@@ -89,6 +90,7 @@ export function TaskDetail({
   const { departments } = useDepartments()
   const { documents } = useDocuments()
   const { dossiers } = useDossiers()
+  const { tasks: allTasks } = useTasks({ view: 'all' })
 
   const activeStaff = useMemo(() => staffList.filter(s => s.isActive), [staffList])
   const getDepartmentName = (id: string) => departments.find(d => d.id === id)?.name || id
@@ -96,6 +98,8 @@ export function TaskDetail({
   // Action / Scope state
   const [actionLoading, setActionLoading] = useState(false)
   const [inlineSaving, setInlineSaving] = useState(false)
+  const [statusError, setStatusError] = useState<string | null>(null)
+  const [depError, setDepError] = useState<string | null>(null)
   const [showDeleteScopeModal, setShowDeleteScopeModal] = useState(false)
   const [showEditScopeModal, setShowEditScopeModal] = useState(false)
   const [pendingScopeFields, setPendingScopeFields] = useState<Partial<UpdateTaskInput> | null>(null)
@@ -107,6 +111,8 @@ export function TaskDetail({
   const [isEditingDesc, setIsEditingDesc] = useState(false)
   const [copiedFileId, setCopiedFileId] = useState<string | null>(null)
   const [externalDraftDoc, setExternalDraftDoc] = useState<AttachedDocMetadata | null>(null)
+  const [mobileTab, setMobileTab] = useState<'info' | 'chat'>('info')
+  const activeCommentsCount = useMemo(() => comments.filter(c => !c.deletedAt).length, [comments])
 
   const handleShareDocToChat = (doc: Document) => {
     const files = []
@@ -144,6 +150,7 @@ export function TaskDetail({
       files,
     }
     setExternalDraftDoc(meta)
+    setMobileTab('chat')
   }
 
   const handleLinkDocToTask = async (docId: string) => {
@@ -158,6 +165,7 @@ export function TaskDetail({
   const [showDossierPicker, setShowDossierPicker] = useState(false)
   const [showCoAssigneePicker, setShowCoAssigneePicker] = useState(false)
   const [showCoDeptPicker, setShowCoDeptPicker] = useState(false)
+  const [showDepPicker, setShowDepPicker] = useState(false)
 
   // Sync title & description when task updates from Firestore
   useEffect(() => {
@@ -178,7 +186,21 @@ export function TaskDetail({
     }
   }, [task.dependsOnTaskIds])
 
-  const userCtx = { id: actorId, role: actorRole, departmentIds: actorDepartmentIds }
+  const { hasPermission, currentStaff } = useOrganization()
+  const actorCtx = useMemo(
+    () =>
+      buildTaskActorContext({
+        staffId: actorId,
+        staffName: actorName,
+        isAdmin: actorRole === 'admin',
+        role: actorRole,
+        currentStaff,
+        fallbackDepartmentIds: actorDepartmentIds,
+        hasPermission,
+      }),
+    [actorId, actorName, actorRole, currentStaff, actorDepartmentIds, hasPermission]
+  )
+  const { userCtx, matrixPerms } = actorCtx
   const taskCtx = {
     createdBy: task.createdBy,
     assigneeId: task.assigneeId,
@@ -188,16 +210,9 @@ export function TaskDetail({
     cooperatingDepartmentIds: task.cooperatingDepartmentIds,
   }
 
-  const { hasPermission } = useOrganization()
-  const matrixPerms: Partial<Record<string, boolean>> = {
-    'task:edit_own': hasPermission('task:edit_own'),
-    'task:edit_all': hasPermission('task:edit_all'),
-    'task:delete_own': hasPermission('task:delete_own'),
-    'task:delete_all': hasPermission('task:delete_all'),
-  }
-
   const _canEdit = canEditTask(userCtx, taskCtx, matrixPerms)
-  const _canStatus = canChangeStatus(userCtx, taskCtx)
+  const _canAssign = canAssignTask(userCtx, taskCtx, matrixPerms)
+  const _canStatus = canChangeStatus(userCtx, taskCtx, matrixPerms)
   const _canDelete = canDeleteTask(userCtx, taskCtx, matrixPerms)
   const _canComment = canAddComment(userCtx, taskCtx)
   const _canSubtask = canAddSubtask(userCtx, taskCtx)
@@ -211,7 +226,10 @@ export function TaskDetail({
 
   // Core Mutation Handler with Recurring Series Scope Support
   const handleUpdateFields = async (fields: Partial<UpdateTaskInput>) => {
-    if (!_canEdit) return
+    const isAssignOnly = Object.keys(fields).every(k =>
+      ['assigneeId', 'assigneeName', 'assigneeDepartmentId'].includes(k)
+    )
+    if (isAssignOnly ? !_canAssign : !_canEdit) return
 
     // If recurring series task, ask for scope
     if (task.seriesId) {
@@ -223,11 +241,27 @@ export function TaskDetail({
     setInlineSaving(true)
     try {
       await updateTask(task.id, fields, actorId, actorName)
-    } catch (err) {
+    } catch (err: any) {
       console.error('Update failed:', err)
+      setStatusError(err?.message || 'Cập nhật công việc thất bại')
     } finally {
       setInlineSaving(false)
     }
+  }
+
+  const handleUpdateDependencies = async (nextDepIds: string[]) => {
+    if (!_canEdit) return
+    setDepError(null)
+    const graph: Record<string, string[]> = {}
+    for (const t of allTasks) {
+      graph[t.id] = t.dependsOnTaskIds || []
+    }
+    const validation = validateDependencyList(task.id, nextDepIds, graph)
+    if (!validation.valid) {
+      setDepError(validation.error || 'Phát hiện vòng phụ thuộc không hợp lệ')
+      return
+    }
+    await handleUpdateFields({ dependsOnTaskIds: nextDepIds })
   }
 
   const handleEditScopeConfirm = async (scope: RecurrenceMutationScope) => {
@@ -271,17 +305,12 @@ export function TaskDetail({
   const handleStatusChange = async (newStatus: TaskStatus) => {
     if (!_canStatus || !isValidTransition(task.status, newStatus)) return
     setActionLoading(true)
+    setStatusError(null)
     try {
-      await updateTaskStatus(task.id, newStatus, actorId, actorName)
-      if (newStatus === 'completed' && task.seriesId) {
-        try {
-          await generateNextCompletionOccurrence(task)
-        } catch (genErr) {
-          console.warn('Next occurrence trigger warning:', genErr)
-        }
-      }
-    } catch (err) {
+      await changeTaskStatus(task.id, newStatus, actorCtx.actor)
+    } catch (err: any) {
       console.error('Status change failed:', err)
+      setStatusError(err?.message || 'Không thể đổi trạng thái công việc')
     } finally {
       setActionLoading(false)
     }
@@ -392,13 +421,15 @@ export function TaskDetail({
   }
 
   return (
-    <div className="h-full flex flex-col bg-white">
+    <div className="h-full flex flex-col bg-white min-w-0 max-w-full">
       {/* ── Top Header ── */}
       <div className="border-b border-slate-200 px-4 py-3 shrink-0 bg-white">
-        <div className="flex items-center gap-3 mb-2">
+        <div className="flex items-center gap-2 sm:gap-3 mb-2 min-w-0">
           <button
+            type="button"
             onClick={() => router.push('/tasks')}
-            className="p-1 rounded-lg hover:bg-slate-100 transition-colors text-slate-500 hover:text-slate-700"
+            aria-label="Quay lại danh sách"
+            className="tap lg:min-w-0 lg:min-h-0 p-1 rounded-lg hover:bg-slate-100 transition-colors text-slate-500 hover:text-slate-700 shrink-0"
             title="Quay lại danh sách"
           >
             <ArrowLeft className="w-4 h-4" />
@@ -425,7 +456,7 @@ export function TaskDetail({
           </div>
 
           {/* Saving Indicator & Delete */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 shrink-0">
             {inlineSaving && (
               <span className="text-xs text-blue-600 flex items-center gap-1 font-medium animate-pulse">
                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -434,8 +465,10 @@ export function TaskDetail({
             )}
             {_canDelete && (
               <button
+                type="button"
                 onClick={handleDelete}
-                className="p-1.5 rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-600 transition-colors"
+                aria-label="Xóa công việc"
+                className="tap lg:min-w-0 lg:min-h-0 p-1.5 rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-600 transition-colors shrink-0"
                 title="Xóa công việc"
               >
                 <Trash2 className="w-4 h-4" />
@@ -454,7 +487,7 @@ export function TaskDetail({
               <select
                 value={task.priority || 'normal'}
                 onChange={(e) => handleUpdateFields({ priority: e.target.value as TaskPriority })}
-                className="text-xs font-semibold rounded-lg pl-2 pr-6 py-1 border border-slate-200 bg-white text-slate-700 hover:border-slate-300 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer transition-colors shadow-2xs appearance-none"
+                className="max-lg:min-h-[40px] text-xs font-semibold rounded-lg pl-2 pr-6 py-1 border border-slate-200 bg-white text-slate-700 hover:border-slate-300 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer transition-colors shadow-2xs appearance-none"
                 title="Đổi mức độ ưu tiên"
               >
                 <option value="low">Ưu tiên Thấp</option>
@@ -471,7 +504,7 @@ export function TaskDetail({
           {task.seriesId && (
             <Link
               href="/tasks/recurring"
-              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-purple-50 text-purple-700 border border-purple-200 hover:bg-purple-100 transition-colors"
+              className="max-lg:min-h-[40px] inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-purple-50 text-purple-700 border border-purple-200 hover:bg-purple-100 transition-colors"
             >
               <RefreshCw className="w-3 h-3 text-purple-600" />
               Chuỗi định kỳ
@@ -482,7 +515,7 @@ export function TaskDetail({
             <button
               type="button"
               onClick={() => router.push(`/tasks/${task.previousTaskId}`)}
-              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 transition-colors"
+              className="max-lg:min-h-[40px] inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 transition-colors"
               title="Xem công việc của kỳ trước"
             >
               <History className="w-3 h-3 text-blue-600" />
@@ -492,13 +525,14 @@ export function TaskDetail({
 
           {/* Status Transitions */}
           {_canStatus && transitions.length > 0 && (
-            <div className="flex items-center gap-1 ml-auto">
+            <div className="flex items-center gap-1 flex-wrap ml-auto">
               {transitions.map(t => (
                 <button
                   key={t.status}
+                  type="button"
                   onClick={() => handleStatusChange(t.status)}
                   disabled={actionLoading}
-                  className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium transition-colors shadow-2xs ${t.color}`}
+                  className={`max-lg:min-h-[40px] max-lg:px-3 inline-flex items-center justify-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium transition-colors shadow-2xs ${t.color}`}
                 >
                   {actionLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <t.icon className="w-3 h-3" />}
                   {t.label}
@@ -507,12 +541,63 @@ export function TaskDetail({
             </div>
           )}
         </div>
+
+        {statusError && (
+          <div className="mt-2 px-3 py-2 rounded-lg bg-red-50 border border-red-200 text-xs text-red-700 flex items-center justify-between gap-2">
+            <span>{statusError}</span>
+            <button
+              type="button"
+              onClick={() => setStatusError(null)}
+              className="max-lg:min-h-[36px] max-lg:px-2 text-red-500 hover:text-red-700 font-semibold"
+            >
+              Đóng
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* ── Mobile Sticky Tabs (< lg) ── */}
+      <div
+        role="tablist"
+        aria-label="Chế độ xem chi tiết công việc"
+        className="lg:hidden sticky top-0 z-20 flex bg-white border-b border-slate-200 shrink-0"
+      >
+        <button
+          type="button"
+          role="tab"
+          aria-selected={mobileTab === 'info'}
+          onClick={() => setMobileTab('info')}
+          className={`flex-1 min-h-[44px] px-4 py-2.5 text-xs sm:text-sm font-semibold border-b-2 transition-colors flex items-center justify-center gap-1.5 ${
+            mobileTab === 'info'
+              ? 'border-blue-600 text-blue-600 bg-blue-50/30'
+              : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50'
+          }`}
+        >
+          Thông tin
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={mobileTab === 'chat'}
+          onClick={() => setMobileTab('chat')}
+          className={`flex-1 min-h-[44px] px-4 py-2.5 text-xs sm:text-sm font-semibold border-b-2 transition-colors flex items-center justify-center gap-1.5 ${
+            mobileTab === 'chat'
+              ? 'border-blue-600 text-blue-600 bg-blue-50/30'
+              : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50'
+          }`}
+        >
+          Trao đổi ({activeCommentsCount})
+        </button>
       </div>
 
       {/* ── Main Split View ── */}
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex flex-col lg:flex-row min-h-0 overflow-hidden">
         {/* Left Column: Info panel */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-6 border-r border-slate-100">
+        <div
+          className={`${
+            mobileTab === 'chat' ? 'hidden lg:block' : 'block'
+          } flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-5 space-y-6 lg:border-r border-slate-100 min-w-0`}
+        >
           {/* Dependency Alert Banner */}
           {task.status === 'blocked' && task.blockedReason === 'dependency' && (
             <div className="p-3 bg-red-50 border border-red-200 rounded-xl flex items-start gap-2.5 shadow-2xs">
@@ -544,25 +629,99 @@ export function TaskDetail({
             </div>
           )}
 
-          {/* Dependency List (when not blocked) */}
-          {task.status !== 'blocked' && depTasks.length > 0 && (
-            <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl">
-              <p className="text-xs font-semibold text-slate-700 flex items-center gap-1.5 mb-1.5">
-                <Link2 className="w-3.5 h-3.5 text-indigo-500" />
-                Công việc tiên quyết ({depTasks.length}):
-              </p>
-              <div className="flex flex-wrap gap-1.5">
-                {depTasks.map(dt => (
-                  <Link
-                    key={dt.id}
-                    href={`/tasks/${dt.id}`}
-                    className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-medium bg-white text-slate-700 border border-slate-200 hover:border-blue-300 hover:text-blue-600 transition-colors"
+          {/* Dependency List & Editor */}
+          {(depTasks.length > 0 || _canEdit) && (
+            <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
+                  <Link2 className="w-3.5 h-3.5 text-indigo-500" />
+                  Công việc tiên quyết ({depTasks.length})
+                </p>
+                {_canEdit && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDepError(null)
+                      setShowDepPicker(!showDepPicker)
+                    }}
+                    className="text-[11px] font-medium text-blue-600 hover:text-blue-700"
                   >
-                    <span className="truncate max-w-[200px]">{dt.title}</span>
-                    <TaskStatusBadge status={dt.status} size="sm" />
-                  </Link>
-                ))}
+                    {showDepPicker ? 'Đóng' : '+ Chỉnh sửa phụ thuộc'}
+                  </button>
+                )}
               </div>
+
+              {depError && (
+                <div className="px-2.5 py-1.5 rounded bg-red-50 border border-red-200 text-xs text-red-700">
+                  {depError}
+                </div>
+              )}
+
+              {depTasks.length > 0 ? (
+                <div className="flex flex-wrap gap-1.5">
+                  {depTasks.map(dt => (
+                    <span
+                      key={dt.id}
+                      className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-medium bg-white text-slate-700 border border-slate-200"
+                    >
+                      <Link href={`/tasks/${dt.id}`} className="truncate max-w-[200px] hover:text-blue-600">
+                        {dt.title}
+                      </Link>
+                      <TaskStatusBadge status={dt.status} size="sm" />
+                      {_canEdit && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const next = (task.dependsOnTaskIds || []).filter(id => id !== dt.id)
+                            handleUpdateDependencies(next)
+                          }}
+                          className="ml-0.5 text-slate-400 hover:text-red-600"
+                          title="Bỏ công việc tiên quyết này"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      )}
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-slate-400 italic">Chưa có công việc tiên quyết</p>
+              )}
+
+              {showDepPicker && _canEdit && (
+                <div className="pt-2 border-t border-slate-200 max-h-40 overflow-y-auto space-y-1">
+                  {allTasks
+                    .filter(t => t.id !== task.id && !t.parentTaskId)
+                    .slice(0, 20)
+                    .map(t => {
+                      const isChecked = (task.dependsOnTaskIds || []).includes(t.id)
+                      return (
+                        <div
+                          key={t.id}
+                          onClick={() => {
+                            const current = task.dependsOnTaskIds || []
+                            const next = isChecked
+                              ? current.filter(id => id !== t.id)
+                              : [...current, t.id]
+                            handleUpdateDependencies(next)
+                          }}
+                          className={`flex items-center gap-2 px-2 py-1.5 rounded text-xs cursor-pointer border ${
+                            isChecked ? 'bg-violet-50 border-violet-200' : 'bg-white hover:bg-slate-50 border-slate-100'
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            readOnly
+                            className="w-3.5 h-3.5 rounded text-violet-600 border-slate-300 pointer-events-none"
+                          />
+                          <span className="flex-1 truncate text-slate-700">{t.title}</span>
+                          <TaskStatusBadge status={t.status} size="sm" />
+                        </div>
+                      )
+                    })}
+                </div>
+              )}
             </div>
           )}
 
@@ -574,7 +733,7 @@ export function TaskDetail({
                 <button
                   type="button"
                   onClick={() => setIsEditingDesc(true)}
-                  className="text-xs text-blue-600 hover:text-blue-700 font-medium inline-flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                  className="hover-reveal max-lg:opacity-100 max-lg:min-h-[40px] max-lg:px-2 text-xs text-blue-600 hover:text-blue-700 font-medium inline-flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity"
                 >
                   <Edit2 className="w-3 h-3" /> Sửa mô tả
                 </button>
@@ -597,7 +756,7 @@ export function TaskDetail({
                     variant="outline"
                     size="sm"
                     onClick={handleCancelDescription}
-                    className="h-7 px-3 text-xs"
+                    className="h-7 max-lg:min-h-[40px] px-3 text-xs"
                   >
                     Hủy
                   </Button>
@@ -605,7 +764,7 @@ export function TaskDetail({
                     type="button"
                     size="sm"
                     onClick={handleSaveDescription}
-                    className="h-7 px-3 text-xs font-semibold"
+                    className="h-7 max-lg:min-h-[40px] px-3 text-xs font-semibold"
                   >
                     Lưu mô tả
                   </Button>
@@ -647,7 +806,7 @@ export function TaskDetail({
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide flex items-center gap-1">
                   <User className="w-3 h-3 text-blue-600" /> Người xử lý chính
                 </span>
-                {_canEdit ? (
+                {_canAssign ? (
                   <select
                     value={task.assigneeId || ''}
                     onChange={(e) => {
@@ -656,6 +815,7 @@ export function TaskDetail({
                       handleUpdateFields({
                         assigneeId: newId || null,
                         assigneeName: chosen ? (chosen.shortName || chosen.fullName) : null,
+                        assigneeDepartmentId: chosen ? (chosen.primaryDepartmentId ?? null) : null,
                       })
                     }}
                     className="w-full text-xs font-medium border border-slate-200 rounded-lg px-2.5 py-1.5 bg-white text-slate-800 hover:border-slate-300 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer"
@@ -867,9 +1027,9 @@ export function TaskDetail({
 
           {/* ── Section: Linked Documents Files Widget ── */}
           <div className="border border-slate-200 rounded-xl p-4 bg-white shadow-xs">
-            <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-100">
+            <div className="flex items-center justify-between gap-2 flex-wrap mb-3 pb-2 border-b border-slate-100">
               <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-2">
-                <Paperclip className="w-4 h-4 text-indigo-600" />
+                <Paperclip className="w-4 h-4 text-indigo-600 shrink-0" />
                 Tập tin từ văn bản liên quan ({linkedFiles.length})
               </h3>
               <span className="text-[11px] text-slate-400">
@@ -882,13 +1042,13 @@ export function TaskDetail({
                 {linkedFiles.map((file) => (
                   <div
                     key={file.id}
-                    className="flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg border border-slate-200/80 bg-slate-50/50 hover:bg-slate-50 transition-colors group"
+                    className="flex items-center justify-between gap-2 sm:gap-3 px-3 py-2.5 rounded-lg border border-slate-200/80 bg-slate-50/50 hover:bg-slate-50 transition-colors group min-w-0"
                   >
                     <div className="flex items-center gap-2.5 min-w-0 flex-1">
                       <FileText className={`w-4 h-4 shrink-0 ${file.isAttachment ? 'text-amber-500' : 'text-blue-500'}`} />
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-xs font-medium text-slate-800 truncate max-w-sm sm:max-w-md" title={file.title}>
+                          <span className="text-xs font-medium text-slate-800 truncate max-w-full sm:max-w-md" title={file.title}>
                             {file.title}
                           </span>
                           <span className={`text-[10px] px-1.5 py-0.2 rounded font-semibold ${
@@ -913,7 +1073,7 @@ export function TaskDetail({
                         href={file.url}
                         target="_blank"
                         rel="noreferrer"
-                        className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 transition-colors"
+                        className="max-lg:min-w-[40px] max-lg:min-h-[40px] max-lg:justify-center inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 transition-colors"
                         title="Xem tập tin trong tab mới"
                       >
                         <ExternalLink className="w-3.5 h-3.5" />
@@ -923,7 +1083,7 @@ export function TaskDetail({
                       <button
                         type="button"
                         onClick={() => handleCopyFileLink(file.id, file.url)}
-                        className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium text-slate-600 hover:text-slate-800 hover:bg-slate-200/60 transition-colors"
+                        className="max-lg:min-w-[40px] max-lg:min-h-[40px] max-lg:justify-center inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium text-slate-600 hover:text-slate-800 hover:bg-slate-200/60 transition-colors"
                         title="Sao chép liên kết tập tin"
                       >
                         {copiedFileId === file.id ? (
@@ -955,9 +1115,9 @@ export function TaskDetail({
 
           {/* ── Section: Linked Documents (with inline DocumentPickerPanel) ── */}
           <div className="border border-slate-200 rounded-xl p-4 bg-white shadow-xs">
-            <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-100">
+            <div className="flex items-center justify-between gap-2 flex-wrap mb-3 pb-2 border-b border-slate-100">
               <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-2">
-                <FileText className="w-4 h-4 text-blue-600" />
+                <FileText className="w-4 h-4 text-blue-600 shrink-0" />
                 Văn bản liên quan ({task.documentIds?.length || 0})
               </h3>
               {_canEdit && (
@@ -966,7 +1126,7 @@ export function TaskDetail({
                   variant="outline"
                   size="sm"
                   onClick={() => setShowDocPicker(!showDocPicker)}
-                  className="h-7 px-2.5 text-xs text-blue-600 hover:text-blue-700 border-blue-200 hover:bg-blue-50"
+                  className="h-7 max-lg:min-h-[40px] px-2.5 text-xs text-blue-600 hover:text-blue-700 border-blue-200 hover:bg-blue-50"
                 >
                   {showDocPicker ? (
                     <>
@@ -991,7 +1151,7 @@ export function TaskDetail({
                   return (
                     <div
                       key={docId}
-                      className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg bg-blue-50/40 border border-blue-100 hover:bg-blue-50 transition-colors"
+                      className="flex items-center justify-between gap-1.5 sm:gap-2 px-3 py-2 rounded-lg bg-blue-50/40 border border-blue-100 hover:bg-blue-50 transition-colors min-w-0"
                     >
                       <button
                         type="button"
@@ -1018,7 +1178,7 @@ export function TaskDetail({
                         <button
                           type="button"
                           onClick={() => handleShareDocToChat(doc)}
-                          className="p-1 rounded text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors shrink-0"
+                          className="max-lg:min-w-[40px] max-lg:min-h-[40px] inline-flex items-center justify-center p-1 rounded text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors shrink-0"
                           title="Gửi văn bản này vào ô chat trao đổi"
                         >
                           <MessageSquarePlus className="w-3.5 h-3.5" />
@@ -1032,7 +1192,7 @@ export function TaskDetail({
                             const nextIds = (task.documentIds || []).filter(id => id !== docId)
                             handleUpdateFields({ documentIds: nextIds })
                           }}
-                          className="p-1 rounded text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors shrink-0"
+                          className="max-lg:min-w-[40px] max-lg:min-h-[40px] inline-flex items-center justify-center p-1 rounded text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors shrink-0"
                           title="Hủy liên kết văn bản này"
                         >
                           <X className="w-3.5 h-3.5" />
@@ -1056,7 +1216,7 @@ export function TaskDetail({
                     variant="ghost"
                     size="sm"
                     onClick={() => setShowDocPicker(false)}
-                    className="h-6 px-2 text-[11px] text-slate-500"
+                    className="h-6 max-lg:min-h-[40px] px-2 text-[11px] text-slate-500"
                   >
                     Xong
                   </Button>
@@ -1073,9 +1233,9 @@ export function TaskDetail({
 
           {/* ── Section: Linked Dossiers (with inline DossierTreePicker) ── */}
           <div className="border border-slate-200 rounded-xl p-4 bg-white shadow-xs">
-            <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-100">
+            <div className="flex items-center justify-between gap-2 flex-wrap mb-3 pb-2 border-b border-slate-100">
               <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-2">
-                <Folder className="w-4 h-4 text-amber-500" />
+                <Folder className="w-4 h-4 text-amber-500 shrink-0" />
                 Hồ sơ liên quan ({task.dossierIds?.length || 0})
               </h3>
               {_canEdit && (
@@ -1084,7 +1244,7 @@ export function TaskDetail({
                   variant="outline"
                   size="sm"
                   onClick={() => setShowDossierPicker(!showDossierPicker)}
-                  className="h-7 px-2.5 text-xs text-amber-700 border-amber-200 hover:bg-amber-50"
+                  className="h-7 max-lg:min-h-[40px] px-2.5 text-xs text-amber-700 border-amber-200 hover:bg-amber-50"
                 >
                   {showDossierPicker ? (
                     <>
@@ -1109,13 +1269,13 @@ export function TaskDetail({
                   return (
                     <span
                       key={dossierId}
-                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium bg-amber-50 text-amber-800 border border-amber-200 shadow-2xs"
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium bg-amber-50 text-amber-800 border border-amber-200 shadow-2xs max-w-full"
                     >
-                      <Folder className="w-3 h-3 text-amber-600" />
+                      <Folder className="w-3 h-3 text-amber-600 shrink-0" />
                       <button
                         type="button"
                         onClick={() => router.push(`/dossiers?id=${dossierId}`)}
-                        className="hover:underline font-medium"
+                        className="hover:underline font-medium truncate"
                       >
                         {dossier?.name || `Hồ sơ #${dossierId.slice(-6)}`}
                       </button>
@@ -1126,7 +1286,7 @@ export function TaskDetail({
                             const nextIds = (task.dossierIds || []).filter(id => id !== dossierId)
                             handleUpdateFields({ dossierIds: nextIds })
                           }}
-                          className="ml-1 hover:text-red-500"
+                          className="ml-1 hover:text-red-500 shrink-0"
                           title="Bỏ liên kết hồ sơ này"
                         >
                           <X className="w-3 h-3" />
@@ -1161,6 +1321,7 @@ export function TaskDetail({
             </h3>
             <SubtaskList
               parentTaskId={task.id}
+              parentTask={task}
               subtasks={subtasks}
               actorId={actorId}
               actorName={actorName}
@@ -1179,8 +1340,12 @@ export function TaskDetail({
         </div>
 
         {/* Right Column: Comment thread */}
-        <div className="w-[320px] shrink-0 flex flex-col bg-slate-50 lg:w-[360px]">
-          <div className="px-3 py-2 border-b border-slate-200 shrink-0 bg-white">
+        <div
+          className={`${
+            mobileTab === 'chat' ? 'flex flex-1 w-full min-h-0' : 'hidden'
+          } lg:flex lg:flex-none lg:w-[360px] shrink-0 flex-col bg-slate-50 min-w-0`}
+        >
+          <div className="hidden lg:block px-3 py-2 border-b border-slate-200 shrink-0 bg-white">
             <h3 className="text-xs font-bold text-slate-600 uppercase tracking-wider">Trao đổi nội bộ</h3>
           </div>
           <TaskCommentThread

@@ -1,31 +1,97 @@
 'use client'
 
 import React, { useState, useEffect, useRef } from 'react'
+import { Timestamp } from 'firebase/firestore'
 import {
-  Plus, Check, Trash2, Edit2,
-  ChevronUp, ChevronDown, Loader2, GripVertical
+  Plus, Trash2, Edit2,
+  ChevronUp, ChevronDown, Loader2, GripVertical,
+  User, Calendar, Building, AlertCircle, X,
 } from 'lucide-react'
 import type { Task } from '@/types/tasks'
-import { createTask, updateTaskStatus, updateSubtaskTitle, deleteTask, updateTask, reorderSubtasks } from '@/lib/tasks/mutations'
-import { calculateSubtaskProgress } from '@/lib/tasks/progress'
+import { useStaff } from '@/hooks/useStaff'
+import { useDepartments } from '@/hooks/useDepartments'
+import { useRole } from '@/hooks/useRole'
+import { useOrganization } from '@/hooks/useOrganization'
+import {
+  createTask,
+  changeTaskStatus,
+  updateSubtaskTitle,
+  deleteTask,
+  updateTask,
+  reorderSubtasks,
+} from '@/lib/tasks/mutations'
+import { buildTaskActorContext } from '@/lib/tasks/permissions'
+import { computeParentSubtaskProgress, isSubtaskClosed } from '@/lib/tasks/validation'
 
 interface SubtaskListProps {
   parentTaskId: string
+  parentTask?: Pick<
+    Task,
+    | 'assigneeId'
+    | 'assigneeName'
+    | 'assigneeDepartmentId'
+    | 'departmentId'
+    | 'dueDate'
+    | 'priority'
+    | 'progressMode'
+  >
   subtasks: Task[]
   actorId: string
   actorName: string
   canEdit: boolean
 }
 
-export function SubtaskList({ parentTaskId, subtasks, actorId, actorName, canEdit }: SubtaskListProps) {
+function toInputDate(val: any): string {
+  if (!val) return ''
+  try {
+    const d = val.toDate ? val.toDate() : new Date((val.seconds ?? 0) * 1000)
+    if (isNaN(d.getTime())) return ''
+    const year = d.getFullYear()
+    const month = String(d.getMonth() + 1).padStart(2, '0')
+    const day = String(d.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
+  } catch {
+    return ''
+  }
+}
+
+export function SubtaskList({
+  parentTaskId,
+  parentTask,
+  subtasks,
+  actorId,
+  actorName,
+  canEdit,
+}: SubtaskListProps) {
+  const { staff } = useStaff()
+  const { departments } = useDepartments()
+  const { staffId, staffName, isAdmin, role } = useRole()
+  const { hasPermission, currentStaff } = useOrganization()
+  const activeStaff = staff.filter(s => s.isActive)
+
+  const actorCtx = React.useMemo(
+    () =>
+      buildTaskActorContext({
+        staffId: actorId || staffId,
+        staffName: actorName || staffName,
+        isAdmin,
+        role,
+        currentStaff,
+        hasPermission,
+      }),
+    [actorId, staffId, actorName, staffName, isAdmin, role, currentStaff, hasPermission]
+  )
+
   // Local optimistic state
   const [localItems, setLocalItems] = useState<Task[]>(subtasks)
   const [newTitle, setNewTitle] = useState('')
   const [adding, setAdding] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editTitle, setEditTitle] = useState('')
+  const [expandedMetaId, setExpandedMetaId] = useState<string | null>(null)
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null)
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
+  const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
   // Sync with prop when server data arrives
@@ -33,12 +99,15 @@ export function SubtaskList({ parentTaskId, subtasks, actorId, actorName, canEdi
     setLocalItems(subtasks)
   }, [subtasks])
 
-  const completedCount = localItems.filter(s => s.isClosed || s.status === 'completed').length
-  const totalCount = localItems.length
-  const progress = calculateSubtaskProgress(localItems.map(s => ({ isClosed: s.isClosed || s.status === 'completed' })))
+  const activeItems = localItems.filter(s => s.status !== 'cancelled')
+  const completedCount = activeItems.filter(s => isSubtaskClosed(s)).length
+  const totalCount = activeItems.length
+  const progress = computeParentSubtaskProgress(localItems)
 
   const handleToggle = async (subtask: Task) => {
-    const isCurrentlyDone = subtask.isClosed || subtask.status === 'completed'
+    if (subtask.status === 'cancelled') return
+    setErrorMsg(null)
+    const isCurrentlyDone = isSubtaskClosed(subtask)
     const nextStatus = isCurrentlyDone ? 'pending' : 'completed'
     const nextIsClosed = !isCurrentlyDone
 
@@ -48,16 +117,16 @@ export function SubtaskList({ parentTaskId, subtasks, actorId, actorName, canEdi
     )
     setLocalItems(updated)
 
-    // Compute new parent progress
-    const newProgress = calculateSubtaskProgress(updated.map(s => ({ isClosed: s.isClosed })))
-
     try {
-      await updateTaskStatus(subtask.id, nextStatus, actorId, actorName)
-      // Update parent task progress
-      await updateTask(parentTaskId, { progress: newProgress }, actorId, actorName)
-    } catch (err) {
+      await changeTaskStatus(
+        subtask.id,
+        nextStatus,
+        actorCtx.actor,
+        { autoStartFromPending: true }
+      )
+    } catch (err: any) {
       console.error('Failed to toggle subtask:', err)
-      // Revert on error
+      setErrorMsg(err?.message || 'Không thể đổi trạng thái công việc con')
       setLocalItems(subtasks)
     }
   }
@@ -65,9 +134,17 @@ export function SubtaskList({ parentTaskId, subtasks, actorId, actorName, canEdi
   const handleAdd = async (e?: React.FormEvent) => {
     if (e) e.preventDefault()
     if (!newTitle.trim() || adding) return
+    setErrorMsg(null)
 
     const titleToAdd = newTitle.trim()
     setNewTitle('')
+
+    // Inherit defaults from parentTask
+    const inheritedAssigneeId = parentTask?.assigneeId ?? null
+    const inheritedAssigneeName = parentTask?.assigneeName ?? null
+    const inheritedAssigneeDepartmentId = parentTask?.assigneeDepartmentId ?? null
+    const inheritedDepartmentId = parentTask?.departmentId ?? null
+    const inheritedDueDate = parentTask?.dueDate ?? null
 
     // Temporary optimistic ID
     const tempId = `temp-${Date.now()}`
@@ -79,6 +156,11 @@ export function SubtaskList({ parentTaskId, subtasks, actorId, actorName, canEdi
       isClosed: false,
       parentTaskId,
       sortOrder: nextSortOrder,
+      assigneeId: inheritedAssigneeId,
+      assigneeName: inheritedAssigneeName,
+      assigneeDepartmentId: inheritedAssigneeDepartmentId,
+      departmentId: inheritedDepartmentId,
+      dueDate: inheritedDueDate,
       createdAt: null,
     }
     const nextItems = [...localItems, tempItem]
@@ -87,18 +169,26 @@ export function SubtaskList({ parentTaskId, subtasks, actorId, actorName, canEdi
 
     try {
       const realId = await createTask(
-        { title: titleToAdd, parentTaskId, sortOrder: nextSortOrder },
-        actorId,
-        actorName
+        {
+          title: titleToAdd,
+          parentTaskId,
+          sortOrder: nextSortOrder,
+          assigneeId: inheritedAssigneeId || undefined,
+          assigneeName: inheritedAssigneeName,
+          assigneeDepartmentId: inheritedAssigneeDepartmentId,
+          departmentId: inheritedDepartmentId || undefined,
+          dueDate: inheritedDueDate || undefined,
+          priority: parentTask?.priority,
+        },
+        actorCtx.id,
+        actorCtx.name
       )
       // Replace temp item
-      setLocalItems(prev => prev.map(s => s.id === tempId ? { ...s, id: realId } : s))
-      // Update parent task progress
-      const newProgress = calculateSubtaskProgress(nextItems.map(s => ({ isClosed: s.isClosed })))
-      await updateTask(parentTaskId, { progress: newProgress }, actorId, actorName)
+      setLocalItems(prev => prev.map(s => (s.id === tempId ? { ...s, id: realId } : s)))
       inputRef.current?.focus()
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to create subtask:', err)
+      setErrorMsg(err?.message || 'Không thể thêm công việc con')
       setLocalItems(subtasks)
     } finally {
       setAdding(false)
@@ -115,28 +205,53 @@ export function SubtaskList({ parentTaskId, subtasks, actorId, actorName, canEdi
       setEditingId(null)
       return
     }
+    setErrorMsg(null)
     const finalTitle = editTitle.trim()
-    setLocalItems(prev => prev.map(s => s.id === subtaskId ? { ...s, title: finalTitle } : s))
+    setLocalItems(prev => prev.map(s => (s.id === subtaskId ? { ...s, title: finalTitle } : s)))
     setEditingId(null)
 
     try {
       await updateSubtaskTitle(subtaskId, finalTitle)
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to update subtask title:', err)
+      setErrorMsg(err?.message || 'Không thể sửa tên công việc con')
+      setLocalItems(subtasks)
+    }
+  }
+
+  const handleSubtaskMetaUpdate = async (
+    subtaskId: string,
+    fields: {
+      assigneeId?: string | null
+      assigneeName?: string | null
+      assigneeDepartmentId?: string | null
+      departmentId?: string | null
+      dueDate?: Timestamp | null
+    }
+  ) => {
+    setErrorMsg(null)
+    setLocalItems(prev =>
+      prev.map(s => (s.id === subtaskId ? ({ ...s, ...fields } as Task) : s))
+    )
+    try {
+      await updateTask(subtaskId, fields, actorCtx.id, actorCtx.name)
+    } catch (err: any) {
+      console.error('Failed to update subtask metadata:', err)
+      setErrorMsg(err?.message || 'Không thể cập nhật thông tin công việc con')
       setLocalItems(subtasks)
     }
   }
 
   const handleDelete = async (subtaskId: string) => {
+    setErrorMsg(null)
     const nextItems = localItems.filter(s => s.id !== subtaskId)
     setLocalItems(nextItems)
-    const newProgress = calculateSubtaskProgress(nextItems.map(s => ({ isClosed: s.isClosed })))
 
     try {
-      await deleteTask(subtaskId, actorId)
-      await updateTask(parentTaskId, { progress: newProgress }, actorId, actorName)
-    } catch (err) {
+      await deleteTask(subtaskId, actorCtx.id)
+    } catch (err: any) {
       console.error('Failed to delete subtask:', err)
+      setErrorMsg(err?.message || 'Không thể xóa công việc con')
       setLocalItems(subtasks)
     }
   }
@@ -144,15 +259,17 @@ export function SubtaskList({ parentTaskId, subtasks, actorId, actorName, canEdi
   const handleMove = async (index: number, direction: 'up' | 'down') => {
     const targetIndex = direction === 'up' ? index - 1 : index + 1
     if (targetIndex < 0 || targetIndex >= localItems.length) return
+    setErrorMsg(null)
     const reordered = [...localItems]
     const [moved] = reordered.splice(index, 1)
     reordered.splice(targetIndex, 0, moved)
     setLocalItems(reordered)
 
     try {
-      await reorderSubtasks(parentTaskId, reordered.map(s => s.id), actorId, actorName)
-    } catch (err) {
+      await reorderSubtasks(parentTaskId, reordered.map(s => s.id), actorCtx.id, actorCtx.name)
+    } catch (err: any) {
       console.error('Failed to persist subtask order:', err)
+      setErrorMsg(err?.message || 'Không thể lưu thứ tự công việc con')
       setLocalItems(subtasks)
     }
   }
@@ -164,6 +281,7 @@ export function SubtaskList({ parentTaskId, subtasks, actorId, actorName, canEdi
       setDraggedIndex(null)
       return
     }
+    setErrorMsg(null)
 
     const reordered = [...localItems]
     const [moved] = reordered.splice(draggedIndex, 1)
@@ -172,15 +290,30 @@ export function SubtaskList({ parentTaskId, subtasks, actorId, actorName, canEdi
     setDraggedIndex(null)
 
     try {
-      await reorderSubtasks(parentTaskId, reordered.map(s => s.id), actorId, actorName)
-    } catch (err) {
+      await reorderSubtasks(parentTaskId, reordered.map(s => s.id), actorCtx.id, actorCtx.name)
+    } catch (err: any) {
       console.error('Failed to persist subtask drag order:', err)
+      setErrorMsg(err?.message || 'Không thể lưu thứ tự công việc con')
       setLocalItems(subtasks)
     }
   }
 
   return (
     <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-3.5 space-y-3">
+      {errorMsg && (
+        <div className="px-2.5 py-2 rounded-lg bg-red-50 border border-red-200 text-xs text-red-700 flex items-start gap-1.5">
+          <AlertCircle className="w-3.5 h-3.5 text-red-500 mt-0.5 shrink-0" />
+          <span className="flex-1">{errorMsg}</span>
+          <button
+            type="button"
+            onClick={() => setErrorMsg(null)}
+            className="text-red-400 hover:text-red-600 shrink-0"
+            title="Đóng thông báo lỗi"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
       {/* Progress header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
@@ -188,9 +321,13 @@ export function SubtaskList({ parentTaskId, subtasks, actorId, actorName, canEdi
             Việc con ({completedCount}/{totalCount})
           </span>
           {totalCount > 0 && (
-            <span className={`text-[11px] font-bold px-1.5 py-0.5 rounded ${
-              progress === 100 ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-blue-700'
-            }`}>
+            <span
+              className={`text-[11px] font-bold px-1.5 py-0.5 rounded ${
+                progress === 100
+                  ? 'bg-emerald-100 text-emerald-700'
+                  : 'bg-blue-100 text-blue-700'
+              }`}
+            >
               {progress}%
             </span>
           )}
@@ -201,9 +338,13 @@ export function SubtaskList({ parentTaskId, subtasks, actorId, actorName, canEdi
       <div className="h-2 bg-slate-200/80 rounded-full overflow-hidden">
         <div
           className={`h-full rounded-full transition-all duration-300 ${
-            progress === 100 ? 'bg-emerald-500' :
-            progress >= 50 ? 'bg-blue-600' :
-            progress > 0 ? 'bg-blue-400' : 'bg-slate-300'
+            progress === 100
+              ? 'bg-emerald-500'
+              : progress >= 50
+              ? 'bg-blue-600'
+              : progress > 0
+              ? 'bg-blue-400'
+              : 'bg-slate-300'
           }`}
           style={{ width: `${progress}%` }}
         />
@@ -212,11 +353,14 @@ export function SubtaskList({ parentTaskId, subtasks, actorId, actorName, canEdi
       {/* Subtask items list */}
       <div className="space-y-1.5 pt-1">
         {localItems.length === 0 ? (
-          <p className="text-xs text-slate-400 italic py-2 text-center">Chưa có công việc con nào</p>
+          <p className="text-xs text-slate-400 italic py-2 text-center">
+            Chưa có công việc con nào
+          </p>
         ) : (
           localItems.map((subtask, index) => {
             const isDone = subtask.isClosed || subtask.status === 'completed'
             const isEditing = editingId === subtask.id
+            const isExpanded = expandedMetaId === subtask.id
 
             return (
               <div
@@ -238,7 +382,7 @@ export function SubtaskList({ parentTaskId, subtasks, actorId, actorName, canEdi
                   setDraggedIndex(null)
                   setDragOverIndex(null)
                 }}
-                className={`group flex items-center gap-1.5 px-2.5 py-2 rounded-lg border transition-all ${
+                className={`group rounded-lg border transition-all ${
                   draggedIndex === index
                     ? 'opacity-40 border-dashed border-blue-400 bg-blue-50/50'
                     : dragOverIndex === index
@@ -248,90 +392,198 @@ export function SubtaskList({ parentTaskId, subtasks, actorId, actorName, canEdi
                     : 'bg-white border-slate-200/90 hover:border-blue-300 shadow-2xs'
                 }`}
               >
-                {/* Drag handle */}
-                {canEdit && !isEditing && (
-                  <div
-                    className="cursor-grab active:cursor-grabbing text-slate-300 hover:text-slate-600 transition-colors shrink-0"
-                    title="Kéo thả để sắp xếp thứ tự"
-                  >
-                    <GripVertical className="w-3.5 h-3.5" />
-                  </div>
-                )}
-
-                {/* Real Checkbox */}
-                <input
-                  type="checkbox"
-                  checked={isDone}
-                  onChange={() => handleToggle(subtask)}
-                  disabled={!canEdit}
-                  className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 border-slate-300 cursor-pointer shrink-0 disabled:cursor-not-allowed"
-                />
-
-                {/* Subtask Title (view or edit) */}
-                <div className="flex-1 min-w-0">
-                  {isEditing ? (
-                    <input
-                      type="text"
-                      value={editTitle}
-                      onChange={(e) => setEditTitle(e.target.value)}
-                      onBlur={() => handleSaveEdit(subtask.id)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') handleSaveEdit(subtask.id)
-                        if (e.key === 'Escape') setEditingId(null)
-                      }}
-                      autoFocus
-                      className="w-full text-xs font-medium px-1.5 py-0.5 border border-blue-400 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white"
-                    />
-                  ) : (
-                    <span
-                      onDoubleClick={() => canEdit && handleStartEdit(subtask)}
-                      className={`text-xs block truncate ${
-                        isDone ? 'line-through text-slate-400' : 'text-slate-800 font-medium'
-                      }`}
-                      title={subtask.title}
+                <div className="flex flex-wrap sm:flex-nowrap items-center gap-1.5 px-2.5 py-2">
+                  {/* Drag handle (desktop only; mobile uses ↑/↓ buttons) */}
+                  {canEdit && !isEditing && (
+                    <div
+                      className="hidden lg:block cursor-grab active:cursor-grabbing text-slate-300 hover:text-slate-600 transition-colors shrink-0"
+                      title="Kéo thả để sắp xếp thứ tự"
                     >
-                      {subtask.title}
-                    </span>
+                      <GripVertical className="w-3.5 h-3.5" />
+                    </div>
+                  )}
+
+                  {/* Real Checkbox */}
+                  <label
+                    className={`max-lg:min-w-[36px] max-lg:min-h-[36px] max-lg:-my-1 max-lg:-ml-1 inline-flex items-center justify-center shrink-0 ${
+                      canEdit ? 'cursor-pointer' : 'cursor-not-allowed'
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={isDone}
+                      onChange={() => handleToggle(subtask)}
+                      disabled={!canEdit}
+                      className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 border-slate-300 cursor-pointer shrink-0 disabled:cursor-not-allowed"
+                    />
+                  </label>
+
+                  {/* Subtask Title (view or edit) */}
+                  <div className="flex-1 min-w-[120px] sm:min-w-0">
+                    {isEditing ? (
+                      <input
+                        type="text"
+                        value={editTitle}
+                        onChange={(e) => setEditTitle(e.target.value)}
+                        onBlur={() => handleSaveEdit(subtask.id)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') handleSaveEdit(subtask.id)
+                          if (e.key === 'Escape') setEditingId(null)
+                        }}
+                        autoFocus
+                        className="w-full text-xs font-medium px-1.5 py-0.5 border border-blue-400 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white"
+                      />
+                    ) : (
+                      <div className="min-w-0">
+                        <span
+                          onDoubleClick={() => canEdit && handleStartEdit(subtask)}
+                          className={`text-xs block truncate ${
+                            isDone ? 'line-through text-slate-400' : 'text-slate-800 font-medium'
+                          }`}
+                          title={subtask.title}
+                        >
+                          {subtask.title}
+                        </span>
+                        {(subtask.assigneeName || subtask.dueDate) && (
+                          <div className="flex items-center gap-2 flex-wrap text-[10px] text-slate-400 mt-0.5">
+                            {subtask.assigneeName && (
+                              <span className="inline-flex items-center gap-0.5">
+                                <User className="w-2.5 h-2.5" /> {subtask.assigneeName}
+                              </span>
+                            )}
+                            {subtask.dueDate && (
+                              <span className="inline-flex items-center gap-0.5">
+                                <Calendar className="w-2.5 h-2.5" /> {toInputDate(subtask.dueDate)}
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Action buttons on hover (always visible on touch/mobile via hover-reveal) */}
+                  {canEdit && !isEditing && (
+                    <div className="flex items-center gap-0.5 ml-auto sm:ml-0 opacity-0 group-hover:opacity-100 hover-reveal max-lg:opacity-100 transition-opacity shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => setExpandedMetaId(isExpanded ? null : subtask.id)}
+                        title="Phân công / Hạn việc con"
+                        aria-label="Phân công / Hạn việc con"
+                        className={`max-lg:min-w-[36px] max-lg:min-h-[36px] inline-flex items-center justify-center rounded p-1 ${
+                          isExpanded ? 'text-blue-600' : 'text-slate-400 hover:text-blue-600'
+                        }`}
+                      >
+                        <User className="w-3 h-3" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleMove(index, 'up')}
+                        disabled={index === 0}
+                        title="Di chuyển lên"
+                        aria-label="Di chuyển lên"
+                        className="max-lg:min-w-[36px] max-lg:min-h-[36px] inline-flex items-center justify-center rounded p-1 text-slate-400 hover:text-slate-700 disabled:!opacity-30 disabled:cursor-not-allowed"
+                      >
+                        <ChevronUp className="w-3 h-3" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleMove(index, 'down')}
+                        disabled={index === localItems.length - 1}
+                        title="Di chuyển xuống"
+                        aria-label="Di chuyển xuống"
+                        className="max-lg:min-w-[36px] max-lg:min-h-[36px] inline-flex items-center justify-center rounded p-1 text-slate-400 hover:text-slate-700 disabled:!opacity-30 disabled:cursor-not-allowed"
+                      >
+                        <ChevronDown className="w-3 h-3" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleStartEdit(subtask)}
+                        title="Sửa tên việc con"
+                        aria-label="Sửa tên việc con"
+                        className="max-lg:min-w-[36px] max-lg:min-h-[36px] inline-flex items-center justify-center rounded p-1 text-slate-400 hover:text-blue-600"
+                      >
+                        <Edit2 className="w-3 h-3" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDelete(subtask.id)}
+                        title="Xóa việc con"
+                        aria-label="Xóa việc con"
+                        className="max-lg:min-w-[36px] max-lg:min-h-[36px] inline-flex items-center justify-center rounded p-1 text-slate-400 hover:text-red-600"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    </div>
                   )}
                 </div>
 
-                {/* Action buttons on hover */}
-                {canEdit && !isEditing && (
-                  <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-                    <button
-                      type="button"
-                      onClick={() => handleMove(index, 'up')}
-                      disabled={index === 0}
-                      title="Di chuyển lên"
-                      className="p-1 text-slate-400 hover:text-slate-700 disabled:opacity-30 disabled:cursor-not-allowed"
-                    >
-                      <ChevronUp className="w-3 h-3" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleMove(index, 'down')}
-                      disabled={index === localItems.length - 1}
-                      title="Di chuyển xuống"
-                      className="p-1 text-slate-400 hover:text-slate-700 disabled:opacity-30 disabled:cursor-not-allowed"
-                    >
-                      <ChevronDown className="w-3 h-3" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleStartEdit(subtask)}
-                      title="Sửa tên việc con"
-                      className="p-1 text-slate-400 hover:text-blue-600"
-                    >
-                      <Edit2 className="w-3 h-3" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleDelete(subtask.id)}
-                      title="Xóa việc con"
-                      className="p-1 text-slate-400 hover:text-red-600"
-                    >
-                      <Trash2 className="w-3 h-3" />
-                    </button>
+                {/* Individual subtask override panel (assigneeId, departmentId, dueDate) */}
+                {canEdit && isExpanded && (
+                  <div className="px-2.5 pb-2.5 pt-1.5 border-t border-slate-100 grid grid-cols-1 sm:grid-cols-3 gap-2 bg-slate-50/70 rounded-b-lg">
+                    <div>
+                      <label className="text-[10px] font-semibold text-slate-500 flex items-center gap-1 mb-0.5">
+                        <User className="w-2.5 h-2.5" /> Người thực hiện
+                      </label>
+                      <select
+                        value={subtask.assigneeId || ''}
+                        onChange={(e) => {
+                          const newId = e.target.value
+                          const st = activeStaff.find(s => s.id === newId)
+                          handleSubtaskMetaUpdate(subtask.id, {
+                            assigneeId: newId || null,
+                            assigneeName: st ? st.shortName || st.fullName : null,
+                            assigneeDepartmentId: st?.primaryDepartmentId ?? null,
+                          })
+                        }}
+                        className="w-full text-[11px] border border-slate-200 rounded px-1.5 py-1 bg-white"
+                      >
+                        <option value="">-- Chưa giao --</option>
+                        {activeStaff.map(s => (
+                          <option key={s.id} value={s.id}>
+                            {s.shortName || s.fullName}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="text-[10px] font-semibold text-slate-500 flex items-center gap-1 mb-0.5">
+                        <Building className="w-2.5 h-2.5" /> Đơn vị
+                      </label>
+                      <select
+                        value={subtask.departmentId || ''}
+                        onChange={(e) =>
+                          handleSubtaskMetaUpdate(subtask.id, {
+                            departmentId: e.target.value || null,
+                          })
+                        }
+                        className="w-full text-[11px] border border-slate-200 rounded px-1.5 py-1 bg-white"
+                      >
+                        <option value="">-- Chưa phân đơn vị --</option>
+                        {departments.map(d => (
+                          <option key={d.id} value={d.id}>
+                            {d.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="text-[10px] font-semibold text-slate-500 flex items-center gap-1 mb-0.5">
+                        <Calendar className="w-2.5 h-2.5" /> Hạn hoàn thành
+                      </label>
+                      <input
+                        type="date"
+                        value={toInputDate(subtask.dueDate)}
+                        onChange={(e) => {
+                          const val = e.target.value
+                          const ts = val ? Timestamp.fromDate(new Date(val + 'T23:59:59')) : null
+                          handleSubtaskMetaUpdate(subtask.id, { dueDate: ts })
+                        }}
+                        className="w-full text-[11px] border border-slate-200 rounded px-1.5 py-1 bg-white"
+                      />
+                    </div>
                   </div>
                 )}
               </div>
@@ -350,14 +602,18 @@ export function SubtaskList({ parentTaskId, subtasks, actorId, actorName, canEdi
             onChange={(e) => setNewTitle(e.target.value)}
             placeholder="+ Nhập tên việc con mới rồi Enter..."
             disabled={adding}
-            className="flex-1 text-xs px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-slate-800 placeholder:text-slate-400 shadow-2xs"
+            className="flex-1 min-w-0 max-lg:min-h-[40px] text-xs px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-slate-800 placeholder:text-slate-400 shadow-2xs"
           />
           <button
             type="submit"
             disabled={!newTitle.trim() || adding}
-            className="px-2.5 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-lg text-xs font-medium flex items-center gap-1 shadow-2xs transition-colors"
+            className="max-lg:min-h-[40px] max-lg:px-3 shrink-0 px-2.5 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-lg text-xs font-medium flex items-center justify-center gap-1 shadow-2xs transition-colors"
           >
-            {adding ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
+            {adding ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <Plus className="w-3.5 h-3.5" />
+            )}
             Thêm
           </button>
         </form>

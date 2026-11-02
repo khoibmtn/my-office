@@ -40,7 +40,7 @@ export const TaskPriorityBadge = React.memo(function TaskPriorityBadge({
 
   return (
     <span
-      className={`inline-flex items-center gap-1.5 ${isSmall ? 'text-[11px]' : 'text-xs'}`}
+      className={`inline-flex items-center gap-1.5 whitespace-nowrap ${isSmall ? 'text-[11px]' : 'text-xs'}`}
       title={label}
     >
       <span className={`w-2 h-2 rounded-full ${dotColor} inline-block shrink-0`} />

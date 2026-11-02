@@ -2,48 +2,53 @@
 
 import { useEffect, useRef } from 'react'
 import { getDocs } from 'firebase/firestore'
+import { useRole } from '@/hooks/useRole'
 import { queryActiveSeries, generateSeriesOccurrences } from '@/lib/tasks/series'
 import type { TaskSeries } from '@/types/tasks'
 
-const THROTTLE_INTERVAL_MS = 60 * 1000 // 60 seconds between syncs across tabs
-const STORAGE_KEY = 'my_office_recurrence_last_sync'
+export const RECURRENCE_THROTTLE_INTERVAL_MS = 60 * 60 * 1000 // 1 hour between runs
+export const RECURRENCE_LAST_RUN_STORAGE_KEY = 'myoffice_recurrence_last_run'
 
 /**
- * Client Opportunistic Scheduler Hook.
- * Automatically checks and triggers generation for active recurring series in the background
- * when the user is using the app.
- *
- * Safe, idempotent, non-blocking, and throttled to once per minute across the browser.
+ * Client Opportunistic Scheduler Hook (fallback to server cron).
+ * Only runs when the current user is an admin (`useRole().isAdmin`)
+ * and at most once per hour (tracked in `localStorage['myoffice_recurrence_last_run']`).
  */
 export function useRecurringScheduler() {
+  const { isAdmin, loading } = useRole()
   const isSyncingRef = useRef(false)
 
   useEffect(() => {
+    if (loading || !isAdmin) return
+
     let isMounted = true
 
     const runSync = async () => {
-      if (isSyncingRef.current) return
+      if (!isAdmin || isSyncingRef.current) return
 
-      // Throttle check
+      const nowMs = Date.now()
       try {
-        const lastSyncStr = localStorage.getItem(STORAGE_KEY)
-        const now = Date.now()
-        if (lastSyncStr) {
-          const lastSync = parseInt(lastSyncStr, 10)
-          if (!isNaN(lastSync) && now - lastSync < THROTTLE_INTERVAL_MS) {
+        const lastRunStr = localStorage.getItem(RECURRENCE_LAST_RUN_STORAGE_KEY)
+        if (lastRunStr) {
+          const lastRun = parseInt(lastRunStr, 10)
+          if (!isNaN(lastRun) && nowMs - lastRun < RECURRENCE_THROTTLE_INTERVAL_MS) {
             return
           }
         }
       } catch {
-        // Ignore localStorage read errors in private browsing
+        // Ignore localStorage read errors in restricted/private browsing
       }
 
       isSyncingRef.current = true
-
       try {
+        try {
+          localStorage.setItem(RECURRENCE_LAST_RUN_STORAGE_KEY, String(nowMs))
+        } catch {
+          // Ignore localStorage write errors
+        }
+
         const snap = await getDocs(queryActiveSeries())
         if (!isMounted || snap.empty) {
-          isSyncingRef.current = false
           return
         }
 
@@ -63,12 +68,6 @@ export function useRecurringScheduler() {
             console.warn(`[useRecurringScheduler] Failed to generate for series ${series.id}:`, err)
           }
         }
-
-        try {
-          localStorage.setItem(STORAGE_KEY, String(Date.now()))
-        } catch {
-          // Ignore localStorage write errors
-        }
       } catch (err) {
         console.warn('[useRecurringScheduler] Sync error:', err)
       } finally {
@@ -76,16 +75,13 @@ export function useRecurringScheduler() {
       }
     }
 
-    // Run shortly after mount (1.5s delay to let critical UI hydration finish first)
     const timer = setTimeout(runSync, 1500)
-
-    // Also periodic check every 60s while app is open
-    const interval = setInterval(runSync, THROTTLE_INTERVAL_MS)
+    const interval = setInterval(runSync, RECURRENCE_THROTTLE_INTERVAL_MS)
 
     return () => {
       isMounted = false
       clearTimeout(timer)
       clearInterval(interval)
     }
-  }, [])
+  }, [isAdmin, loading])
 }

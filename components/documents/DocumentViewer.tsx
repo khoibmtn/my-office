@@ -5,6 +5,7 @@ import { Document } from '@/types'
 import { Badge } from '@/components/ui/badge'
 import { AttachmentPanel } from './AttachmentPanel'
 import { parseFileNameFromUrl, getStructuredMainFileName } from '@/lib/utils'
+import { extractDriveFileId } from '@/lib/link-detector'
 import { useAuth } from '@/hooks/useAuth'
 import { IframePreview } from './IframePreview'
 import { QuickDossierTagPicker } from './QuickDossierTagPicker'
@@ -19,18 +20,43 @@ export function DocumentViewer({ doc }: DocumentViewerProps) {
   const [activeUrl, setActiveUrl] = useState(doc.driveViewUrl ?? '')
   const [docItem, setDocItem] = useState(doc)
 
+  const mainDriveId =
+    docItem.driveFileId ||
+    (docItem.originalLink ? extractDriveFileId(docItem.originalLink) : '') ||
+    (docItem.driveViewUrl ? extractDriveFileId(docItem.driveViewUrl) : '') ||
+    ''
+
   const tabs = [
-    { label: docItem.originalLink ? parseFileNameFromUrl(docItem.originalLink, getStructuredMainFileName(docItem)) : getStructuredMainFileName(docItem), driveViewUrl: docItem.driveViewUrl ?? '' },
+    {
+      label: docItem.originalLink
+        ? parseFileNameFromUrl(docItem.originalLink, getStructuredMainFileName(docItem))
+        : getStructuredMainFileName(docItem),
+      driveViewUrl: docItem.driveViewUrl ?? '',
+      driveFileId: mainDriveId,
+    },
     ...(docItem.attachments ?? []).map((a, i) => ({
       label: `Đính kèm ${i + 1}`,
       driveViewUrl: a.driveViewUrl,
+      driveFileId:
+        a.driveFileId ||
+        (a.originalLink ? extractDriveFileId(a.originalLink) : '') ||
+        (a.driveViewUrl ? extractDriveFileId(a.driveViewUrl) : '') ||
+        '',
     })),
   ]
 
+  const activeTab = activeUrl ? tabs.find((t) => t.driveViewUrl === activeUrl) : undefined
+  const activeDriveId = activeTab
+    ? (activeTab.driveFileId || (activeTab.driveViewUrl ? extractDriveFileId(activeTab.driveViewUrl) : '') || '')
+    : (activeUrl ? (extractDriveFileId(activeUrl) || '') : '')
+  const driveOpenUrl = activeDriveId
+    ? `https://drive.google.com/file/d/${activeDriveId}/view`
+    : ''
+
   return (
-    <div className="flex h-screen">
-      {/* Left panel: 40% */}
-      <div className="w-2/5 overflow-y-auto border-r p-4 space-y-3">
+    <div className="flex flex-col lg:flex-row min-h-dvh lg:h-dvh w-full min-w-0 max-w-full">
+      {/* Left panel: 40% on desktop, full width on mobile */}
+      <div className="w-full lg:w-2/5 lg:overflow-y-auto border-b lg:border-b-0 lg:border-r p-4 space-y-3 min-w-0">
         <h1 className="text-xl font-semibold leading-tight mb-2">{docItem.title}</h1>
         <Badge className="mb-3">{docItem.status}</Badge>
         {docItem.sender && (
@@ -97,8 +123,14 @@ export function DocumentViewer({ doc }: DocumentViewerProps) {
       </div>
 
       {/* Right panel: 60% */}
-      <div className="flex-1 flex flex-col">
-        <IframePreview tabs={tabs} activeUrl={activeUrl} onTabChange={setActiveUrl} />
+      <div className="flex-1 flex flex-col w-full min-w-0">
+        <IframePreview
+          tabs={tabs}
+          activeUrl={activeUrl}
+          onTabChange={setActiveUrl}
+          driveOpenUrl={driveOpenUrl}
+          driveOpenLabel="Mở trong Google Drive"
+        />
       </div>
     </div>
   )

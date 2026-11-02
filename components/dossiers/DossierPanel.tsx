@@ -14,10 +14,12 @@ import { MentionTextarea } from '@/components/chat/MentionTextarea'
 import { ChatMessageBubble } from '@/components/chat/ChatMessageBubble'
 import type { AttachedDocMetadata } from '@/types/tasks'
 import { useRole } from '@/hooks/useRole'
+import { useOrganization } from '@/hooks/useOrganization'
 import { useDocuments } from '@/hooks/useDocuments'
 import { useDossiers } from '@/hooks/useDossiers'
-import { useTasks } from '@/hooks/useTasks'
-import { createTask, updateTaskStatus, deleteTask as deleteTaskEngine } from '@/lib/tasks/mutations'
+import { useDossierTasks } from '@/hooks/useScopedTasks'
+import { createTask, changeTaskStatus, deleteTask as deleteTaskEngine } from '@/lib/tasks/mutations'
+import { buildTaskActorContext } from '@/lib/tasks/permissions'
 import { migrateSingleDossierChecklist } from '@/lib/tasks/migration'
 import type { Task } from '@/types/tasks'
 
@@ -39,8 +41,22 @@ export function DossierPanel({
   onClearExternalDraftDoc,
 }: DossierPanelProps) {
   const { staffId, staffName, role, isAdmin } = useRole()
+  const { hasPermission, currentStaff } = useOrganization()
   const { documents } = useDocuments()
   const { dossiers } = useDossiers()
+
+  const actorCtx = useMemo(
+    () =>
+      buildTaskActorContext({
+        staffId,
+        staffName,
+        role,
+        isAdmin,
+        currentStaff,
+        hasPermission,
+      }),
+    [staffId, staffName, role, isAdmin, currentStaff, hasPermission]
+  )
 
   const isOwner =
     dossier.ownerId === staffId ||
@@ -88,9 +104,10 @@ export function DossierPanel({
   const [savingNotes, setSavingNotes] = useState(false)
 
   // Section 3: Tasks & Checklist (Task Engine integration with dual-read support)
-  const { tasks: dossierTasks, loading: tasksLoading } = useTasks({ view: 'dossier', dossierId: dossier.id })
+  const { tasks: dossierTasks, loading: tasksLoading } = useDossierTasks(dossier.id)
   const [migrating, setMigrating] = useState(false)
   const [taskSubmitting, setTaskSubmitting] = useState(false)
+  const [taskActionError, setTaskActionError] = useState<string | null>(null)
   const [checklist, setChecklist] = useState<DossierChecklistItem[]>(dossier.checklist || [])
   const [newTaskTitle, setNewTaskTitle] = useState('')
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null)
@@ -117,6 +134,7 @@ export function DossierPanel({
     setComments(dossier.comments || [])
     setEditingTaskId(null)
     setEditingTaskTitle('')
+    setTaskActionError(null)
   }, [dossier])
 
   // Scroll to bottom of chat when comments change
@@ -304,9 +322,23 @@ export function DossierPanel({
   }
 
   const handleToggleTaskEngine = async (task: Task) => {
-    if (!canEditChecklist) return
+    if (!canEditChecklist || task.status === 'cancelled') return
     const nextStatus = task.status === 'completed' ? 'pending' : 'completed'
-    await updateTaskStatus(task.id, nextStatus, staffId || 'unknown', staffName || (isAdmin ? 'Admin' : 'Thành viên'))
+    setTaskActionError(null)
+    try {
+      await changeTaskStatus(
+        task.id,
+        nextStatus,
+        actorCtx.actor,
+        { autoStartFromPending: true }
+      )
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Không thể đổi trạng thái công việc'
+      setTaskActionError(msg)
+      if (typeof window !== 'undefined' && typeof window.alert === 'function') {
+        window.alert(msg)
+      }
+    }
   }
 
   const handleAddDossierTask = async (e: React.FormEvent) => {
@@ -336,7 +368,13 @@ export function DossierPanel({
 
   const handleDeleteTaskEngine = async (taskId: string) => {
     if (!canEditChecklist) return
-    await deleteTaskEngine(taskId, staffId || 'unknown')
+    setTaskActionError(null)
+    try {
+      await deleteTaskEngine(taskId, staffId || 'unknown')
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Không thể xóa công việc'
+      setTaskActionError(msg)
+    }
   }
 
   const handleMigrateChecklist = async () => {
@@ -364,9 +402,9 @@ export function DossierPanel({
   const percent = total > 0 ? Math.round((completed / total) * 100) : 0
 
   return (
-    <aside className="w-88 sm:w-96 bg-white border-l border-slate-200 h-full flex flex-col shrink-0 shadow-lg animate-in slide-in-from-right duration-200">
+    <aside className="fixed inset-0 z-40 w-full h-dvh md:static md:inset-auto md:z-auto md:w-96 md:h-full bg-white md:border-l border-slate-200 flex flex-col shrink-0 shadow-lg animate-in slide-in-from-right duration-200">
       {/* Top Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 shrink-0 bg-slate-50/70">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 shrink-0 bg-slate-50/70 safe-top">
         <div className="flex items-center gap-2 min-w-0">
           <FileText className="w-4 h-4 text-blue-600 shrink-0" />
           <h3 className="font-bold text-slate-800 text-sm truncate">
@@ -377,7 +415,7 @@ export function DossierPanel({
           {onShare && canShare && (
             <button
               onClick={onShare}
-              className="p-1 rounded text-slate-500 hover:text-blue-600 hover:bg-blue-50 transition-colors cursor-pointer"
+              className="tap w-11 h-11 md:w-auto md:h-auto md:min-w-0 md:min-h-0 p-1 rounded text-slate-500 hover:text-blue-600 hover:bg-blue-50 transition-colors cursor-pointer"
               title="Chia sẻ hồ sơ"
             >
               <Share2 className="w-4 h-4" />
@@ -385,7 +423,8 @@ export function DossierPanel({
           )}
           <button
             onClick={onClose}
-            className="p-1 rounded text-slate-400 hover:text-slate-600 hover:bg-slate-200 transition-colors cursor-pointer"
+            aria-label="Đóng"
+            className="tap w-11 h-11 md:w-auto md:h-auto md:min-w-0 md:min-h-0 p-1 rounded text-slate-400 hover:text-slate-600 hover:bg-slate-200 transition-colors cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
@@ -393,7 +432,7 @@ export function DossierPanel({
       </div>
 
       {/* Content Area */}
-      <div className="flex-1 overflow-y-auto p-3.5 space-y-4">
+      <div className="flex-1 overflow-y-auto p-3.5 space-y-4 safe-bottom">
         {/* Frame 1: Description (Blue Theme) */}
         <div className="rounded-xl border border-blue-200 bg-blue-50/40 overflow-hidden shadow-2xs">
           <div className="px-3.5 py-2 bg-blue-100/80 border-b border-blue-200/90 flex items-center justify-between">
@@ -414,7 +453,7 @@ export function DossierPanel({
               onChange={e => handleDescriptionChange(e.target.value)}
               disabled={!canEdit}
               placeholder={canEdit ? 'Nhập mô tả mục đích của hồ sơ này...' : 'Chưa có mô tả'}
-              className="w-full p-2.5 border border-blue-200/90 rounded-lg text-xs leading-relaxed focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white disabled:opacity-70 resize-y text-slate-800 placeholder:text-slate-400"
+              className="w-full p-2.5 border border-blue-200/90 rounded-lg max-md:text-base text-xs leading-relaxed focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white disabled:opacity-70 resize-y text-slate-800 placeholder:text-slate-400"
             />
           </div>
         </div>
@@ -438,7 +477,7 @@ export function DossierPanel({
               value={notes}
               onChange={e => handleNotesChange(e.target.value)}
               placeholder="Nhập ghi chú quan trọng, lưu ý chung cho hồ sơ này (tự động lưu)..."
-              className="w-full p-2.5 border border-amber-200 rounded-lg text-xs leading-relaxed focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white placeholder:text-slate-400 resize-y text-slate-800"
+              className="w-full p-2.5 border border-amber-200 rounded-lg max-md:text-base text-xs leading-relaxed focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white placeholder:text-slate-400 resize-y text-slate-800"
             />
           </div>
         </div>
@@ -497,12 +536,27 @@ export function DossierPanel({
               </div>
             )}
 
+            {taskActionError && (
+              <div className="mb-2.5 p-2 rounded-lg bg-red-50 border border-red-200 text-xs text-red-700 flex items-center justify-between gap-2">
+                <span>{taskActionError}</span>
+                <button
+                  type="button"
+                  onClick={() => setTaskActionError(null)}
+                  className="text-red-400 hover:text-red-600 shrink-0"
+                  aria-label="Đóng thông báo lỗi"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
+
             {/* Tasks / Checklist List */}
             <div className="space-y-1.5 mb-3">
               {hasTasks ? (
                 // Task Engine tasks
                 dossierTasks.map((task) => {
                   const isDone = task.status === 'completed'
+                  const isCancelled = task.status === 'cancelled'
                   return (
                     <div
                       key={task.id}
@@ -516,8 +570,9 @@ export function DossierPanel({
                         type="checkbox"
                         checked={isDone}
                         onChange={() => handleToggleTaskEngine(task)}
-                        disabled={!canEditChecklist}
-                        className="mt-0.5 w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer disabled:cursor-not-allowed shrink-0"
+                        disabled={!canEditChecklist || isCancelled}
+                        title={isCancelled ? 'Công việc đã hủy' : undefined}
+                        className="mt-0.5 w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer disabled:cursor-not-allowed disabled:opacity-40 shrink-0"
                       />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-1.5">
@@ -532,7 +587,7 @@ export function DossierPanel({
                           </Link>
                           <Link
                             href={`/tasks/${task.id}`}
-                            className="text-slate-400 hover:text-blue-600 shrink-0 opacity-0 group-hover/task:opacity-100 transition-opacity"
+                            className="hover-reveal max-md:min-w-[40px] max-md:min-h-[40px] max-md:inline-flex max-md:items-center max-md:justify-center max-md:p-1.5 text-slate-400 hover:text-blue-600 shrink-0 opacity-0 max-md:opacity-100 group-hover/task:opacity-100 transition-opacity"
                             title="Mở chi tiết công việc"
                           >
                             <ExternalLink className="w-3 h-3" />
@@ -548,7 +603,7 @@ export function DossierPanel({
                         <button
                           type="button"
                           onClick={() => handleDeleteTaskEngine(task.id)}
-                          className="p-1 text-slate-400 hover:text-red-600 opacity-0 group-hover/task:opacity-100 transition-opacity"
+                          className="hover-reveal max-md:min-w-[40px] max-md:min-h-[40px] max-md:inline-flex max-md:items-center max-md:justify-center p-1 text-slate-400 hover:text-red-600 opacity-0 max-md:opacity-100 group-hover/task:opacity-100 transition-opacity"
                           title="Xóa công việc"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -586,13 +641,13 @@ export function DossierPanel({
                           }}
                           autoFocus
                           placeholder="Tên công việc..."
-                          className="flex-1 px-2 py-1 text-xs border border-emerald-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white text-slate-800"
+                          className="flex-1 px-2 py-1 max-md:text-base text-xs border border-emerald-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white text-slate-800"
                         />
                         <button
                           type="button"
                           onClick={() => handleSaveEditTask(item.id)}
                           disabled={!editingTaskTitle.trim()}
-                          className="p-1 rounded bg-emerald-600 hover:bg-emerald-700 text-white transition-colors disabled:opacity-50"
+                          className="max-md:min-w-[40px] max-md:min-h-[40px] max-md:inline-flex max-md:items-center max-md:justify-center p-1 rounded bg-emerald-600 hover:bg-emerald-700 text-white transition-colors disabled:opacity-50"
                           title="Lưu (Enter)"
                         >
                           <Check className="w-3.5 h-3.5" />
@@ -600,7 +655,7 @@ export function DossierPanel({
                         <button
                           type="button"
                           onClick={handleCancelEditTask}
-                          className="p-1 rounded bg-slate-200 hover:bg-slate-300 text-slate-700 transition-colors"
+                          className="max-md:min-w-[40px] max-md:min-h-[40px] max-md:inline-flex max-md:items-center max-md:justify-center p-1 rounded bg-slate-200 hover:bg-slate-300 text-slate-700 transition-colors"
                           title="Hủy (Esc)"
                         >
                           <X className="w-3.5 h-3.5" />
@@ -627,12 +682,12 @@ export function DossierPanel({
                         </div>
 
                         {canEditChecklist && (
-                          <div className="flex items-center gap-0.5 opacity-70 group-hover/task:opacity-100 transition-opacity shrink-0">
+                          <div className="hover-reveal flex items-center gap-0.5 opacity-70 max-md:opacity-100 group-hover/task:opacity-100 transition-opacity shrink-0">
                             <button
                               type="button"
                               onClick={() => handleMoveTask(idx, 'up')}
                               disabled={idx === 0}
-                              className="p-1 text-slate-400 hover:text-emerald-700 disabled:opacity-20 disabled:hover:text-slate-400 transition-colors"
+                              className="max-md:min-w-[40px] max-md:min-h-[40px] max-md:inline-flex max-md:items-center max-md:justify-center p-1 text-slate-400 hover:text-emerald-700 disabled:opacity-20 disabled:hover:text-slate-400 transition-colors"
                               title="Di chuyển lên trên"
                             >
                               <ChevronUp className="w-3.5 h-3.5" />
@@ -641,7 +696,7 @@ export function DossierPanel({
                               type="button"
                               onClick={() => handleMoveTask(idx, 'down')}
                               disabled={idx === checklist.length - 1}
-                              className="p-1 text-slate-400 hover:text-emerald-700 disabled:opacity-20 disabled:hover:text-slate-400 transition-colors"
+                              className="max-md:min-w-[40px] max-md:min-h-[40px] max-md:inline-flex max-md:items-center max-md:justify-center p-1 text-slate-400 hover:text-emerald-700 disabled:opacity-20 disabled:hover:text-slate-400 transition-colors"
                               title="Di chuyển xuống dưới"
                             >
                               <ChevronDown className="w-3.5 h-3.5" />
@@ -649,7 +704,7 @@ export function DossierPanel({
                             <button
                               type="button"
                               onClick={() => handleStartEditTask(item)}
-                              className="p-1 text-slate-400 hover:text-blue-600 transition-colors"
+                              className="max-md:min-w-[40px] max-md:min-h-[40px] max-md:inline-flex max-md:items-center max-md:justify-center p-1 text-slate-400 hover:text-blue-600 transition-colors"
                               title="Chỉnh sửa công việc"
                             >
                               <Pencil className="w-3.5 h-3.5" />
@@ -657,7 +712,7 @@ export function DossierPanel({
                             <button
                               type="button"
                               onClick={() => handleDeleteTask(item.id)}
-                              className="p-1 text-slate-400 hover:text-red-600 transition-colors"
+                              className="max-md:min-w-[40px] max-md:min-h-[40px] max-md:inline-flex max-md:items-center max-md:justify-center p-1 text-slate-400 hover:text-red-600 transition-colors"
                               title="Xóa công việc"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
@@ -680,12 +735,12 @@ export function DossierPanel({
                   onChange={e => setNewTaskTitle(e.target.value)}
                   placeholder="+ Thêm công việc mới vào hồ sơ..."
                   disabled={taskSubmitting}
-                  className="flex-1 px-2.5 py-1.5 border border-emerald-200 rounded-lg text-xs bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 text-slate-800 placeholder:text-slate-400 disabled:opacity-60"
+                  className="flex-1 px-2.5 py-1.5 border border-emerald-200 rounded-lg max-md:text-base text-xs bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 text-slate-800 placeholder:text-slate-400 disabled:opacity-60"
                 />
                 <Button
                   type="submit"
                   size="sm"
-                  className="h-8 px-2.5 text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
+                  className="max-md:min-h-[40px] max-md:min-w-[40px] h-8 px-2.5 text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
                   disabled={!newTaskTitle.trim() || taskSubmitting}
                 >
                   {taskSubmitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}

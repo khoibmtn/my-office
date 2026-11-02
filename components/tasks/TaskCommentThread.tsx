@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useRef, useEffect } from 'react'
+import React, { useRef, useEffect, useLayoutEffect } from 'react'
 import type { TaskComment, AttachedDocMetadata } from '@/types/tasks'
 import { addTaskComment, deleteTaskComment } from '@/lib/tasks/mutations'
 import { MentionTextarea } from '@/components/chat/MentionTextarea'
@@ -33,15 +33,78 @@ export function TaskCommentThread({
   externalDraftDoc,
   onClearExternalDraftDoc,
 }: TaskCommentThreadProps) {
-  const bottomRef = useRef<HTMLDivElement>(null)
+  const threadRootRef = useRef<HTMLDivElement>(null)
+  const listRef = useRef<HTMLDivElement>(null)
+  const prevCountRef = useRef<number | null>(null)
 
   // Filter non-deleted comments
   const activeComments = comments.filter(c => !c.deletedAt)
 
-  // Auto-scroll to bottom when new comments arrive
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+  // Whether the user was at (or near) the bottom BEFORE the latest render — updated on scroll.
+  const wasNearBottomRef = useRef(true)
+
+  const isChatInputFocused = () => {
+    const activeEl = typeof document !== 'undefined' ? document.activeElement : null
+    return Boolean(
+      activeEl &&
+      threadRootRef.current?.contains(activeEl) &&
+      (activeEl.tagName === 'TEXTAREA' || activeEl.tagName === 'INPUT')
+    )
+  }
+
+  const handleListScroll = () => {
+    const listEl = listRef.current
+    if (!listEl || listEl.clientHeight === 0) return
+    const distanceFromBottom = listEl.scrollHeight - listEl.scrollTop - listEl.clientHeight
+    wasNearBottomRef.current = distanceFromBottom <= 80
+  }
+
+  const scrollChatToBottom = () => {
+    const listEl = listRef.current
+    if (!listEl) return
+    listEl.scrollTop = listEl.scrollHeight
+    wasNearBottomRef.current = true
+  }
+
+  // Scroll to bottom on first load (incl. comments arriving 0 → n after mount) and when new
+  // comments arrive while the user was near the bottom or typing.
+  useLayoutEffect(() => {
+    const prev = prevCountRef.current
+    const count = activeComments.length
+    if (prev === null || prev === 0 || wasNearBottomRef.current || isChatInputFocused()) {
+      scrollChatToBottom()
+    }
+    prevCountRef.current = count
   }, [activeComments.length])
+
+  // On mobile the chat column is display:none while the "Thông tin" tab is active, so scrollTop
+  // assignments are lost. When the list becomes visible again, jump to the newest message if the
+  // user was at the bottom.
+  useEffect(() => {
+    const listEl = listRef.current
+    if (!listEl || typeof ResizeObserver === 'undefined') return
+    let wasHidden = listEl.clientHeight === 0
+    const ro = new ResizeObserver(() => {
+      const hidden = listEl.clientHeight === 0
+      if (wasHidden && !hidden && wasNearBottomRef.current) scrollChatToBottom()
+      wasHidden = hidden
+    })
+    ro.observe(listEl)
+    return () => ro.disconnect()
+  }, [])
+
+  // Keep bottom in view when the virtual keyboard resizes visualViewport on mobile
+  useEffect(() => {
+    const vv = typeof window !== 'undefined' ? window.visualViewport : null
+    if (!vv) return
+    const handleViewportResize = () => {
+      if (isChatInputFocused() || wasNearBottomRef.current) {
+        scrollChatToBottom()
+      }
+    }
+    vv.addEventListener('resize', handleViewportResize)
+    return () => vv.removeEventListener('resize', handleViewportResize)
+  }, [])
 
   const handleSend = async (
     content: string,
@@ -69,9 +132,9 @@ export function TaskCommentThread({
   }
 
   return (
-    <div className="flex flex-col h-full bg-slate-50">
+    <div ref={threadRootRef} className="flex flex-col flex-1 h-full min-h-0 bg-slate-50">
       {/* Comment list */}
-      <div className="flex-1 overflow-y-auto p-3 space-y-1">
+      <div ref={listRef} onScroll={handleListScroll} className="flex-1 overflow-y-auto overflow-x-hidden p-3 space-y-1 min-h-0">
         {activeComments.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 text-slate-400 text-xs text-center px-4">
             <div className="w-9 h-9 rounded-full bg-slate-200/60 flex items-center justify-center text-slate-400 mb-2">
@@ -109,7 +172,6 @@ export function TaskCommentThread({
             )
           })
         )}
-        <div ref={bottomRef} />
       </div>
 
       {/* Input bar */}

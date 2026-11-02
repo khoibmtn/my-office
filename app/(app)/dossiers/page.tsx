@@ -279,10 +279,10 @@ function DossiersContent() {
   }
 
   return (
-    <div className="h-full flex flex-col min-w-0 bg-slate-50">
+    <div className="h-full flex flex-col min-w-0 max-w-full bg-slate-50">
       {/* Top Action Header with Integrated Breadcrumb */}
-      <header className="px-6 py-3.5 bg-white border-b border-slate-200 shrink-0 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 shadow-xs">
-        <div className="flex items-center gap-2 min-w-0 flex-1">
+      <header className="px-4 sm:px-6 py-3 sm:py-3.5 bg-white border-b border-slate-200 shrink-0 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 shadow-xs min-w-0 max-w-full">
+        <div className="flex items-center gap-2 min-w-0 w-full md:w-auto md:flex-1 max-w-full overflow-hidden">
           <DossierBreadcrumb
             currentPath={activePath}
             onNavigate={handleNavigate}
@@ -298,6 +298,7 @@ function DossiersContent() {
           {!activeFolder && perms.canCreateDossier && (
             <Button
               size="sm"
+              className="min-h-[40px] md:min-h-0"
               onClick={() => {
                 setEditingDossier(null)
                 setParentDossierForCreate(null)
@@ -315,7 +316,7 @@ function DossiersContent() {
               size="sm"
               variant="outline"
               onClick={() => setShareTarget(activeFolder)}
-              className="text-slate-700 hover:text-blue-700 border-slate-200 shadow-2xs"
+              className="min-h-[40px] md:min-h-0 text-slate-700 hover:text-blue-700 border-slate-200 shadow-2xs"
             >
               <Share2 className="w-4 h-4 mr-1.5 text-teal-600" />
               Chia sẻ
@@ -328,7 +329,7 @@ function DossiersContent() {
               size="sm"
               variant="ghost"
               onClick={() => setPanelOpen(!panelOpen)}
-              className="text-slate-600 hover:text-slate-900"
+              className="min-h-[40px] md:min-h-0 text-slate-600 hover:text-slate-900"
             >
               {panelOpen ? <PanelRightClose className="w-4 h-4 mr-1.5" /> : <PanelRightOpen className="w-4 h-4 mr-1.5" />}
               Ghi chú & Tiến độ
@@ -338,17 +339,17 @@ function DossiersContent() {
       </header>
 
       {/* Main Body */}
-      <div className="flex-1 flex min-h-0 overflow-hidden">
+      <div className="flex-1 flex min-h-0 min-w-0 max-w-full overflow-hidden">
         {/* Main Content Pane */}
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6 flex flex-col min-w-0">
+        <main className="flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-6 flex flex-col min-w-0 max-w-full">
           {!activeFolder ? (
             /* Root View: Show Tab Switcher between Dossiers Management & Unassigned Docs */
-            <div className="flex flex-col gap-4 flex-1">
+            <div className="flex flex-col gap-4 flex-1 min-w-0 max-w-full">
               <div className="flex items-center gap-2 border-b border-slate-200 pb-2 flex-wrap">
                 {isAdmin ? (
                   <button
                     onClick={() => handleSetRootTab('dossiers')}
-                    className={`flex items-center gap-1.5 px-4 py-2 text-xs font-bold rounded-lg transition-all ${
+                    className={`flex items-center gap-1.5 min-h-[40px] md:min-h-0 px-4 py-2 text-xs font-bold rounded-lg transition-all ${
                       effectiveRootTab === 'dossiers'
                         ? 'bg-blue-600 text-white shadow-xs'
                         : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100'
@@ -361,7 +362,7 @@ function DossiersContent() {
                   <>
                     <button
                       onClick={() => handleSetRootTab('my_dossiers')}
-                      className={`flex items-center gap-1.5 px-4 py-2 text-xs font-bold rounded-lg transition-all ${
+                      className={`flex items-center gap-1.5 min-h-[40px] md:min-h-0 px-4 py-2 text-xs font-bold rounded-lg transition-all ${
                         effectiveRootTab === 'my_dossiers'
                           ? 'bg-blue-600 text-white shadow-xs'
                           : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100'
@@ -373,7 +374,7 @@ function DossiersContent() {
 
                     <button
                       onClick={() => handleSetRootTab('shared')}
-                      className={`flex items-center gap-1.5 px-4 py-2 text-xs font-bold rounded-lg transition-all ${
+                      className={`flex items-center gap-1.5 min-h-[40px] md:min-h-0 px-4 py-2 text-xs font-bold rounded-lg transition-all ${
                         effectiveRootTab === 'shared'
                           ? 'bg-blue-600 text-white shadow-xs'
                           : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100'
@@ -387,7 +388,7 @@ function DossiersContent() {
 
                 <button
                   onClick={() => handleSetRootTab('unassigned')}
-                  className={`flex items-center gap-1.5 px-4 py-2 text-xs font-bold rounded-lg transition-all ${
+                  className={`flex items-center gap-1.5 min-h-[40px] md:min-h-0 px-4 py-2 text-xs font-bold rounded-lg transition-all ${
                     effectiveRootTab === 'unassigned'
                       ? 'bg-blue-600 text-white shadow-xs'
                       : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100'

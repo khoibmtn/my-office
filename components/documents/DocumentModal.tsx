@@ -16,7 +16,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { usePermissions } from '@/hooks/usePermissions'
 import { useRole } from '@/hooks/useRole'
 import { useStaff } from '@/hooks/useStaff'
-import { useTasks } from '@/hooks/useTasks'
+import { useDocumentTasks } from '@/hooks/useScopedTasks'
 import { TaskCreateDrawer } from '@/components/tasks/TaskCreateDrawer'
 import { TaskStatusBadge } from '@/components/tasks/TaskStatusBadge'
 import { QuickDossierTagPicker } from './QuickDossierTagPicker'
@@ -88,8 +88,9 @@ export function DocumentModal({ docId, onClose }: DocumentModalProps) {
   const [copiedAll, setCopiedAll] = useState(false)
   const [staffList, setStaffList] = useState<{name: string}[]>([])
   const [showTaskForm, setShowTaskForm] = useState(false)
+  const [mobileTab, setMobileTab] = useState<'info' | 'preview'>('preview')
 
-  const { tasks: linkedTasks } = useTasks({ view: 'document', documentId: docId || '' })
+  const { tasks: linkedTasks } = useDocumentTasks(docId)
 
   useEffect(() => {
     getDoc(firestoreDoc(db(), 'settings', 'general')).then(snap => {
@@ -107,7 +108,20 @@ export function DocumentModal({ docId, onClose }: DocumentModalProps) {
       if (d) {
         const fileId = d.driveFileId || (d.originalLink ? extractDriveFileId(d.originalLink) : '') || ''
         const viewUrl = d.driveViewUrl || (fileId ? `https://drive.google.com/file/d/${fileId}/preview` : d.originalLink) || ''
-        if (viewUrl) setActiveUrl(viewUrl)
+        const firstAttUrl = (d.attachments ?? [])
+          .map(a => {
+            const attId = a.driveFileId || (a.originalLink ? extractDriveFileId(a.originalLink) : '') || ''
+            return a.driveViewUrl || (attId ? `https://drive.google.com/file/d/${attId}/preview` : a.originalLink) || ''
+          })
+          .find(Boolean) || ''
+        const initialUrl = viewUrl || firstAttUrl
+        if (initialUrl) {
+          setActiveUrl(initialUrl)
+          setMobileTab('preview')
+        } else {
+          setActiveUrl('')
+          setMobileTab('info')
+        }
 
         // Self-heal document if driveFileId or driveViewUrl was missing in Firestore
         if ((!d.driveFileId || !d.driveViewUrl) && (fileId || viewUrl)) {
@@ -253,6 +267,14 @@ export function DocumentModal({ docId, onClose }: DocumentModalProps) {
 
   if (!docId) return null
 
+  const activeFile = activeUrl ? allFiles.find(f => f.url === activeUrl) : undefined
+  const activeDriveId = activeFile
+    ? (activeFile.driveId || (activeFile.url ? extractDriveFileId(activeFile.url) : '') || '')
+    : (activeUrl ? (extractDriveFileId(activeUrl) || '') : '')
+  const activeDriveViewLink = activeDriveId
+    ? `https://drive.google.com/file/d/${activeDriveId}/view`
+    : ''
+
   return (
     <div className="modal-backdrop" onClick={handleBackdropClick}>
       <div className="modal-container">
@@ -261,7 +283,7 @@ export function DocumentModal({ docId, onClose }: DocumentModalProps) {
           <div className="modal-header-info">
             <h2 style={{ fontSize: '1.1rem', lineHeight: '1.4' }}>{doc?.title || 'Đang tải...'}</h2>
           </div>
-          <button className="modal-close" onClick={onClose}>
+          <button className="modal-close" onClick={onClose} aria-label="Đóng">
             <X size={20} />
           </button>
         </div>
@@ -272,326 +294,369 @@ export function DocumentModal({ docId, onClose }: DocumentModalProps) {
             <p>Đang tải văn bản...</p>
           </div>
         ) : doc ? (
-          <div className="modal-body">
-            {/* Left: details + file list */}
-            <div className="modal-sidebar">
-              {/* Meta */}
-              <div className="modal-meta">
-                <div className="meta-row">
-                  <span className="meta-label">Số VB:</span>
-                  <div className="flex items-center gap-2">
-                    <span className="font-bold">{doc.docNumber || 'Không có'}</span>
-                    {(() => {
-                      const days = getDaysRemaining(doc.deadline)
-                      const si = getStatusInfo(doc, days)
-                      return <span className={`modal-status-badge ${si.cls}`}>{si.label}</span>
-                    })()}
-                  </div>
-                </div>
-                {doc.sender && (
+          <>
+            <div className="modal-mobile-tabs" role="tablist" aria-label="Chế độ xem văn bản">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={mobileTab === 'info'}
+                className={`modal-mobile-tab ${mobileTab === 'info' ? 'active' : ''}`}
+                onClick={() => setMobileTab('info')}
+              >
+                <FileText size={16} />
+                <span>Thông tin</span>
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={mobileTab === 'preview'}
+                className={`modal-mobile-tab ${mobileTab === 'preview' ? 'active' : ''}`}
+                onClick={() => setMobileTab('preview')}
+              >
+                <ExternalLink size={16} />
+                <span>Xem file</span>
+              </button>
+            </div>
+            <div className="modal-body">
+              {/* Left: details + file list */}
+              <div className={`modal-sidebar ${mobileTab === 'info' ? 'mobile-active' : 'mobile-hidden'}`}>
+                {/* Meta */}
+                <div className="modal-meta">
                   <div className="meta-row">
-                    <span className="meta-label">Cơ quan ban hành:</span>
-                    <span>{doc.sender}</span>
-                  </div>
-                )}
-                {doc.issueDate && (() => {
-                  const d = doc.issueDate.toDate()
-                  const dateStr = d.toLocaleDateString('vi-VN')
-                  const hasTime = d.getHours() !== 0 || d.getMinutes() !== 0 || d.getSeconds() !== 0
-                  const timeStr = hasTime ? ` ${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}` : ''
-                  return (
-                    <div className="meta-row">
-                      <span className="meta-label">Ngày ban hành:</span>
-                      <span>{dateStr}{timeStr}</span>
+                    <span className="meta-label">Số VB:</span>
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold">{doc.docNumber || 'Không có'}</span>
+                      {(() => {
+                        const days = getDaysRemaining(doc.deadline)
+                        const si = getStatusInfo(doc, days)
+                        return <span className={`modal-status-badge ${si.cls}`}>{si.label}</span>
+                      })()}
                     </div>
-                  )
-                })()}
-                <div className="meta-row" style={{ alignItems: 'center' }}>
-                  <span className="meta-label">Deadline:</span>
-                  <div className="flex items-center gap-2">
-                    {perms.canSetDeadline ? (
+                  </div>
+                  {doc.sender && (
+                    <div className="meta-row">
+                      <span className="meta-label">Cơ quan ban hành:</span>
+                      <span>{doc.sender}</span>
+                    </div>
+                  )}
+                  {doc.issueDate && (() => {
+                    const d = doc.issueDate.toDate()
+                    const dateStr = d.toLocaleDateString('vi-VN')
+                    const hasTime = d.getHours() !== 0 || d.getMinutes() !== 0 || d.getSeconds() !== 0
+                    const timeStr = hasTime ? ` ${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}` : ''
+                    return (
+                      <div className="meta-row">
+                        <span className="meta-label">Ngày ban hành:</span>
+                        <span>{dateStr}{timeStr}</span>
+                      </div>
+                    )
+                  })()}
+                  <div className="meta-row" style={{ alignItems: 'center' }}>
+                    <span className="meta-label">Deadline:</span>
+                    <div className="flex items-center gap-2">
+                      {perms.canSetDeadline ? (
+                        <input
+                          type="date"
+                          className="modal-input-control"
+                          value={toLocalISODate(doc.deadline)}
+                          min={toLocalISODate(doc.issueDate) || undefined}
+                          onChange={(e) => handleUpdateDeadline(e.target.value)}
+                          style={{ padding: '4px 8px', border: '1px solid #cbd5e1', borderRadius: '5px', background: '#f1f5f9', cursor: 'pointer', transition: 'all 0.15s' }}
+                          onMouseEnter={e => { e.currentTarget.style.background = '#e2e8f0'; e.currentTarget.style.borderColor = '#94a3b8' }}
+                          onMouseLeave={e => { e.currentTarget.style.background = '#f1f5f9'; e.currentTarget.style.borderColor = '#cbd5e1' }}
+                        />
+                      ) : (
+                        <span style={{ fontSize: '13px' }}>
+                          {doc.deadline ? doc.deadline.toDate().toLocaleDateString('vi-VN') : '—'}
+                        </span>
+                      )}
+                      {doc.deadline && (() => {
+                        const days = getDaysRemaining(doc.deadline)
+                        const daysText = days === null ? '' : days < 0 ? `(quá ${Math.abs(days)} ngày)` : days === 0 ? '(hôm nay!)' : `(còn ${days} ngày)`
+                        return (
+                          <strong style={{color: days !== null && days <= 1 ? '#ef4444' : days !== null && days <= 3 ? '#f59e0b' : '#22c55e', fontSize: '12px'}}>
+                            {daysText}
+                          </strong>
+                        )
+                      })()}
+                    </div>
+                  </div>
+                  <div className="meta-row" style={{ alignItems: 'center' }}>
+                    <span className="meta-label">Hoàn thành:</span>
+                    {perms.canSetCompletedDate || (perms.canCompleteAssigned && doc.assigneeId === currentStaffId) ? (
                       <input
                         type="date"
-                        value={toLocalISODate(doc.deadline)}
+                        className="modal-input-control"
+                        value={toLocalISODate(doc.completedDate)}
                         min={toLocalISODate(doc.issueDate) || undefined}
-                        onChange={(e) => handleUpdateDeadline(e.target.value)}
-                        style={{ fontSize: '13px', padding: '4px 8px', border: '1px solid #cbd5e1', borderRadius: '5px', background: '#f1f5f9', cursor: 'pointer', transition: 'all 0.15s' }}
+                        onChange={(e) => handleUpdateCompletedDate(e.target.value)}
+                        style={{ padding: '4px 8px', border: '1px solid #cbd5e1', borderRadius: '5px', background: '#f1f5f9', cursor: 'pointer', transition: 'all 0.15s' }}
                         onMouseEnter={e => { e.currentTarget.style.background = '#e2e8f0'; e.currentTarget.style.borderColor = '#94a3b8' }}
                         onMouseLeave={e => { e.currentTarget.style.background = '#f1f5f9'; e.currentTarget.style.borderColor = '#cbd5e1' }}
                       />
                     ) : (
                       <span style={{ fontSize: '13px' }}>
-                        {doc.deadline ? doc.deadline.toDate().toLocaleDateString('vi-VN') : '—'}
+                        {doc.completedDate ? doc.completedDate.toDate().toLocaleDateString('vi-VN') : '—'}
                       </span>
                     )}
-                    {doc.deadline && (() => {
-                      const days = getDaysRemaining(doc.deadline)
-                      const daysText = days === null ? '' : days < 0 ? `(quá ${Math.abs(days)} ngày)` : days === 0 ? '(hôm nay!)' : `(còn ${days} ngày)`
-                      return (
-                        <strong style={{color: days !== null && days <= 1 ? '#ef4444' : days !== null && days <= 3 ? '#f59e0b' : '#22c55e', fontSize: '12px'}}>
-                          {daysText}
-                        </strong>
-                      )
-                    })()}
                   </div>
-                </div>
-                <div className="meta-row" style={{ alignItems: 'center' }}>
-                  <span className="meta-label">Hoàn thành:</span>
-                  {perms.canSetCompletedDate || (perms.canCompleteAssigned && doc.assigneeId === currentStaffId) ? (
-                    <input
-                      type="date"
-                      value={toLocalISODate(doc.completedDate)}
-                      min={toLocalISODate(doc.issueDate) || undefined}
-                      onChange={(e) => handleUpdateCompletedDate(e.target.value)}
-                      style={{ fontSize: '13px', padding: '4px 8px', border: '1px solid #cbd5e1', borderRadius: '5px', background: '#f1f5f9', cursor: 'pointer', transition: 'all 0.15s' }}
-                      onMouseEnter={e => { e.currentTarget.style.background = '#e2e8f0'; e.currentTarget.style.borderColor = '#94a3b8' }}
-                      onMouseLeave={e => { e.currentTarget.style.background = '#f1f5f9'; e.currentTarget.style.borderColor = '#cbd5e1' }}
-                    />
-                  ) : (
-                    <span style={{ fontSize: '13px' }}>
-                      {doc.completedDate ? doc.completedDate.toDate().toLocaleDateString('vi-VN') : '—'}
-                    </span>
-                  )}
-                </div>
-                <div className="meta-row" style={{ alignItems: 'center' }}>
-                  <span className="meta-label">Người được giao:</span>
-                  {perms.canAssignStaff ? (
-                    <select
-                      value={doc.assigneeId || ''}
-                      onChange={(e) => {
-                        const member = staff.find(s => s.id === e.target.value)
-                        handleUpdateAssignee(member?.shortName || '')
-                        if (member) {
-                          const updatedCoAssignees = (doc.coAssigneeIds || []).filter(cid => cid !== member.id)
-                          updateDocument(doc.id, { assigneeId: member.id, assignee: member.shortName, coAssigneeIds: updatedCoAssignees })
-                          setDoc(prev => prev ? { ...prev, assigneeId: member.id, assignee: member.shortName, coAssigneeIds: updatedCoAssignees } : prev)
-                        } else {
-                          updateDocument(doc.id, { assigneeId: '', assignee: '' })
-                          setDoc(prev => prev ? { ...prev, assigneeId: '', assignee: '' } : prev)
-                        }
-                      }}
-                      style={{ fontSize: '13px', padding: '4px 8px', border: '1px solid #cbd5e1', borderRadius: '5px', background: '#f1f5f9', cursor: 'pointer', transition: 'all 0.15s', flex: 1 }}
-                      onMouseEnter={e => { e.currentTarget.style.background = '#e2e8f0'; e.currentTarget.style.borderColor = '#94a3b8' }}
-                      onMouseLeave={e => { e.currentTarget.style.background = '#f1f5f9'; e.currentTarget.style.borderColor = '#cbd5e1' }}
-                    >
-                      <option value="">-- Chưa giao --</option>
-                      {staff.filter(s => s.isActive).map((s) => (
-                        <option key={s.id} value={s.id}>{s.shortName}</option>
-                      ))}
-                    </select>
-                  ) : (
-                    <span style={{ fontSize: '13px' }}>
-                      {doc.assigneeId ? getStaffName(doc.assigneeId) : (doc.assignee || '—')}
-                    </span>
-                  )}
-                </div>
-                <div className="meta-row" style={{ alignItems: 'flex-start' }}>
-                  <span className="meta-label" style={{ marginTop: 6 }}>Người phối hợp:</span>
-                  <div className="flex-1 min-w-0">
-                    <CoAssigneePicker
-                      allStaff={staff}
-                      mainAssigneeId={doc.assigneeId}
-                      value={doc.coAssigneeIds || []}
-                      onChange={(newIds) => {
-                        setDoc(prev => prev ? { ...prev, coAssigneeIds: newIds } : prev)
-                        updateDocument(doc.id, { coAssigneeIds: newIds })
-                      }}
-                      readOnly={!perms.canAssignStaff || isGuest}
-                      placeholder="Tìm và gắp người phối hợp..."
-                    />
+                  <div className="meta-row" style={{ alignItems: 'center' }}>
+                    <span className="meta-label">Người được giao:</span>
+                    {perms.canAssignStaff ? (
+                      <select
+                        className="modal-input-control"
+                        value={doc.assigneeId || ''}
+                        onChange={(e) => {
+                          const member = staff.find(s => s.id === e.target.value)
+                          handleUpdateAssignee(member?.shortName || '')
+                          if (member) {
+                            const updatedCoAssignees = (doc.coAssigneeIds || []).filter(cid => cid !== member.id)
+                            updateDocument(doc.id, { assigneeId: member.id, assignee: member.shortName, coAssigneeIds: updatedCoAssignees })
+                            setDoc(prev => prev ? { ...prev, assigneeId: member.id, assignee: member.shortName, coAssigneeIds: updatedCoAssignees } : prev)
+                          } else {
+                            updateDocument(doc.id, { assigneeId: '', assignee: '' })
+                            setDoc(prev => prev ? { ...prev, assigneeId: '', assignee: '' } : prev)
+                          }
+                        }}
+                        style={{ padding: '4px 8px', border: '1px solid #cbd5e1', borderRadius: '5px', background: '#f1f5f9', cursor: 'pointer', transition: 'all 0.15s', flex: 1 }}
+                        onMouseEnter={e => { e.currentTarget.style.background = '#e2e8f0'; e.currentTarget.style.borderColor = '#94a3b8' }}
+                        onMouseLeave={e => { e.currentTarget.style.background = '#f1f5f9'; e.currentTarget.style.borderColor = '#cbd5e1' }}
+                      >
+                        <option value="">-- Chưa giao --</option>
+                        {staff.filter(s => s.isActive).map((s) => (
+                          <option key={s.id} value={s.id}>{s.shortName}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      <span style={{ fontSize: '13px' }}>
+                        {doc.assigneeId ? getStaffName(doc.assigneeId) : (doc.assignee || '—')}
+                      </span>
+                    )}
                   </div>
-                </div>
-                <div className="meta-row" style={{ alignItems: 'flex-start', flexDirection: 'column' }}>
-                  <span className="meta-label" style={{ marginTop: 2, marginBottom: 4 }}>Ghi chú:</span>
-                  {perms.canEditNotes ? (
-                    <textarea
-                      key={doc.id}
-                      defaultValue={doc.notes || ''}
-                      onBlur={(e) => {
-                        e.currentTarget.style.background = '#f1f5f9';
-                        e.currentTarget.style.borderColor = '#cbd5e1';
-                        handleUpdateNotes(e.target.value);
-                      }}
-                      onInput={(e) => {
-                        const target = e.target as HTMLTextAreaElement
-                        target.style.height = 'auto'
-                        target.style.height = target.scrollHeight + 'px'
-                      }}
-                      placeholder="Nhập ghi chú..."
-                      style={{ 
+                  <div className="meta-row" style={{ alignItems: 'flex-start' }}>
+                    <span className="meta-label" style={{ marginTop: 6 }}>Người phối hợp:</span>
+                    <div className="flex-1 min-w-0">
+                      <CoAssigneePicker
+                        allStaff={staff}
+                        mainAssigneeId={doc.assigneeId}
+                        value={doc.coAssigneeIds || []}
+                        onChange={(newIds) => {
+                          setDoc(prev => prev ? { ...prev, coAssigneeIds: newIds } : prev)
+                          updateDocument(doc.id, { coAssigneeIds: newIds })
+                        }}
+                        readOnly={!perms.canAssignStaff || isGuest}
+                        placeholder="Tìm và gắp người phối hợp..."
+                      />
+                    </div>
+                  </div>
+                  <div className="meta-row" style={{ alignItems: 'flex-start', flexDirection: 'column' }}>
+                    <span className="meta-label" style={{ marginTop: 2, marginBottom: 4 }}>Ghi chú:</span>
+                    {perms.canEditNotes ? (
+                      <textarea
+                        key={doc.id}
+                        className="modal-input-control"
+                        defaultValue={doc.notes || ''}
+                        onBlur={(e) => {
+                          e.currentTarget.style.background = '#f1f5f9';
+                          e.currentTarget.style.borderColor = '#cbd5e1';
+                          handleUpdateNotes(e.target.value);
+                        }}
+                        onInput={(e) => {
+                          const target = e.target as HTMLTextAreaElement
+                          target.style.height = 'auto'
+                          target.style.height = target.scrollHeight + 'px'
+                        }}
+                        placeholder="Nhập ghi chú..."
+                        style={{ 
+                          width: '100%', 
+                          minHeight: '60px', 
+                          padding: '8px', 
+                          border: '1px solid #cbd5e1', 
+                          borderRadius: '5px', 
+                          background: '#f1f5f9', 
+                          resize: 'none', 
+                          overflow: 'hidden',
+                          transition: 'border-color 0.15s, background 0.15s' 
+                        }}
+                        onFocus={e => { e.currentTarget.style.background = '#fff'; e.currentTarget.style.borderColor = '#3b82f6' }}
+                        ref={el => {
+                          if (el) {
+                            el.style.height = 'auto'
+                            el.style.height = el.scrollHeight + 'px'
+                          }
+                        }}
+                      />
+                    ) : (
+                      <div style={{ 
                         width: '100%', 
-                        minHeight: '60px', 
+                        minHeight: '40px', 
                         fontSize: '13px', 
                         padding: '8px', 
-                        border: '1px solid #cbd5e1', 
-                        borderRadius: '5px', 
-                        background: '#f1f5f9', 
-                        resize: 'none', 
-                        overflow: 'hidden',
-                        transition: 'border-color 0.15s, background 0.15s' 
-                      }}
-                      onFocus={e => { e.currentTarget.style.background = '#fff'; e.currentTarget.style.borderColor = '#3b82f6' }}
-                      ref={el => {
-                        if (el) {
-                          el.style.height = 'auto'
-                          el.style.height = el.scrollHeight + 'px'
-                        }
-                      }}
-                    />
-                  ) : (
-                    <div style={{ 
-                      width: '100%', 
-                      minHeight: '40px', 
-                      fontSize: '13px', 
-                      padding: '8px', 
-                      background: '#f8fafc', 
-                      borderRadius: '5px',
-                      whiteSpace: 'pre-wrap',
-                      color: doc.notes ? '#334155' : '#94a3b8',
-                      fontStyle: doc.notes ? 'normal' : 'italic',
-                    }}>
-                      {doc.notes || 'Không có ghi chú'}
-                    </div>
-                  )}
-                </div>
-
-                {/* Quick Dossier & Tag Picker */}
-                <QuickDossierTagPicker
-                  document={doc}
-                  onUpdate={(fields) => setDoc(prev => prev ? { ...prev, ...fields } : prev)}
-                  readOnly={isGuest || !perms.canEditDocument}
-                />
-
-                {/* Linked Tasks Section */}
-                <div className="mt-3 pt-3 border-t border-slate-200">
-                  <div className="flex items-center justify-between mb-2">
-                    <label className="flex items-center gap-1.5 text-xs font-bold text-slate-800 uppercase tracking-wider">
-                      <CheckSquare className="w-3.5 h-3.5 text-blue-600" />
-                      <span>Công việc liên quan ({linkedTasks.length})</span>
-                    </label>
-                    {!isGuest && (
-                      <button
-                        type="button"
-                        onClick={() => setShowTaskForm(true)}
-                        className="inline-flex items-center gap-1 text-[11px] font-semibold text-blue-600 hover:text-blue-700 hover:bg-blue-50 px-2 py-0.5 rounded-md transition-colors"
-                      >
-                        <Plus className="w-3 h-3" />
-                        Giao việc từ văn bản
-                      </button>
+                        background: '#f8fafc', 
+                        borderRadius: '5px',
+                        whiteSpace: 'pre-wrap',
+                        color: doc.notes ? '#334155' : '#94a3b8',
+                        fontStyle: doc.notes ? 'normal' : 'italic',
+                      }}>
+                        {doc.notes || 'Không có ghi chú'}
+                      </div>
                     )}
                   </div>
 
-                  {linkedTasks.length > 0 ? (
-                    <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
-                      {linkedTasks.map(task => (
-                        <div
-                          key={task.id}
-                          onClick={() => {
-                            onClose()
-                            router.push(`/tasks/${task.id}`)
-                          }}
-                          className="flex items-center justify-between p-2 rounded-lg bg-slate-50 hover:bg-blue-50/60 border border-slate-200/80 cursor-pointer transition-colors group"
+                  {/* Quick Dossier & Tag Picker */}
+                  <QuickDossierTagPicker
+                    document={doc}
+                    onUpdate={(fields) => setDoc(prev => prev ? { ...prev, ...fields } : prev)}
+                    readOnly={isGuest || !perms.canEditDocument}
+                  />
+
+                  {/* Linked Tasks Section */}
+                  <div className="mt-3 pt-3 border-t border-slate-200">
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="flex items-center gap-1.5 text-xs font-bold text-slate-800 uppercase tracking-wider">
+                        <CheckSquare className="w-3.5 h-3.5 text-blue-600" />
+                        <span>Công việc liên quan ({linkedTasks.length})</span>
+                      </label>
+                      {!isGuest && (
+                        <button
+                          type="button"
+                          onClick={() => setShowTaskForm(true)}
+                          className="inline-flex items-center gap-1 max-md:min-h-[40px] text-[11px] font-semibold text-blue-600 hover:text-blue-700 hover:bg-blue-50 px-2 py-0.5 rounded-md transition-colors"
                         >
-                          <div className="min-w-0 flex-1 pr-2">
-                            <p className="text-xs font-medium text-slate-800 group-hover:text-blue-600 truncate">
-                              {task.title}
-                            </p>
-                            {task.assigneeName && (
-                              <span className="text-[10px] text-slate-500 flex items-center gap-1 mt-0.5">
-                                <UserIcon className="w-2.5 h-2.5" /> {task.assigneeName}
-                              </span>
-                            )}
+                          <Plus className="w-3 h-3" />
+                          Giao việc từ văn bản
+                        </button>
+                      )}
+                    </div>
+
+                    {linkedTasks.length > 0 ? (
+                      <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
+                        {linkedTasks.map(task => (
+                          <div
+                            key={task.id}
+                            onClick={() => {
+                              onClose()
+                              router.push(`/tasks/${task.id}`)
+                            }}
+                            className="flex items-center justify-between p-2 rounded-lg bg-slate-50 hover:bg-blue-50/60 border border-slate-200/80 cursor-pointer transition-colors group"
+                          >
+                            <div className="min-w-0 flex-1 pr-2">
+                              <p className="text-xs font-medium text-slate-800 group-hover:text-blue-600 truncate">
+                                {task.title}
+                              </p>
+                              {task.assigneeName && (
+                                <span className="text-[10px] text-slate-500 flex items-center gap-1 mt-0.5">
+                                  <UserIcon className="w-2.5 h-2.5" /> {task.assigneeName}
+                                </span>
+                              )}
+                            </div>
+                            <TaskStatusBadge status={task.status} />
                           </div>
-                          <TaskStatusBadge status={task.status} />
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-xs text-slate-400 italic">Chưa có công việc nào gắn với văn bản này</p>
-                  )}
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-slate-400 italic">Chưa có công việc nào gắn với văn bản này</p>
+                    )}
+                  </div>
                 </div>
-              </div>
 
-              {/* File list */}
-              <div className="modal-file-list">
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-                  <h3 style={{ marginBottom: 0 }}>Danh sách tệp ({allFiles.length})</h3>
-                  <button
-                    className="icon-btn hover:bg-blue-50 hover:text-blue-600 transition-colors"
-                    style={{ width: 26, height: 26, padding: 0 }}
-                    onClick={handleCopyAll}
-                    data-tooltip="Copy thông tin giao việc"
-                    data-tooltip-align="right"
-                  >
-                    {copiedAll ? <Check size={15} className="text-green-500" strokeWidth={2.5} /> : <Send size={15} className="text-slate-700" strokeWidth={2.5} />}
-                  </button>
-                </div>
-                <div className="flex flex-col gap-2">
-                  {allFiles.map((f) => (
-                    <div
-                      key={f.id}
-                      className={`modal-file-item ${activeUrl === f.url ? 'active' : ''}`}
-                      onClick={() => setActiveUrl(f.url)}
+                {/* File list */}
+                <div className="modal-file-list">
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                    <h3 style={{ marginBottom: 0 }}>Danh sách tệp ({allFiles.length})</h3>
+                    <button
+                      className="icon-btn hover:bg-blue-50 hover:text-blue-600 transition-colors"
+                      style={{ width: 26, height: 26, padding: 0 }}
+                      onClick={handleCopyAll}
+                      data-tooltip="Copy thông tin giao việc"
+                      data-tooltip-align="right"
                     >
-                      <div className="file-item-row1">
-                        <div className="file-item-meta">
-                          {getFileIcon(f.label, f.mimeType, f.type === 'main' ? 'text-blue-600' : 'text-purple-500')}
-                          <span className={`file-type-badge ${f.type}`}>
-                            {f.type === 'main' ? 'Chính' : 'Đính kèm'}
-                          </span>
+                      {copiedAll ? <Check size={15} className="text-green-500" strokeWidth={2.5} /> : <Send size={15} className="text-slate-700" strokeWidth={2.5} />}
+                    </button>
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    {allFiles.map((f) => (
+                      <div
+                        key={f.id}
+                        className={`modal-file-item ${activeUrl === f.url ? 'active' : ''}`}
+                        onClick={() => {
+                          setActiveUrl(f.url)
+                          setMobileTab('preview')
+                        }}
+                      >
+                        <div className="file-item-row1">
+                          <div className="file-item-meta">
+                            {getFileIcon(f.label, f.mimeType, f.type === 'main' ? 'text-blue-600' : 'text-purple-500')}
+                            <span className={`file-type-badge ${f.type}`}>
+                              {f.type === 'main' ? 'Chính' : 'Đính kèm'}
+                            </span>
+                          </div>
+                          <div className="file-actions" onClick={e => e.stopPropagation()}>
+                            <button
+                              className="icon-btn"
+                              onClick={() => handleCopy(f.url, f.id)}
+                              data-tooltip="Copy link"
+                            >
+                              {copiedId === f.id ? <Check size={14} className="text-green-500" /> : <Copy size={14} />}
+                            </button>
+                            <a
+                              href={`https://drive.google.com/uc?export=download&id=${f.driveId}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="icon-btn"
+                              data-tooltip="Tải file"
+                            >
+                              <Download size={14} />
+                            </a>
+                            <a
+                              href={`https://drive.google.com/file/d/${f.driveId}/view`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="icon-btn"
+                              data-tooltip="Mở trong trình duyệt"
+                            >
+                              <ExternalLink size={14} />
+                            </a>
+                          </div>
                         </div>
-                        <div className="file-actions" onClick={e => e.stopPropagation()}>
-                          <button
-                            className="icon-btn"
-                            onClick={() => handleCopy(f.url, f.id)}
-                            data-tooltip="Copy link"
-                          >
-                            {copiedId === f.id ? <Check size={14} className="text-green-500" /> : <Copy size={14} />}
-                          </button>
-                          <a
-                            href={`https://drive.google.com/uc?export=download&id=${f.driveId}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="icon-btn"
-                            data-tooltip="Tải file"
-                          >
-                            <Download size={14} />
-                          </a>
-                          <a
-                            href={`https://drive.google.com/file/d/${f.driveId}/view`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="icon-btn"
-                            data-tooltip="Mở trong trình duyệt"
-                          >
-                            <ExternalLink size={14} />
-                          </a>
+                        <div className="file-item-row2">
+                          <span className="file-label" title={f.label}>{f.label}</span>
                         </div>
                       </div>
-                      <div className="file-item-row2">
-                        <span className="file-label" title={f.label}>{f.label}</span>
-                      </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
               </div>
-            </div>
 
-            {/* Right: iframe preview */}
-            <div className="modal-preview">
-              {activeUrl ? (
-                <iframe
-                  src={activeUrl}
-                  className="preview-iframe"
-                  title="Document preview"
-                />
-              ) : (
-                <div className="preview-placeholder">
-                  <p>Chọn một file để xem</p>
-                </div>
-              )}
+              {/* Right: iframe preview */}
+              <div className={`modal-preview ${mobileTab === 'preview' ? 'mobile-active' : 'mobile-hidden'}`}>
+                {activeDriveViewLink && (
+                  <div className="modal-preview-toolbar">
+                    <a
+                      href={activeDriveViewLink}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="drive-open-btn"
+                    >
+                      <ExternalLink size={15} />
+                      <span>Mở trong Google Drive</span>
+                    </a>
+                  </div>
+                )}
+                {activeUrl ? (
+                  <iframe
+                    src={activeUrl}
+                    className="preview-iframe"
+                    title="Document preview"
+                  />
+                ) : (
+                  <div className="preview-placeholder">
+                    <p>Chọn một file để xem</p>
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
+          </>
         ) : (
           <div className="modal-loading">
             <p>Không tìm thấy văn bản.</p>
@@ -634,6 +699,12 @@ export function DocumentModal({ docId, onClose }: DocumentModalProps) {
           padding: 16px 20px;
           border-bottom: 1px solid #e2e8f0;
           background: #f8fafc;
+          flex-shrink: 0;
+        }
+        .modal-header-info {
+          min-width: 0;
+          flex: 1;
+          padding-right: 8px;
         }
         .modal-header-info h2 {
           font-size: 16px;
@@ -667,6 +738,10 @@ export function DocumentModal({ docId, onClose }: DocumentModalProps) {
           transition: all 0.15s;
         }
         .modal-close:hover { background: #fee2e2; color: #ef4444; }
+
+        .modal-mobile-tabs {
+          display: none;
+        }
 
         .modal-loading {
           flex: 1;
@@ -704,6 +779,9 @@ export function DocumentModal({ docId, onClose }: DocumentModalProps) {
         .modal-meta {
           padding: 12px 16px;
           border-bottom: 1px solid #f1f5f9;
+          font-size: 13px;
+        }
+        .modal-input-control {
           font-size: 13px;
         }
         .meta-row {
@@ -813,10 +891,40 @@ export function DocumentModal({ docId, onClose }: DocumentModalProps) {
         .modal-preview {
           flex: 1;
           display: flex;
+          flex-direction: column;
           background: #f8fafc;
+        }
+        .modal-preview-toolbar {
+          display: none;
+          align-items: center;
+          justify-content: flex-end;
+          padding: 6px 12px;
+          background: #f8fafc;
+          border-bottom: 1px solid #e2e8f0;
+          flex-shrink: 0;
+        }
+        .drive-open-btn {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          min-height: 40px;
+          padding: 6px 12px;
+          border-radius: 6px;
+          font-size: 12px;
+          font-weight: 600;
+          color: #1d4ed8;
+          background: #eff6ff;
+          border: 1px solid #bfdbfe;
+          text-decoration: none;
+          transition: all 0.15s;
+        }
+        .drive-open-btn:hover {
+          background: #dbeafe;
+          border-color: #93c5fd;
         }
         .preview-iframe {
           width: 100%;
+          flex: 1;
           height: 100%;
           border: none;
         }
@@ -826,6 +934,89 @@ export function DocumentModal({ docId, onClose }: DocumentModalProps) {
           align-items: center;
           justify-content: center;
           color: #94a3b8;
+        }
+
+        @media (max-width: 767px) {
+          .modal-container {
+            width: 100vw;
+            height: 100dvh;
+            max-width: none;
+            border-radius: 0;
+          }
+          .modal-header {
+            padding: max(12px, env(safe-area-inset-top)) 12px 12px 16px;
+          }
+          .modal-header-info h2 {
+            font-size: 15px !important;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+          }
+          .modal-close {
+            min-width: 44px;
+            min-height: 44px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+          }
+          .modal-mobile-tabs {
+            display: flex;
+            border-bottom: 1px solid #e2e8f0;
+            background: #ffffff;
+            flex-shrink: 0;
+          }
+          .modal-mobile-tab {
+            flex: 1;
+            min-height: 44px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            color: #64748b;
+            background: transparent;
+            border: none;
+            border-bottom: 2px solid transparent;
+            cursor: pointer;
+            transition: all 0.15s;
+          }
+          .modal-mobile-tab.active {
+            color: #2563eb;
+            border-bottom-color: #2563eb;
+            background: #eff6ff;
+          }
+          .modal-sidebar {
+            width: 100%;
+            flex: 1;
+            border-right: none;
+            padding-bottom: env(safe-area-inset-bottom);
+          }
+          .modal-preview {
+            width: 100%;
+            flex: 1;
+            padding-bottom: env(safe-area-inset-bottom);
+          }
+          .modal-preview-toolbar {
+            display: flex;
+          }
+          .modal-sidebar.mobile-hidden,
+          .modal-preview.mobile-hidden {
+            display: none !important;
+          }
+          .modal-input-control {
+            font-size: 16px !important;
+            min-height: 40px;
+          }
+          .icon-btn {
+            width: 40px !important;
+            height: 40px !important;
+            min-width: 40px;
+            min-height: 40px;
+          }
+        }
       `}</style>
 
       {/* Create Task Drawer */}

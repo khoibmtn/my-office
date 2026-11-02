@@ -8,9 +8,11 @@
 
 import {
   collection, doc, getDoc, getDocs, query, where,
-  writeBatch, serverTimestamp,
+  writeBatch, serverTimestamp, updateDoc,
 } from 'firebase/firestore'
 import { db } from '../firebase'
+import { computeIsClosed } from './validation'
+import { syncDocumentsFromTasks } from './documentSync'
 import type { Task } from '@/types/tasks'
 
 const TASKS = 'tasks'
@@ -73,6 +75,7 @@ export async function resolveBlockedDependencies(
   actorName: string
 ): Promise<string[]> {
   const unblockedIds: string[] = []
+  const affectedDocIds: string[] = []
 
   try {
     // Query all tasks that declare completedTaskId in dependsOnTaskIds
@@ -94,13 +97,18 @@ export async function resolveBlockedDependencies(
         const batch = writeBatch(db())
         const taskRef = doc(db(), TASKS, candidate.id)
 
-        const restoredStatus = candidate.previousStatus || 'pending'
+        const restoredStatus =
+          candidate.previousStatus && candidate.previousStatus !== 'blocked'
+            ? candidate.previousStatus
+            : 'pending'
 
         batch.update(taskRef, {
           status: restoredStatus,
+          isClosed: computeIsClosed(restoredStatus),
           blockedReason: null,
           blockedByTaskIds: [],
           blockedNote: null,
+          previousStatus: null,
           updatedAt: serverTimestamp(),
         })
 
@@ -110,7 +118,7 @@ export async function resolveBlockedDependencies(
           taskId: candidate.id,
           actorId,
           actorName,
-          eventType: 'STATUS_CHANGED',
+          eventType: 'UNBLOCKED',
           metadata: {
             previousStatus: 'blocked',
             newStatus: restoredStatus,
@@ -123,7 +131,19 @@ export async function resolveBlockedDependencies(
 
         await batch.commit()
         unblockedIds.push(candidate.id)
+        if (candidate.documentIds?.length) {
+          affectedDocIds.push(...candidate.documentIds)
+        }
+      } else if (candidate.blockedReason === 'dependency') {
+        await updateDoc(doc(db(), TASKS, candidate.id), {
+          blockedByTaskIds: check.pendingTaskIds,
+          updatedAt: serverTimestamp(),
+        })
       }
+    }
+
+    if (affectedDocIds.length > 0) {
+      await syncDocumentsFromTasks(affectedDocIds)
     }
   } catch (err) {
     console.error('Error resolving blocked dependencies:', err)

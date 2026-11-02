@@ -1,0 +1,12 @@
+# T-122 — Sửa vòng 2 (hồi quy Kanban + lỗi nhỏ)
+
+Tuân thủ `handoff/tasks/_RULES.md`. Được sửa: `app/(app)/tasks/kanban/page.tsx`, `app/(app)/tasks/page.tsx`, `components/tasks/KanbanBoard.tsx` (CHỈ phần nhận dữ liệu/tính `subtaskStats`, không đổi UI), `hooks/useTasks.ts`, `hooks/useScopedTasks.ts`, `lib/tasks/firestore.ts`, `__tests__/tasks/*`. Có task khác đang sửa `components/tasks/TaskDetail.tsx`, `components/chat/*`, `SubtaskList.tsx` song song — KHÔNG đụng các file đó.
+
+1. **[TRUNG BÌNH] Hồi quy: Kanban cho hoàn thành việc cha khi việc con mở.** `kanban/page.tsx:~20` lọc `isVisibleTask` (bỏ việc con) trước khi truyền vào `KanbanBoard` → `subtaskStats` (`KanbanBoard.tsx:~131-153`) rỗng, mất badge tiến độ và chốt chặn ở ~235; `changeTaskStatus(task.id, status, actor)` không truyền `subtasks` nên `mutations.ts:~372` cũng không chặn. Cùng lỗi ở view kanban trong `/tasks` (`page.tsx:~305`). Sửa: `KanbanBoard` nhận thêm prop `allTasks` (danh sách đầy đủ gồm việc con) để tính `subtaskStats` và truyền `subtasks` của việc khi gọi `changeTaskStatus`; chỉ thẻ hiển thị dùng danh sách đã lọc. Kiểm thêm: nếu `changeTaskStatus` tự đọc việc con từ Firestore khi không được truyền (đọc `lib/tasks/mutations.ts`, KHÔNG sửa) thì ghi rõ.
+2. **[THẤP] Việc vừa đóng biến mất tạm thời:** `updatedAt` là `serverTimestamp()` đang chờ → không khớp `updatedAt >= since` ở listener đã đóng, trong khi listener mở đã loại vì `isClosed=true`. Sửa trong `rebuildMergedTasks` (`useTasks.ts`): giữ bản cuối cùng của task đó (cập nhật `isClosed/status` theo snapshot mới nhất từ bất kỳ listener nào) cho tới khi listener đã đóng chứa nó; hoặc dùng `snapshot.docs` với `{ serverTimestamps: 'estimate' }` nếu đủ. Có test thuần cho hàm gộp.
+3. **[THẤP] Thống kê tháng thiếu:** `since = min(now − 30 ngày, đầu tháng hiện tại giờ VN)`.
+4. **[THẤP] `useScopedTasks`:** `setTasks([])` + `loading=true` ở đầu effect khi id đổi.
+5. **[THẤP] Bộ lọc ẩn:** ở `/tasks`, khi URL có `departmentId` nhiều giá trị / `status` đặc biệt (`overdue|due7|open|done_week|done_month`) / `includeCollaborator=1`, hiện các chip mô tả bộ lọc phía trên danh sách (trong `tasks/page.tsx`, không sửa `TaskFilters.tsx`), có nút "×" bỏ từng bộ lọc (cập nhật URL).
+6. **Test:** thêm test với số tuyệt đối (vd bộ dữ liệu mẫu cố định → overdue = 2, due7 = 1, done_week = 1) cho cả `computeTaskStats` và `filterTasksByParams`.
+
+Sau khi sửa: `npx tsc --noEmit`, `npx vitest run`, `TZ=UTC npx vitest run`, cập nhật báo cáo T-122 mục "Vòng sửa 2".

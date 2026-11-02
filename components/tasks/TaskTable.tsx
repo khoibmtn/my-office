@@ -220,9 +220,9 @@ export function TaskTable({ tasks, emptyMessage = 'Không có công việc nào'
   }
 
   return (
-    <div className="overflow-x-auto relative">
+    <div className="relative">
       {/* Quick filter badges */}
-      <div className="flex items-center gap-1.5 px-3 py-2.5 border-b border-slate-100 overflow-x-auto">
+      <div className="flex items-center gap-1.5 px-3 py-2 sm:py-2.5 border-b border-slate-100 overflow-x-auto">
         {quickFilterBadges.map(badge => {
           const count = filterCounts[badge.key as string] || 0
           const isActive = quickFilter === badge.key
@@ -230,7 +230,7 @@ export function TaskTable({ tasks, emptyMessage = 'Không có công việc nào'
             <button
               key={badge.key}
               onClick={() => handleQuickFilter(badge.key)}
-              className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-[11px] font-medium border transition-all whitespace-nowrap shrink-0 ${
+              className={`inline-flex items-center gap-1 px-2 py-1 max-md:min-h-[40px] max-md:px-2.5 rounded-full text-[11px] font-medium border transition-all whitespace-nowrap shrink-0 ${
                 isActive ? badge.activeColor : badge.color
               } hover:shadow-sm`}
             >
@@ -246,13 +246,148 @@ export function TaskTable({ tasks, emptyMessage = 'Không có công việc nào'
         {quickFilter && (
           <button
             onClick={() => setQuickFilter(null)}
-            className="text-[11px] text-slate-400 hover:text-red-500 px-1.5 py-1 transition-colors"
+            className="text-[11px] text-slate-400 hover:text-red-500 px-1.5 py-1 max-md:min-h-[40px] max-md:min-w-[40px] max-md:inline-flex max-md:items-center max-md:justify-center max-md:px-2.5 transition-colors whitespace-nowrap shrink-0"
           >
             ✕ Bỏ lọc
           </button>
         )}
       </div>
 
+      {/* Mobile Card List (< sm) */}
+      <div className="sm:hidden">
+        {sortedTasks.length === 0 ? (
+          <div className="py-10 text-center text-slate-400 text-sm">
+            Không có công việc nào khớp bộ lọc
+          </div>
+        ) : (
+          <div className="divide-y divide-slate-100">
+            {sortedTasks.map(({ task, derivedStates }) => {
+              const assigneeDisplayName = task.assigneeName || (task.assigneeId ? getStaffName(task.assigneeId) : null)
+              const isSelected = selectedIds.includes(task.id)
+              const isOverdue = !task.isClosed && derivedStates.includes('OVERDUE' as DerivedState)
+              const isDueSoon =
+                !task.isClosed &&
+                !isOverdue &&
+                (derivedStates.includes('AT_RISK' as DerivedState) ||
+                  (() => {
+                    if (!task.dueDate) return false
+                    const d = task.dueDate.toDate
+                      ? task.dueDate.toDate()
+                      : new Date(task.dueDate.seconds * 1000)
+                    const diff = Math.ceil((d.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+                    return diff >= 0 && diff <= 2
+                  })())
+
+              return (
+                <div
+                  key={task.id}
+                  onClick={() => router.push(`/tasks/${task.id}`)}
+                  className={`p-3 transition-colors cursor-pointer active:bg-slate-50 ${
+                    isSelected ? 'bg-blue-50/60' : 'bg-white'
+                  }`}
+                >
+                  <div className="flex items-start gap-2">
+                    {/* Checkbox touch target >= 40x40px */}
+                    <label
+                      onClick={(e) => e.stopPropagation()}
+                      className="min-w-[40px] min-h-[40px] w-10 h-10 -ml-1.5 -mt-1 inline-flex items-center justify-center rounded-lg hover:bg-slate-100 shrink-0 cursor-pointer"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={(e) => handleToggleSelectRow(e as any, task.id)}
+                        aria-label={`Chọn ${task.title}`}
+                        className="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500 cursor-pointer"
+                      />
+                    </label>
+
+                    <div className="flex-1 min-w-0">
+                      {/* Title + priority dot + recurring icon */}
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="font-medium text-sm text-slate-900 break-words leading-snug">
+                          {task.seriesId && (
+                            <span
+                              className="inline-flex items-center gap-0.5 text-[10px] text-violet-600 bg-violet-50 rounded px-1 py-0.5 mr-1.5 align-middle"
+                              title="Định kỳ"
+                            >
+                              <RefreshCw className="w-2.5 h-2.5" />
+                            </span>
+                          )}
+                          {task.title}
+                        </div>
+                        <div className="shrink-0 pt-0.5">
+                          <TaskPriorityBadge priority={task.priority} compact />
+                        </div>
+                      </div>
+
+                      {/* Status badge */}
+                      <div className="mt-1.5">
+                        <TaskStatusBadge status={task.status} derivedStates={derivedStates} />
+                      </div>
+
+                      {/* Assignee & Due date */}
+                      <div className="flex items-center justify-between gap-2 mt-2 flex-wrap">
+                        {assigneeDisplayName ? (
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <div className="w-5 h-5 rounded-full bg-blue-100 flex items-center justify-center shrink-0">
+                              <User className="w-3 h-3 text-blue-600" />
+                            </div>
+                            <span className="text-xs text-slate-700 truncate">{assigneeDisplayName}</span>
+                          </div>
+                        ) : (
+                          <span className="text-xs text-slate-400">Chưa giao</span>
+                        )}
+
+                        {task.dueDate ? (
+                          <div
+                            className={`text-xs flex items-center gap-1 shrink-0 ${
+                              isOverdue
+                                ? 'text-red-600 font-semibold'
+                                : isDueSoon
+                                ? 'text-amber-600 font-medium'
+                                : 'text-slate-600'
+                            }`}
+                          >
+                            <Calendar className="w-3 h-3 shrink-0" />
+                            <span>{formatDate(task.dueDate)}</span>
+                            {!task.isClosed && (
+                              <span className="text-[11px]">({daysUntil(task.dueDate)})</span>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-xs text-slate-400 shrink-0">—</span>
+                        )}
+                      </div>
+
+                      {/* Progress bar */}
+                      <div className="flex items-center gap-2 mt-2">
+                        <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                          <div
+                            className={`h-full rounded-full transition-all ${
+                              task.progress >= 100
+                                ? 'bg-emerald-500'
+                                : task.progress >= 50
+                                ? 'bg-blue-500'
+                                : 'bg-slate-300'
+                            }`}
+                            style={{ width: `${Math.min(task.progress, 100)}%` }}
+                          />
+                        </div>
+                        <span className="text-[10px] text-slate-500 w-7 text-right shrink-0">
+                          {task.progress}%
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Desktop/Tablet Table (>= sm) */}
+      <div className="hidden sm:block overflow-x-auto">
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-slate-200 text-left bg-slate-50/50">
@@ -435,6 +570,7 @@ export function TaskTable({ tasks, emptyMessage = 'Không có công việc nào'
           )}
         </tbody>
       </table>
+      </div>
 
       {/* Result count when filtered */}
       {quickFilter && (

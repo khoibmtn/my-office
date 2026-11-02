@@ -79,8 +79,8 @@ export function TaskActivityFeed({ activities }: TaskActivityFeedProps) {
             </div>
 
             {/* Content */}
-            <div className="flex-1 pb-4">
-              <div className="text-xs text-slate-700">
+            <div className="flex-1 min-w-0 pb-4">
+              <div className="text-xs text-slate-700 break-words">
                 <span className="font-medium">{activity.actorName}</span>
                 {' '}{label}
                 {activity.metadata?.newStatus && (

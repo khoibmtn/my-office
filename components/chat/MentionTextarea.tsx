@@ -48,6 +48,29 @@ export function MentionTextarea({
 
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const mentionMenuRef = useRef<HTMLDivElement>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  const scrollInputIntoView = useCallback(() => {
+    textareaRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'nearest' })
+    containerRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'end' })
+  }, [])
+
+  const handleFocus = useCallback(() => {
+    scrollInputIntoView()
+    setTimeout(scrollInputIntoView, 200)
+  }, [scrollInputIntoView])
+
+  useEffect(() => {
+    const vv = typeof window !== 'undefined' ? window.visualViewport : null
+    if (!vv) return
+    const handleViewportResize = () => {
+      if (document.activeElement === textareaRef.current) {
+        scrollInputIntoView()
+      }
+    }
+    vv.addEventListener('resize', handleViewportResize)
+    return () => vv.removeEventListener('resize', handleViewportResize)
+  }, [scrollInputIntoView])
 
   // Filter staff matching query
   const filteredStaff = useMemo(() => {
@@ -171,12 +194,15 @@ export function MentionTextarea({
   }
 
   return (
-    <div className="relative flex flex-col bg-white border-t border-slate-200 p-2.5">
+    <div
+      ref={containerRef}
+      className="sticky bottom-0 z-10 shrink-0 flex flex-col bg-white border-t border-slate-200 p-2.5"
+    >
       {/* Floating Mention Autocomplete Popover */}
       {showMentionMenu && filteredStaff.length > 0 && (
         <div
           ref={mentionMenuRef}
-          className="absolute bottom-full mb-1 left-2 z-50 bg-white rounded-xl shadow-2xl border border-slate-200 overflow-hidden w-64 max-h-56 overflow-y-auto animate-in fade-in slide-in-from-bottom-2 duration-150"
+          className="absolute bottom-full mb-1 left-2 right-2 sm:right-auto z-50 bg-white rounded-xl shadow-2xl border border-slate-200 overflow-hidden w-[calc(100vw-2rem)] max-w-[calc(100%-1rem)] sm:w-64 sm:max-w-none max-h-56 overflow-y-auto animate-in fade-in slide-in-from-bottom-2 duration-150"
         >
           <div className="px-3 py-1.5 bg-slate-50 border-b border-slate-100 text-[10px] font-bold text-slate-400 uppercase tracking-wide">
             Nhắc đến nhân viên
@@ -190,7 +216,7 @@ export function MentionTextarea({
                   type="button"
                   onClick={() => selectStaff(staff)}
                   onMouseEnter={() => setSelectedIndex(idx)}
-                  className={`w-full text-left px-2.5 py-1.5 rounded-lg flex items-center gap-2 transition-colors ${
+                  className={`w-full max-lg:min-h-[40px] text-left px-2.5 py-1.5 rounded-lg flex items-center gap-2 transition-colors ${
                     isSelected ? 'bg-blue-50 text-blue-800' : 'hover:bg-slate-50 text-slate-700'
                   }`}
                 >
@@ -235,7 +261,7 @@ export function MentionTextarea({
           <button
             type="button"
             onClick={handleRemoveDoc}
-            className="p-1 rounded-md text-blue-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+            className="max-lg:min-w-[36px] max-lg:min-h-[36px] inline-flex items-center justify-center p-1 rounded-md text-blue-400 hover:text-red-500 hover:bg-red-50 transition-colors"
             title="Bỏ đính kèm"
           >
             <X className="w-3.5 h-3.5" />
@@ -250,10 +276,11 @@ export function MentionTextarea({
           value={text}
           onChange={handleTextChange}
           onKeyDown={handleKeyDown}
+          onFocus={handleFocus}
           placeholder={placeholder}
           rows={1}
           disabled={disabled || sending}
-          className="flex-1 resize-none border border-slate-200 rounded-xl px-3 py-2 text-xs sm:text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 max-h-28 leading-snug bg-slate-50/60 focus:bg-white transition-all"
+          className="flex-1 min-w-0 resize-none border border-slate-200 rounded-xl px-3 py-2 text-base md:text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 max-h-28 leading-snug bg-slate-50/60 focus:bg-white transition-all"
         />
 
         {/* Attach Document Button */}
@@ -261,7 +288,8 @@ export function MentionTextarea({
           type="button"
           onClick={() => setShowDocPicker(true)}
           disabled={disabled || sending}
-          className="shrink-0 p-2 rounded-xl border border-slate-200 hover:border-blue-300 text-slate-500 hover:text-blue-600 hover:bg-blue-50/60 transition-colors"
+          aria-label="Đính kèm văn bản vào tin nhắn"
+          className="tap lg:min-w-0 lg:min-h-0 max-lg:w-10 max-lg:h-10 shrink-0 p-2 rounded-xl border border-slate-200 hover:border-blue-300 text-slate-500 hover:text-blue-600 hover:bg-blue-50/60 transition-colors"
           title="Đính kèm văn bản vào tin nhắn"
         >
           <Paperclip className="w-4 h-4" />
@@ -272,7 +300,8 @@ export function MentionTextarea({
           type="button"
           onClick={handleSend}
           disabled={(!text.trim() && !attachedDoc) || sending || disabled}
-          className="shrink-0 w-8 h-8 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:bg-slate-200 disabled:cursor-not-allowed flex items-center justify-center text-white transition-all shadow-2xs"
+          aria-label="Gửi tin nhắn"
+          className="tap lg:min-w-0 lg:min-h-0 w-10 h-10 lg:w-8 lg:h-8 shrink-0 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:bg-slate-200 disabled:cursor-not-allowed flex items-center justify-center text-white transition-all shadow-2xs"
           title="Gửi tin nhắn (Enter)"
         >
           {sending ? (

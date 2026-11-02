@@ -1,8 +1,8 @@
 'use client'
 
-import React, { useState, useMemo } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import { Loader2 } from 'lucide-react'
-import { useTasks } from '@/hooks/useTasks'
+import { useTasks, isVisibleTask } from '@/hooks/useTasks'
 import { useStaff } from '@/hooks/useStaff'
 import { useDepartments } from '@/hooks/useDepartments'
 import { TaskTable } from '@/components/tasks/TaskTable'
@@ -12,20 +12,35 @@ export default function AllTasksPage() {
   const { staff: staffList } = useStaff()
   const { departments } = useDepartments()
   const [filters, setFilters] = useState<TaskFilterValues>(DEFAULT_FILTERS)
+  const [now, setNow] = useState(() => Date.now())
+
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 60_000)
+    return () => clearInterval(timer)
+  }, [])
 
   const { tasks, loading } = useTasks({ view: 'all' })
 
+  const visibleTasks = useMemo(() => {
+    return tasks.filter((t) => isVisibleTask(t, now))
+  }, [tasks, now])
+
   const filteredTasks = useMemo(() => {
     const query = filters.searchQuery?.toLowerCase().trim() || ''
-    return tasks.filter(t => {
+    return visibleTasks.filter((t) => {
       if (query && !t.title.toLowerCase().includes(query)) return false
       if (filters.status !== 'all' && t.status !== filters.status) return false
       if (filters.priority !== 'all' && t.priority !== filters.priority) return false
       if (filters.assigneeId !== 'all' && t.assigneeId !== filters.assigneeId) return false
-      if (filters.departmentId !== 'all' && t.departmentId !== filters.departmentId) return false
+      if (
+        filters.departmentId !== 'all' &&
+        (t.departmentId || t.assigneeDepartmentId) !== filters.departmentId
+      ) {
+        return false
+      }
       return true
     })
-  }, [tasks, filters])
+  }, [visibleTasks, filters])
 
   if (loading) {
     return (
@@ -39,7 +54,7 @@ export default function AllTasksPage() {
     <div className="p-4 lg:p-6 max-w-7xl mx-auto space-y-4">
       <div>
         <h1 className="text-xl font-bold text-slate-900">Tất cả công việc</h1>
-        <p className="text-sm text-slate-500 mt-0.5">{filteredTasks.length} / {tasks.length} công việc</p>
+        <p className="text-sm text-slate-500 mt-0.5">{filteredTasks.length} / {visibleTasks.length} công việc</p>
       </div>
 
       <TaskFilters

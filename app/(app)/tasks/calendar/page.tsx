@@ -1,12 +1,22 @@
 'use client'
 
-import React from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import { Loader2 } from 'lucide-react'
-import { useTasks } from '@/hooks/useTasks'
+import { useTasks, isVisibleTask } from '@/hooks/useTasks'
 import { TaskCalendar } from '@/components/tasks/TaskCalendar'
 
 export default function CalendarPage() {
   const { tasks, loading } = useTasks({ view: 'all' })
+  const [now, setNow] = useState(() => Date.now())
+
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 60_000)
+    return () => clearInterval(timer)
+  }, [])
+
+  const visibleTasks = useMemo(() => {
+    return tasks.filter((t) => isVisibleTask(t, now))
+  }, [tasks, now])
 
   if (loading) {
     return (
@@ -22,7 +32,7 @@ export default function CalendarPage() {
         <h1 className="text-xl font-bold text-slate-900">Lịch công việc</h1>
         <p className="text-sm text-slate-500">Xem công việc theo hạn hoàn thành</p>
       </div>
-      <TaskCalendar tasks={tasks} />
+      <TaskCalendar tasks={visibleTasks} />
     </div>
   )
 }

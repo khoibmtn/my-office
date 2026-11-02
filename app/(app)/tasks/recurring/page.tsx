@@ -11,7 +11,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { useRole } from '@/hooks/useRole'
 import { useTaskSeries } from '@/hooks/useTaskSeries'
-import { useTasks } from '@/hooks/useTasks'
+import { useSeriesTasks } from '@/hooks/useScopedTasks'
 import { useStaff } from '@/hooks/useStaff'
 import { SeriesForm } from '@/components/tasks/SeriesForm'
 import { pauseTaskSeries, resumeTaskSeries, endTaskSeries, triggerSeriesGenerationNow } from '@/lib/tasks/series'
@@ -42,7 +42,7 @@ export default function RecurringPage() {
   const router = useRouter()
   const { staffId, staffName } = useRole()
   const { seriesList, loading: seriesLoading } = useTaskSeries()
-  const { tasks: allTasks, loading: tasksLoading } = useTasks({ view: 'all' })
+  const { tasks: allTasks, loading: tasksLoading } = useSeriesTasks()
   const { getStaffName } = useStaff()
 
   const [showForm, setShowForm] = useState(false)

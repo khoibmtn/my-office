@@ -1,0 +1,74 @@
+# Phương án vá bảo mật API & Firestore — my-office
+
+> Soạn 02/11/2026 (Claude Code). Trạng thái: **ĐỀ XUẤT — chưa triển khai**.
+> Phạm vi bảo mật/auth do Claude Code thực hiện, không giao Antigravity (quy ước dự án).
+
+## 1. Hiện trạng (đã kiểm trên code + site live https://my-office-inky.vercel.app)
+
+| # | Mức | Vấn đề | Bằng chứng |
+|---|---|---|---|
+| 1 | 🔴 Nghiêm trọng | `GET /api/drive/token` không cần đăng nhập, CORS `*`, trả access token Drive của tài khoản admin (từ `GOOGLE_REFRESH_TOKEN`) | `app/api/drive/token/route.ts` |
+| 2 | 🔴 Nghiêm trọng | Mọi khách vào trang đều được `signInAnonymously` → Firestore rules chỉ cần `request.auth != null` → ai cũng **đọc/ghi/xoá** toàn bộ dữ liệu (đã thấy: chưa đăng nhập vẫn xem đủ văn bản, công việc) | `lib/firebase.ts:280`, `firestore.rules` |
+| 3 | 🔴 Nghiêm trọng | `staff.passwordHash` (SHA-256 không salt) đọc được bởi bất kỳ ai; đăng nhập nhân viên so hash phía client và `/api/auth/login` nhận **hash** chứ không nhận mật khẩu → lộ hash = đăng nhập được (pass-the-hash) | `lib/staff.ts:23,191`, `app/api/auth/login/route.ts` |
+| 4 | 🔴 | Phân quyền RBAC chỉ ẩn/hiện nút ở giao diện, không có kiểm tra phía server/rules | `lib/permissions.ts`, `lib/tasks/permissions.ts` |
+| 5 | 🟠 Cao | `POST /api/drive/copy` không xác thực + server `fetch(url)` tuỳ ý → SSRF, dùng quota Drive của admin | `lib/drive.ts:uploadUrlToDrive` |
+| 6 | 🟠 | `POST /api/drive/upload` không xác thực → ai cũng upload file lên Drive admin và nhận link công khai | `app/api/drive/upload/route.ts` |
+| 7 | 🟠 | `POST /api/admin/migrate-staff` không xác thực (hiện tự chặn nếu staff đã có dữ liệu, nhưng vẫn là cửa hậu) | `app/api/admin/migrate-staff/route.ts` |
+| 8 | 🟠 | `GET /api/extension/test-upload` route debug đọc `~/.config/gcloud/application_default_credentials.json` | `app/api/extension/test-upload/route.ts` |
+| 9 | 🟡 | `check-duplicate`, `extension/config`, `extension/token` không xác thực; CORS `*` cho toàn bộ `/api/extension/*` | `next.config.mjs`, các route |
+| 10 | 🟡 | `/api/cron/recurrence` chỉ kiểm `CRON_SECRET` *nếu có cấu hình*; nhận secret qua query string (lọt log) | `app/api/cron/recurrence/route.ts` |
+| 11 | 🟡 | Lỗi 500 trả cả `stack` ra ngoài | `app/api/extension/upload/init/route.ts` |
+
+Đã kiểm: lịch sử git **không** chứa khoá Algolia admin, private key SA, hay OAuth client secret. `CLAUDE.md`/`.env.local` không được track.
+
+## 2. Phương án — 3 đợt, mỗi đợt deploy độc lập
+
+### Đợt S1 — Đóng cửa API (nhanh, ~nửa ngày, không đổi trải nghiệm người dùng)
+
+1. **Xoá** `app/api/extension/test-upload/` và `app/api/admin/migrate-staff/` (migration đã chạy xong — staff đã có dữ liệu).
+2. Tạo `lib/api-auth.ts` (server-only) dùng chung:
+   - `requireUser(req, { allowAnonymous?: false, adminOnly?: boolean })` — đọc `Authorization: Bearer <Firebase ID token>`, xác minh bằng `firebase-admin` `getAuth().verifyIdToken()` (thay `verifyIdTokenREST`), từ chối user ẩn danh (`firebase.sign_in_provider === 'anonymous'`), `adminOnly` → email phải là `ADMIN_EMAIL`.
+   - `requireUserOrIngest(req, body)` — chấp nhận `ingestSecret` (qlvb-watcher) **hoặc** ID token.
+   - `corsHeaders(origin)` — chỉ cho phép `chrome-extension://<EXTENSION_ID>` (env `EXTENSION_ORIGIN`) và origin của app; bỏ `*`.
+3. Áp dụng:
+   | Route | Yêu cầu |
+   |---|---|
+   | `drive/token` | `adminOnly` (chỉ `useDriveToken` của admin dùng). Bỏ set cookie. |
+   | `drive/copy`, `drive/upload` | `requireUser` (không ẩn danh) |
+   | `extension/check-duplicate`, `extension/config`, `extension/token` | `requireUserOrIngest` (extension đã có `firebaseIdToken`) |
+   | `extension/upload/init`, `extension/submit` | giữ logic hiện tại, chuyển sang helper; bỏ `stack` trong lỗi |
+   | `cron/recurrence` | **bắt buộc** `CRON_SECRET` (thiếu env → 503), chỉ nhận header `Authorization`, bỏ `?secret=` |
+4. Chống SSRF ở `uploadUrlToDrive`: chỉ `https:`, chặn IP nội bộ/loopback/link-local sau khi resolve DNS, giới hạn 25 MB, timeout 20 s, không follow redirect sang host khác. (Link Drive/Docs đi nhánh `files.copy`, không fetch.)
+5. Client: các chỗ gọi `fetch('/api/drive/...')` (`lib/firestore.ts`, `app/(app)/documents/new/page.tsx`, `[id]/edit/page.tsx`, `DocumentForm.tsx`, `AttachmentInput.tsx`, `lib/firebase.ts`) thêm header `Authorization: Bearer ${await auth().currentUser.getIdToken()}` qua 1 helper `authedFetch()`.
+
+**Nghiệm thu S1:** gọi `curl` không token tới từng route → 401/403; có token admin → hoạt động như cũ; extension + qlvb-watcher vẫn gửi văn bản được; `npx tsc --noEmit` sạch.
+
+### Đợt S2 — Danh tính thật cho nhân viên + Firestore rules (gốc rễ, ~1–2 ngày)
+
+1. **Đăng nhập nhân viên phía server, cấp Firebase custom token:**
+   - Client gửi `{ nickname, password }` (mật khẩu thô, qua HTTPS) tới `/api/auth/login`.
+   - Server kiểm bằng **scrypt + salt** (Node `crypto.scrypt`, không cần thư viện mới). Tương thích ngược: nếu bản ghi còn hash SHA-256 cũ và khớp → băm lại scrypt và lưu (chuyển đổi dần, không bắt reset mật khẩu).
+   - Server trả `createCustomToken(staffDocId, { role, staffId, deptIds })` → client `signInWithCustomToken`. `useRole` lấy vai trò từ custom claims thay vì `localStorage.staffSession` (localStorage sửa tay được).
+   - Rate-limit đăng nhập (5 lần/phút/nickname, lưu Firestore `loginAttempts`).
+2. **Tách bí mật khỏi collection công khai:** chuyển `passwordHash` sang `staffSecrets/{staffDocId}` (rules: `allow read, write: if false` — chỉ Admin SDK). Đổi mật khẩu đi qua API `/api/staff/password` (admin hoặc chính chủ).
+3. **Bỏ đăng nhập ẩn danh** (hoặc giữ ẩn danh nhưng rules chặn hoàn toàn) — *cần anh Khôi quyết định: có cần chế độ "Khách" xem văn bản không?*
+4. **Firestore rules theo vai trò** (claims `role` từ custom token; admin nhận diện bằng `request.auth.token.email`):
+   - Đọc: chỉ user đã đăng nhập không ẩn danh.
+   - `staff`, `departments`, `settings`, `tags`: ghi chỉ admin (và `truong_phong` cho `tags`).
+   - `documents`: tạo/sửa với vai trò ∈ {admin, truong_phong, pho_phong, giao_viec}; nhân viên chỉ được cập nhật `status/completedDate` khi `assigneeId == staffId` (dùng `affectedKeys().hasOnly([...])`).
+   - `tasks`: tạo theo `task:create`; sửa khi là người tạo / người được giao / lãnh đạo khoa cùng `departmentId`; xoá chỉ người tạo hoặc admin.
+   - `taskComments`: tạo khi `senderId == staffId`; sửa/xoá chỉ chính chủ.
+   - `notifications`: đọc/sửa khi `recipientId == staffId`.
+5. Viết test rules bằng `@firebase/rules-unit-testing` + emulator (phụ thuộc dev mới — xin phép trước khi thêm).
+
+**Nghiệm thu S2:** khách chưa đăng nhập không đọc được gì; nhân viên A không sửa được việc của khoa khác; không client nào đọc được `passwordHash`; toàn bộ test rules pass; người dùng hiện tại đăng nhập lại bình thường bằng mật khẩu cũ.
+
+### Đợt S3 — Vận hành
+
+1. Giới hạn scope `GOOGLE_REFRESH_TOKEN` về `drive.file` (tạo lại token nếu đang là `drive` toàn quyền).
+2. Đặt `CRON_SECRET`, `EXTENSION_ORIGIN` trên Vercel; thêm `vercel.json` khai báo cron (hoặc chuyển sang Cloudflare Worker — xem skill `firebase-cron-sang-cloudflare`).
+3. Bật App Check (reCAPTCHA Enterprise) cho Firestore để chặn script ngoài dùng API key công khai.
+4. Rà `npm audit`; đặt header bảo mật (`X-Frame-Options`, `Referrer-Policy`) trong `next.config.mjs`.
+
+## 3. Thứ tự đề xuất
+S1 ngay (đóng lỗ hổng #1, #5–#11, rủi ro thấp) → S2 sau khi anh chốt câu hỏi "Khách" → S3.
