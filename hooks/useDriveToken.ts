@@ -8,7 +8,9 @@ import {
   ADMIN_EMAIL,
 } from '@/lib/firebase'
 
-export function useDriveToken() {
+export function useDriveToken(options?: { enabled?: boolean }) {
+  // Background auto-refresh only for the admin (the Drive token belongs to the admin account)
+  const enabled = options?.enabled ?? true
   const [tokenInfo, setTokenInfo] = useState<GoogleTokenExpiryInfo>(() => {
     if (typeof window === 'undefined') {
       return {
@@ -39,10 +41,12 @@ export function useDriveToken() {
   useEffect(() => {
     const checkAndProactiveRefresh = async () => {
       const info = updateStatus()
+      if (!enabled) return
       // If token is getting old (e.g. >= 45 min) or expired, silently refresh from server!
       if ((info.isExpired || (info.minutesAgo !== null && info.minutesAgo >= 45)) && !refreshing) {
         try {
-          await requestGoogleDriveToken(false, { loginHint: ADMIN_EMAIL, skipSilent: false })
+          // Silent only: never open a Google popup from a timer
+          await requestGoogleDriveToken(false, { loginHint: ADMIN_EMAIL, skipSilent: false, silentOnly: true })
           updateStatus()
         } catch (e) {}
       }
@@ -62,7 +66,7 @@ export function useDriveToken() {
       window.removeEventListener('google_token_updated', handleTokenUpdated)
       clearInterval(interval)
     }
-  }, [updateStatus, refreshing])
+  }, [updateStatus, refreshing, enabled])
 
   /**
    * Refresh or re-acquire token.
@@ -111,6 +115,7 @@ export function useDriveToken() {
       const res = await requestGoogleDriveToken(false, {
         loginHint: ADMIN_EMAIL,
         skipSilent: false,
+        silentOnly: true,
       })
       updateStatus()
       if (res.success && res.method === 'silent') {

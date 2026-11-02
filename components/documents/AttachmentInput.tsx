@@ -7,6 +7,7 @@ import type { AttachmentInput as AttachmentInputItem } from '@/types'
 import { X, Plus, Eye, ExternalLink, Upload, Loader2 } from 'lucide-react'
 import { v4 as uuid } from 'uuid'
 import { parseFileNameFromUrl } from '@/lib/utils'
+import { authedFetch } from '@/lib/authedFetch'
 
 interface Props {
   value: (AttachmentInputItem & { id: string })[]
@@ -35,7 +36,7 @@ export function AttachmentInput({ value, onChange, onPreview, activePreviewId }:
       form.append('file', file)
       form.append('folderId', process.env.NEXT_PUBLIC_DRIVE_FOLDER_ID ?? '')
       if (token) form.append('userAccessToken', token)
-      const res = await fetch('/api/drive/upload', { method: 'POST', body: form })
+      const res = await authedFetch('/api/drive/upload', { method: 'POST', body: form })
       if (!res.ok) throw new Error(await res.text())
       const { driveFileId } = await res.json()
       const driveUrl = `https://drive.google.com/file/d/${driveFileId}/preview`

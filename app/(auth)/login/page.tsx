@@ -109,6 +109,7 @@ export default function LoginPage() {
         staffDocId: data.staffDocId,
         shortName: data.shortName,
         fullName: data.fullName,
+        sessionToken: data.sessionToken ?? null,
       })
 
       router.push('/documents')

@@ -1,10 +1,9 @@
-import * as fs from 'fs';
 import { NextRequest, NextResponse } from 'next/server'
 import { Readable } from 'stream'
 import { google } from 'googleapis'
-import { initAdmin, getAdminFirestore, verifyIdTokenREST } from '@/lib/firebase-admin'
+import { initAdmin, getAdminFirestore } from '@/lib/firebase-admin'
 import { syncToAlgolia } from '@/lib/algolia-server'
-import { isValidIngestSecret } from '@/lib/ingest-auth'
+import { authenticateRequest, corsHeaders as buildCors, preflight } from '@/lib/api-auth'
 import { FieldValue } from 'firebase-admin/firestore'
 
 function getDriveClient() {
@@ -75,20 +74,12 @@ function parseDate(dateStr: string): Date | null {
   return date
 }
 
-// CORS headers for Chrome Extension
-function corsHeaders() {
-  return {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type',
-  }
-}
-
-export async function OPTIONS() {
-  return new NextResponse(null, { status: 204, headers: corsHeaders() })
+export async function OPTIONS(request: NextRequest) {
+  return preflight(request)
 }
 
 export async function POST(request: NextRequest) {
+  const corsHeaders = () => buildCors(request)
   try {
     let data: Record<string, any> = {}
     const contentType = request.headers.get('content-type') || ''
@@ -124,27 +115,10 @@ export async function POST(request: NextRequest) {
     const priority = data.priority ?? 'normal'
     const notes = data.notes ?? ''
     const tags = data.tags ?? ''
-    const firebaseIdToken = data.firebaseIdToken ?? ''
-    const ingestSecret = data.ingestSecret ?? ''
 
-    // Tiện ích tự động (qlvb-watcher) xác thực bằng ingestSecret; người dùng (extension) bằng Firebase ID token
-    if (!isValidIngestSecret(ingestSecret)) {
-      if (!firebaseIdToken) {
-        return NextResponse.json(
-          { error: 'TOKEN_EXPIRED', message: 'Vui lòng mở My Office và đăng nhập lại (Chưa có ID token).' },
-          { status: 401, headers: corsHeaders() }
-        )
-      }
-
-      try {
-        await verifyIdTokenREST(firebaseIdToken)
-      } catch (authErr) {
-        return NextResponse.json(
-          { error: 'TOKEN_EXPIRED', message: 'Phiên đăng nhập đã hết hạn. Vui lòng mở lại trang My Office để đăng nhập.' },
-          { status: 401, headers: corsHeaders() }
-        )
-      }
-    }
+    // qlvb-watcher: ingestSecret; extension: admin Firebase ID token or staff session token
+    const auth = await authenticateRequest(request, { body: data, allowIngest: true })
+    if (!auth.ok) return auth.response
 
     // Check for pre-uploaded files (from the new background upload approach)
     const mainFileId = data.mainFileId ?? null
@@ -278,7 +252,7 @@ export async function POST(request: NextRequest) {
       )
     }
     return NextResponse.json(
-      { error: e instanceof Error ? e.message : String(e) },
+      { error: 'Không lưu được văn bản vào My Office' },
       { status: 500, headers: corsHeaders() }
     )
   }

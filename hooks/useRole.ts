@@ -12,6 +12,8 @@ interface StaffSession {
   shortName: string
   fullName: string
   organizationRole?: UserRole
+  /** Signed by /api/auth/login; sent to API routes as X-Staff-Session */
+  sessionToken?: string | null
 }
 
 interface RoleInfo {

@@ -104,6 +104,14 @@ async function getUserToken() {
 }
 
 /**
+ * Signed staff session token (staff who log in with nickname/password)
+ */
+async function getStaffSessionToken() {
+  const data = await chrome.storage.local.get(['myoffice_staff_session']);
+  return data.myoffice_staff_session || null;
+}
+
+/**
  * Check if a JWT token is expired (with 60s buffer)
  */
 function isTokenExpired(token) {
@@ -151,14 +159,14 @@ async function refreshIdToken(refreshToken) {
 }
 
 
-async function uploadSingleFile(apiUrl, blob, fileName, firebaseIdToken) {
+async function uploadSingleFile(apiUrl, blob, fileName, firebaseIdToken, staffSessionToken) {
   const mimeType = blob.type || 'application/octet-stream';
   
   // 1. Get Resumable Upload URL from our Backend
   const initRes = await fetch(`${apiUrl}/api/extension/upload/init`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ fileName, mimeType, firebaseIdToken })
+    body: JSON.stringify({ fileName, mimeType, firebaseIdToken, staffSessionToken })
   });
 
   if (!initRes.ok) {
@@ -199,14 +207,14 @@ async function uploadSingleFile(apiUrl, blob, fileName, firebaseIdToken) {
 /**
  * Submit document + files to my-office API
  */
-async function submitToMyOffice(apiUrl, metadata, mainFileBlob, mainFileName, attachmentBlobs, firebaseIdToken) {
+async function submitToMyOffice(apiUrl, metadata, mainFileBlob, mainFileName, attachmentBlobs, firebaseIdToken, staffSessionToken) {
   // 1. Upload main file individually
-  const mainResult = await uploadSingleFile(apiUrl, mainFileBlob, mainFileName, firebaseIdToken);
+  const mainResult = await uploadSingleFile(apiUrl, mainFileBlob, mainFileName, firebaseIdToken, staffSessionToken);
   
   // 2. Upload attachments individually
   const attachmentResults = [];
   for (const att of attachmentBlobs) {
-    const res = await uploadSingleFile(apiUrl, att.blob, att.fileName, firebaseIdToken);
+    const res = await uploadSingleFile(apiUrl, att.blob, att.fileName, firebaseIdToken, staffSessionToken);
     attachmentResults.push({
       id: att.fileName,
       title: att.fileName,
@@ -232,6 +240,7 @@ async function submitToMyOffice(apiUrl, metadata, mainFileBlob, mainFileName, at
     notes: metadata.notes || '',
     tags: '',
     firebaseIdToken: firebaseIdToken || '',
+    staffSessionToken: staffSessionToken || '',
     mainFileId: mainResult.driveFileId,
     mainFileUrl: mainResult.driveViewUrl,
     mainMimeType: mainResult.mimeType,
@@ -320,7 +329,8 @@ async function handleSubmitInBackground(request) {
     
     // 3. Get user token from chrome.storage.local
     const userToken = await getUserToken();
-    if (!userToken) {
+    const staffSessionToken = await getStaffSessionToken();
+    if (!userToken && !staffSessionToken) {
       // No token — handle inline without throwing (prevents extension error page entry)
       setBadge('!', '#f59e0b');
       showNotification('⚠️ Cần đăng nhập', 'Hãy mở My Office (localhost:3000) và đăng nhập Google để lấy token.');
@@ -331,7 +341,7 @@ async function handleSubmitInBackground(request) {
     
     // 4. Submit to API
     setBadge('📤', '#3b82f6');
-    const result = await submitToMyOffice(apiUrl, metadata, mainBlob, mainFileName, attachmentBlobs, userToken);
+    const result = await submitToMyOffice(apiUrl, metadata, mainBlob, mainFileName, attachmentBlobs, userToken, staffSessionToken);
     
     // 5. Success
     setBadge('✓', '#22c55e');

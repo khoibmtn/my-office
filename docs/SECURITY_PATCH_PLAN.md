@@ -1,6 +1,6 @@
 # Phương án vá bảo mật API & Firestore — my-office
 
-> Soạn 02/11/2026 (Claude Code). Trạng thái: **ĐỀ XUẤT — chưa triển khai**.
+> Soạn 02/11/2026 (Claude Code). Trạng thái: **S1 đã triển khai trong code 03/11/2026 (chờ deploy)**; S2, S3 chưa làm.
 > Phạm vi bảo mật/auth do Claude Code thực hiện, không giao Antigravity (quy ước dự án).
 
 ## 1. Hiện trạng (đã kiểm trên code + site live https://my-office-inky.vercel.app)
@@ -72,3 +72,35 @@
 
 ## 3. Thứ tự đề xuất
 S1 ngay (đóng lỗ hổng #1, #5–#11, rủi ro thấp) → S2 sau khi anh chốt câu hỏi "Khách" → S3.
+
+## 4. Kết quả S1 (03/11/2026)
+
+**Đã làm**
+- `lib/api-auth.ts`: `authenticateRequest()` — chấp nhận (1) `ingestSecret` của qlvb-watcher, (2) Firebase ID token của tài khoản admin, (3) phiên nhân viên có ký HMAC (`X-Staff-Session` / `staffSessionToken`). User ẩn danh và tài khoản Google khác bị từ chối. Xác minh admin bằng Admin SDK, dự phòng bằng Identity Toolkit REST.
+- `lib/server/staff-session.ts`: `/api/auth/login` cấp token phiên 30 ngày (khoá `STAFF_SESSION_SECRET`, mặc định dẫn xuất từ private key của `FIREBASE_ADMIN_SDK_KEY`); server kiểm nhân viên còn `isActive`.
+- Đóng: `drive/copy`, `drive/upload` (admin/nhân viên), `drive/token` (chỉ admin, bỏ cookie), `extension/check-duplicate|upload/init|submit` (admin/nhân viên/ingest). Lỗi 500 không còn trả `stack`/message nội bộ.
+- Xoá: `extension/test-upload`, `admin/migrate-staff`, `extension/token`, `extension/config` (không còn nơi gọi).
+- Bỏ CORS `*`; chỉ phản hồi origin `chrome-extension://` (ghim được bằng `EXTENSION_ORIGIN`). Thêm `X-Content-Type-Options`, `Referrer-Policy`.
+- Chống SSRF (`lib/server/safe-fetch.ts`): chỉ http/https, chặn IP nội bộ/metadata ở mọi bước chuyển hướng, ≤3 redirect, timeout 20s, ≤25 MB.
+- Banner/auto-refresh token Drive chỉ chạy cho admin và không bao giờ tự mở popup.
+- Extension 1.1.0 gửi kèm token phiên nhân viên; qlvb-watcher gửi `ingestSecret` khi kiểm trùng.
+
+**Đã kiểm**: curl mọi route không xác thực/ token giả → 401/403; route đã xoá → 404; origin lạ không nhận header CORS; phiên nhân viên hợp lệ → `check-duplicate` 200, `drive/token` 401; URL metadata nội bộ bị chặn. tsc sạch, vitest pass, `next build` thành công.
+
+**Thứ tự deploy (để không gián đoạn)**
+1. qlvb-watcher: `wrangler deploy` (gửi thêm `ingestSecret` không ảnh hưởng API cũ).
+2. Extension: tải lại extension 1.1.0 trong `chrome://extensions`.
+3. `firebase deploy --only firestore:indexes` (index của T-122).
+4. Vercel: đặt `CRON_SECRET`; (khuyến nghị) `STAFF_SESSION_SECRET` (chuỗi ngẫu nhiên ≥32 ký tự), `EXTENSION_ORIGIN=chrome-extension://<id>`. Rồi deploy my-office.
+5. Nhân viên đăng xuất/đăng nhập lại một lần để nhận token phiên (phiên cũ không có token → upload văn bản báo 401).
+
+**Vòng soát bảo mật độc lập — đã sửa thêm**
+- Nhân viên dùng `drive/copy` với link Drive: chỉ sao chép được file nguồn **đã** chia sẻ "Bất kỳ ai có đường liên kết" (trước đó có thể dùng quyền admin để sao chép file riêng của admin rồi công khai bản sao). Nhân viên luôn ghi vào `DRIVE_FOLDER_ID`, không tự chọn thư mục/token. Admin không bị giới hạn.
+- 4xx không còn retry 3 lần; nhân viên gặp 401 (phiên cũ chưa có token) được đưa về trang đăng nhập kèm thông báo.
+- `/api/auth/login` trả lỗi rõ khi server chưa cấu hình khoá ký phiên.
+- Lỗi `drive/copy|upload` không còn trả nguyên lỗi Google API (chỉ trả thông điệp thân thiện của app).
+- Chặn thêm IPv6 `::a.b.c.d`, NAT64 `64:ff9b::/96`, `fec0::/10`.
+
+**Giữ nguyên có chủ đích:** file của app trên Drive vẫn để "Bất kỳ ai có đường liên kết đều xem được" (quyết định D-04, anh Khôi xác nhận 03/11/2026) — không thuộc phạm vi vá.
+
+**Còn lại cho S2**: token phiên nhân viên chưa bị thu hồi khi đổi mật khẩu (vẫn dùng được tới 30 ngày; vô hiệu hoá tài khoản thì có hiệu lực ngay); popup extension không làm mới token nên kiểm trùng có thể bị bỏ qua sau ~1 giờ; Firestore rules vẫn mở cho user ẩn danh; `passwordHash` vẫn đọc được từ client; `/api/auth/login` vẫn nhận hash (pass-the-hash); nhân viên xoá văn bản không còn xoá được file Drive kèm theo (trước đây dùng token Drive của admin trên trình duyệt).

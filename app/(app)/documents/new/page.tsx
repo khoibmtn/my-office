@@ -31,6 +31,7 @@ import { CoAssigneePicker } from '@/components/documents/CoAssigneePicker'
 import { SenderAutocomplete } from '@/components/documents/SenderAutocomplete'
 import { RevertableInput } from '@/components/ui/RevertableInput'
 import type { AttachmentInput as AttachmentItem, DocumentStatus } from '@/types'
+import { authedFetch } from '@/lib/authedFetch'
 
 type AttachmentRow = AttachmentItem & { id: string }
 
@@ -215,7 +216,7 @@ function NewDocumentContent() {
           form.append('file', renamedFile)
           form.append('folderId', process.env.NEXT_PUBLIC_DRIVE_FOLDER_ID ?? '')
           if (token) form.append('userAccessToken', token)
-          const res = await fetch('/api/drive/upload', { method: 'POST', body: form })
+          const res = await authedFetch('/api/drive/upload', { method: 'POST', body: form })
           if (!res.ok) throw new Error(await res.text())
           const uploadData = await res.json()
           uploadedDriveFileId = uploadData.driveFileId || ''
@@ -270,7 +271,7 @@ function NewDocumentContent() {
         const attsToCopy = attachments.filter(a => a.originalLink).map(({ title, originalLink }) => ({ title, originalLink }))
         if (attsToCopy.length > 0) {
           const userAccessToken = typeof window !== 'undefined' ? localStorage.getItem('google_access_token') : null
-          fetch('/api/drive/copy', {
+          authedFetch('/api/drive/copy', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({

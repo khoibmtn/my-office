@@ -17,8 +17,9 @@ import { ADMIN_EMAIL } from '@/lib/firebase'
 import { useRole } from '@/hooks/useRole'
 
 export function DriveTokenBanner() {
-  const { isAdmin, isGuest } = useRole()
-  const { tokenInfo, refreshing, refreshToken, autoRenewIfExpired } = useDriveToken()
+  const { isAdmin } = useRole()
+  // Drive token belongs to the admin account; staff upload through the server (refresh token)
+  const { tokenInfo, refreshing, refreshToken, autoRenewIfExpired } = useDriveToken({ enabled: isAdmin })
 
   const [modalOpen, setModalOpen] = useState(false)
   const [successToast, setSuccessToast] = useState<string | null>(null)
@@ -30,8 +31,8 @@ export function DriveTokenBanner() {
   // If silent auto-renew succeeds -> great!
   // If not -> prompt user with modal to authorize.
   useEffect(() => {
-    // Only trigger for admin or non-guest who needs Drive
-    if (isGuest) return
+    // Only the admin needs a browser Drive token
+    if (!isAdmin) return
 
     let isMounted = true
 
@@ -51,7 +52,7 @@ export function DriveTokenBanner() {
     return () => {
       isMounted = false
     }
-  }, [autoRenewIfExpired, isGuest])
+  }, [autoRenewIfExpired, isAdmin])
 
   const handleQuickRefresh = async (useRedirect = false, selectAccount = false) => {
     setErrorToast(null)
@@ -74,8 +75,8 @@ export function DriveTokenBanner() {
     }
   }
 
-  // If user is guest, don't show Drive token alerts
-  if (isGuest) return null
+  // Only the admin sees Drive token alerts
+  if (!isAdmin) return null
 
   const isExpired = tokenInfo.isExpired || !tokenInfo.hasToken
 

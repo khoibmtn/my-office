@@ -34,6 +34,7 @@ import { CoAssigneePicker } from '@/components/documents/CoAssigneePicker'
 import { SenderAutocomplete } from '@/components/documents/SenderAutocomplete'
 import { RevertableInput } from '@/components/ui/RevertableInput'
 import type { Document, DocumentStatus, AttachmentInput as AttachmentItem } from '@/types'
+import { authedFetch } from '@/lib/authedFetch'
 
 type AttachmentRow = AttachmentItem & { id: string }
 
@@ -275,7 +276,7 @@ export default function EditDocumentPage() {
           form.append('file', renamedFile)
           form.append('folderId', process.env.NEXT_PUBLIC_DRIVE_FOLDER_ID ?? '')
           if (token) form.append('userAccessToken', token)
-          const res = await fetch('/api/drive/upload', { method: 'POST', body: form })
+          const res = await authedFetch('/api/drive/upload', { method: 'POST', body: form })
           if (!res.ok) throw new Error(await res.text())
           const { driveFileId, driveViewUrl, mimeType: uploadedMime } = await res.json()
           const driveLink = `https://drive.google.com/file/d/${driveFileId}/preview`

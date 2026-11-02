@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { Readable } from 'stream'
 import { google } from 'googleapis'
+import { authenticateRequest } from '@/lib/api-auth'
 
 function getDriveClient(userAccessToken?: string) {
   if (process.env.GOOGLE_REFRESH_TOKEN && process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
@@ -25,10 +26,14 @@ function getDriveClient(userAccessToken?: string) {
 
 export async function POST(request: Request) {
   try {
+    const auth = await authenticateRequest(request)
+    if (!auth.ok) return auth.response
     const form = await request.formData()
     const file = form.get('file') as File | null
-    const folderId = (form.get('folderId') as string) ?? process.env.DRIVE_FOLDER_ID
-    const userAccessToken = form.get('userAccessToken') as string | undefined ?? undefined
+    // Only the admin may target another folder or use a browser token; staff always go to the app folder
+    const isAdmin = auth.caller.kind === 'admin'
+    const folderId = (isAdmin ? (form.get('folderId') as string | null) : null) || process.env.DRIVE_FOLDER_ID
+    const userAccessToken = isAdmin ? ((form.get('userAccessToken') as string | null) ?? undefined) : undefined
 
     if (!file || !folderId) {
       return NextResponse.json({ error: 'file và folderId là bắt buộc' }, { status: 400 })
@@ -52,6 +57,7 @@ export async function POST(request: Request) {
       mimeType: created.data.mimeType ?? file.type,
     })
   } catch (e: unknown) {
-    return NextResponse.json({ error: e instanceof Error ? e.message : String(e) }, { status: 500 })
+    console.error('[/api/drive/upload] Error:', e)
+    return NextResponse.json({ error: 'Không tải được file lên Google Drive' }, { status: 500 })
   }
 }

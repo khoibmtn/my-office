@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "My Office - QLVB Helper",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Tự động lấy văn bản từ qlvb.hpnet.vn và gửi đến My Office",
   "permissions": [
     "activeTab",

@@ -12,6 +12,7 @@ import { useStaff } from '@/hooks/useStaff'
 import { CoAssigneePicker } from './CoAssigneePicker'
 import type { AttachmentInput as AttachmentInputItem, DocumentStatus } from '@/types'
 import { v4 as uuid } from 'uuid'
+import { authedFetch } from '@/lib/authedFetch'
 
 type AttachmentRow = AttachmentInputItem & { id: string }
 
@@ -61,7 +62,7 @@ export function DocumentForm() {
     form.append('file', file)
     form.append('folderId', process.env.NEXT_PUBLIC_DRIVE_FOLDER_ID ?? '')
     if (token) form.append('userAccessToken', token)
-    const res = await fetch('/api/drive/upload', { method: 'POST', body: form })
+    const res = await authedFetch('/api/drive/upload', { method: 'POST', body: form })
     if (!res.ok) throw new Error(await res.text())
     const { driveFileId } = await res.json()
     return `https://drive.google.com/file/d/${driveFileId}/view`

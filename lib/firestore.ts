@@ -12,6 +12,7 @@ import {
 } from 'firebase/firestore'
 import { db } from './firebase'
 import type { Document, CreateDocumentInput, DocumentStatus } from '../types'
+import { authedFetch } from './authedFetch'
 
 const COLLECTION = 'documents'
 
@@ -109,6 +110,9 @@ export async function getDocument(docId: string): Promise<Document | null> {
   return { id: snap.id, ...snap.data() } as Document
 }
 
+/** HTTP 4xx responses (auth, validation) — retrying will not help */
+class NonRetryableError extends Error {}
+
 async function retryWithBackoff<T>(
   fn: () => Promise<T>,
   delays = [1000, 2000, 4000]
@@ -119,6 +123,7 @@ async function retryWithBackoff<T>(
       return await fn()
     } catch (err) {
       lastError = err
+      if (err instanceof NonRetryableError) break
       if (i < delays.length) {
         await new Promise((res) => setTimeout(res, delays[i]))
       }
@@ -139,12 +144,20 @@ export async function submitDocumentWithDriveCopy(
     // This avoids CORS issues — server-side fetch is not subject to browser CORS
     const body = { docId, originalLink, attachments, folderId, userAccessToken }
     const result = await retryWithBackoff(() =>
-      fetch('/api/drive/copy', {
+      authedFetch('/api/drive/copy', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       }).then(async (res) => {
-        if (!res.ok) throw new Error(await res.text())
+        if (!res.ok) {
+          const text = await res.text()
+          let message = text
+          try {
+            const parsed = JSON.parse(text)
+            message = parsed.message || parsed.error || text
+          } catch {}
+          throw res.status >= 400 && res.status < 500 ? new NonRetryableError(message) : new Error(message)
+        }
         return res.json()
       })
     )

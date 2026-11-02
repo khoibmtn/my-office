@@ -1,7 +1,8 @@
 /**
  * Content script for My Office app (localhost:3000 / vercel.app)
- * Reads firebase_id_token AND firebase_refresh_token from localStorage
- * and stores them in chrome.storage.local for extension background use.
+ * Reads firebase_id_token, firebase_refresh_token and the staff session token
+ * (localStorage.staffSession.sessionToken) and stores them in chrome.storage.local
+ * for extension background use.
  */
 (function() {
   let intervalId;
@@ -19,6 +20,17 @@
       }
       if (refreshToken) {
         updates.myoffice_refresh_token = refreshToken;
+      }
+
+      let staffSessionToken = null;
+      try {
+        const raw = localStorage.getItem('staffSession');
+        staffSessionToken = raw ? (JSON.parse(raw).sessionToken || null) : null;
+      } catch (e) {}
+      if (staffSessionToken) {
+        updates.myoffice_staff_session = staffSessionToken;
+      } else {
+        chrome.storage.local.remove('myoffice_staff_session');
       }
 
       if (Object.keys(updates).length > 0) {
@@ -39,7 +51,7 @@
 
   // Listen for storage events (token updated by another tab)
   window.addEventListener('storage', (e) => {
-    if (e.key === 'firebase_id_token' || e.key === 'firebase_refresh_token') {
+    if (e.key === 'firebase_id_token' || e.key === 'firebase_refresh_token' || e.key === 'staffSession') {
       syncToken();
     }
   });

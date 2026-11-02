@@ -354,13 +354,20 @@ export async function requestGoogleDriveToken(
     selectAccount?: boolean
     loginHint?: string
     skipSilent?: boolean
+    /** Never open a Google popup/redirect — used by automatic background refresh */
+    silentOnly?: boolean
   }
 ): Promise<{ success: boolean; token?: string; error?: string; method?: 'silent' | 'popup' | 'redirect' }> {
   // 1. Silent refresh via server API if possible
   if (!useRedirect && !options?.selectAccount && !options?.skipSilent) {
     try {
-      const res = await fetch('/api/drive/token')
-      if (res.ok) {
+      // /api/drive/token is admin-only: send the admin's Firebase ID token
+      const current = auth().currentUser
+      const idToken = current && !current.isAnonymous ? await current.getIdToken() : null
+      const res = idToken
+        ? await fetch('/api/drive/token', { headers: { Authorization: `Bearer ${idToken}` } })
+        : null
+      if (res && res.ok) {
         const data = await res.json()
         if (data?.success && data?.token) {
           saveGoogleAccessToken(data.token)
@@ -370,6 +377,10 @@ export async function requestGoogleDriveToken(
     } catch (silentErr) {
       console.warn('[Auth] Silent refresh /api/drive/token failed, continuing to OAuth:', silentErr)
     }
+  }
+
+  if (options?.silentOnly) {
+    return { success: false, error: 'Không làm mới được token Drive tự động' }
   }
 
   // 2. Google OAuth with login_hint

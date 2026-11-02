@@ -1,27 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { initAdmin, getAdminFirestore } from '@/lib/firebase-admin'
+import { authenticateRequest, corsHeaders as buildCors, preflight } from '@/lib/api-auth'
 
-function corsHeaders() {
-  return {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type',
-  }
-}
-
-export async function OPTIONS() {
-  return new NextResponse(null, { status: 204, headers: corsHeaders() })
+export async function OPTIONS(request: NextRequest) {
+  return preflight(request)
 }
 
 /**
  * Check if a document with the same docNumber already exists
  * POST /api/extension/check-duplicate
- * Body: { docNumber: string }
+ * Body: { docNumber: string, firebaseIdToken? | staffSessionToken? | ingestSecret? }
  * Response: { exists: boolean, matches: [...] }
  */
 export async function POST(request: NextRequest) {
+  const corsHeaders = () => buildCors(request)
   try {
-    const { docNumber } = await request.json()
+    const body = await request.json()
+    const auth = await authenticateRequest(request, { body, allowIngest: true })
+    if (!auth.ok) return auth.response
+    const { docNumber } = body
 
     if (!docNumber || typeof docNumber !== 'string') {
       return NextResponse.json(
@@ -67,7 +64,7 @@ export async function POST(request: NextRequest) {
   } catch (e: unknown) {
     console.error('[check-duplicate] Error:', e)
     return NextResponse.json(
-      { exists: false, matches: [], error: e instanceof Error ? e.message : String(e) },
+      { exists: false, matches: [], error: 'Lỗi kiểm tra trùng văn bản' },
       { status: 500, headers: corsHeaders() }
     )
   }

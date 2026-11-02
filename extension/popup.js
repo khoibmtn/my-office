@@ -399,7 +399,7 @@ async function handleSubmit() {
 
 async function checkDuplicate(docNumber) {
   try {
-    const settings = await chrome.storage.local.get(['apiUrl']);
+    const settings = await chrome.storage.local.get(['apiUrl', 'myoffice_token', 'myoffice_staff_session']);
     const apiUrl = (settings.apiUrl || DEFAULT_API_URL).replace(/\/+$/, '');
 
     const controller = new AbortController();
@@ -408,7 +408,11 @@ async function checkDuplicate(docNumber) {
     const res = await fetch(`${apiUrl}/api/extension/check-duplicate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ docNumber }),
+      body: JSON.stringify({
+        docNumber,
+        firebaseIdToken: settings.myoffice_token || '',
+        staffSessionToken: settings.myoffice_staff_session || '',
+      }),
       signal: controller.signal,
     });
     clearTimeout(timeout);

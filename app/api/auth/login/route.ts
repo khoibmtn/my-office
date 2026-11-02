@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getAdminFirestore } from '@/lib/firebase-admin'
+import { signStaffSession } from '@/lib/server/staff-session'
 
 export async function POST(req: Request) {
   try {
@@ -28,8 +29,15 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Sai mật khẩu' }, { status: 401 })
     }
 
+    const sessionToken = signStaffSession(staffDoc.id, staffData.id)
+    if (!sessionToken) {
+      console.error('[/api/auth/login] Cannot sign staff session: missing STAFF_SESSION_SECRET / FIREBASE_ADMIN_SDK_KEY')
+      return NextResponse.json({ error: 'Server chưa cấu hình phiên đăng nhập. Liên hệ quản trị viên.' }, { status: 500 })
+    }
+
     return NextResponse.json({
       success: true,
+      sessionToken,
       staffId: staffData.id,
       staffDocId: staffDoc.id,
       shortName: staffData.shortName,
