@@ -1,7 +1,6 @@
 import 'server-only'
 import { NextResponse } from 'next/server'
-import { getAuth } from 'firebase-admin/auth'
-import { initAdmin, getAdminFirestore, verifyIdTokenREST } from '@/lib/firebase-admin'
+import { getAdminFirestore, verifyIdTokenREST } from '@/lib/firebase-admin'
 import { verifyStaffSession } from '@/lib/server/staff-session'
 import { isValidIngestSecret } from '@/lib/ingest-auth'
 
@@ -45,28 +44,18 @@ export function preflight(req: Request) {
   return new NextResponse(null, { status: 204, headers: corsHeaders(req) })
 }
 
+// Note: do not use firebase-admin/auth here — it pulls jwks-rsa → jose (ESM), which fails with
+// ERR_REQUIRE_ESM on the Vercel Node runtime. The Identity Toolkit lookup validates the token
+// against this project on Google's side.
 async function verifyAdminIdToken(idToken: string): Promise<ApiCaller | null> {
   try {
-    initAdmin()
-    const decoded = await getAuth().verifyIdToken(idToken)
-    if (decoded.firebase?.sign_in_provider === 'anonymous') return null
-    const email = (decoded.email || '').toLowerCase()
-    if (email !== ADMIN_EMAIL || decoded.email_verified === false) return null
-    return { kind: 'admin', uid: decoded.uid, email }
-  } catch (err: any) {
-    // Expired/revoked → reject. Anything else (incl. an Admin SDK credential/project
-    // mismatch, which also surfaces as auth/argument-error) → fall back to the
-    // Identity Toolkit lookup used before; it validates the token on Google's side.
-    const code = String(err?.code || '')
-    if (code === 'auth/id-token-expired' || code === 'auth/id-token-revoked') return null
-    try {
-      const user = await verifyIdTokenREST(idToken)
-      const email = String(user?.email || '').toLowerCase()
-      if (email !== ADMIN_EMAIL || user?.emailVerified === false) return null
-      return { kind: 'admin', uid: String(user.localId), email }
-    } catch {
-      return null
-    }
+    const user = await verifyIdTokenREST(idToken)
+    const email = String(user?.email || '').toLowerCase()
+    // Anonymous users have no email; other Google accounts fail the email check
+    if (email !== ADMIN_EMAIL || user?.emailVerified === false) return null
+    return { kind: 'admin', uid: String(user.localId), email }
+  } catch {
+    return null
   }
 }
 
