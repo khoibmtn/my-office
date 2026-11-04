@@ -340,7 +340,8 @@ Mọi endpoint quản trị của Worker (`/run`, `/status`, `/debug`, `/api/*`,
 
 ### 8.4. Cổng riêng cho Hermes (ĐÃ TRIỂN KHAI 04/11/2026, anh Khôi duyệt)
 
-> **Trạng thái:** đã deploy lên `qlvb-watcher` (version `2640487a`), mã ở `qlvb-watcher/src/hermes.ts`, test `qlvb-watcher/test/hermes.test.ts`.
+> **Trạng thái:** đã deploy lên `qlvb-watcher`. Bản đang chạy là version `e4ee1cb0`, deploy 04/11/2026 từ commit `13ba9c9` của repo private [khoibmtn/qlvb-watcher](https://github.com/khoibmtn/qlvb-watcher). Mã ở `src/hermes.ts`, test ở `test/hermes.test.ts` (24 ca, `npm test`).
+> Kiểm production sau deploy: sai/thiếu khoá → 401; route lạ → 404; `result` → 200; `check` → 202, gọi lặp trả cùng mã; một lần kiểm thật chuyển `done` (Cloudflare bị 522 thì runner Windows làm thay, khoảng 2 phút).
 > Khoá `HERMES_KEY` là secret Worker. Bản sao duy nhất nằm ở file `~/.secrets/qlvb-watcher-hermes-key.txt` trên máy Mac của anh Khôi (quyền 600) để chép vào `.env` của Hermes. **Không gửi khoá qua chat, Telegram hay bot.**
 >
 > Chi tiết hành vi thực tế (bổ sung cho hợp đồng bên dưới):
