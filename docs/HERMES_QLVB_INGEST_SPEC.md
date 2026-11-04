@@ -338,9 +338,18 @@ Mọi endpoint quản trị của Worker (`/run`, `/status`, `/debug`, `/api/*`,
 - **Nhưng không nên đưa `ADMIN_KEY` cho Hermes.** Khoá đó mở được cả cookie phiên HPnet lẫn toàn bộ cấu hình.
 - Hiện cũng **chưa có cách lấy danh sách văn bản mới**, chỉ có số đếm.
 
-### 8.4. Đề xuất bổ sung: cổng riêng cho Hermes (chưa làm, cần anh Khôi duyệt)
+### 8.4. Cổng riêng cho Hermes (ĐÃ TRIỂN KHAI 04/11/2026, anh Khôi duyệt)
 
-Thêm vào qlvb-watcher một khoá riêng `HERMES_KEY` (Cloudflare secret), chỉ mở được 2 endpoint sau và không trả về cookie hay cấu hình:
+> **Trạng thái:** đã deploy lên `qlvb-watcher` (version `2640487a`), mã ở `qlvb-watcher/src/hermes.ts`, test `qlvb-watcher/test/hermes.test.ts`.
+> Khoá `HERMES_KEY` là secret Worker. Bản sao duy nhất nằm ở file `~/.secrets/qlvb-watcher-hermes-key.txt` trên máy Mac của anh Khôi (quyền 600) để chép vào `.env` của Hermes. **Không gửi khoá qua chat, Telegram hay bot.**
+>
+> Chi tiết hành vi thực tế (bổ sung cho hợp đồng bên dưới):
+> - Chỉ nhận khoá qua header `x-hermes-key` (không nhận `?key=`), so sánh thời gian hằng. Sai/thiếu khoá → **401**. Route không có → **404**, sai method → **405**. Khoá chưa đặt trên Worker → **503**. `ADMIN_KEY` không mở được `/api/hermes/*`, `HERMES_KEY` không mở được route quản trị (vẫn 403 như cũ).
+> - `check`: trả `{requestId, requestedAt, reused, message}`. `reused: true` khi đang có yêu cầu chờ (kể cả lệnh `/check` gõ trên Telegram, khi đó Worker gắn mã cho lệnh đó). Yêu cầu xong khi cron hoặc runner Windows liệt kê được QLVB. Quá 30 phút không kết nối được thì `failed`.
+> - `result`: `since` không bắt buộc (bỏ trống = cả nhật ký), sai định dạng → 400. `check` gồm `{requestId, requestedAt, state, finishedAt}`, hoặc `null` nếu Hermes chưa gửi yêu cầu nào. `lastOkAt` là chuỗi ISO. Nhật ký `newDocs` bắt đầu ghi từ lúc deploy (VB phát hiện trước đó không có).
+> - `push`: 202 `{queued: true, via: "runner" | "worker"}`. Gọi lặp khi đang chờ đẩy → 202 `{queued: true, reused: true}`. VB đã có trong My Office → **200** `{queued: false, pushed: {docId, appUrl}}`. Id không có trong bộ nhớ Worker → 404. Kết quả đẩy báo về Telegram như nút 📥.
+
+Thêm vào qlvb-watcher một khoá riêng `HERMES_KEY` (Cloudflare secret), chỉ mở được các endpoint sau và không trả về cookie hay cấu hình:
 
 **a) Yêu cầu kiểm ngay** (không đồng bộ, chịu được lỗi 522)
 ```http
