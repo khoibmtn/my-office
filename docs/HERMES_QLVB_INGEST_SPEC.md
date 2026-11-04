@@ -16,7 +16,7 @@
 | API nhận văn bản | `app/api/extension/check-duplicate`, `upload/init`, `submit` (`route.ts`); xác thực ở `lib/api-auth.ts`, `lib/ingest-auth.ts` | Hợp đồng API ở mục 4 |
 | **qlvb-watcher** (bản tham chiếu đang chạy production) | Chưa có trên GitHub, chỉ ở máy anh Khôi. Xin chủ hệ thống quyền đọc nếu cần | Cloudflare Worker đang làm đúng việc của tài liệu này: `src/qlvb.ts` (client HPnet), `src/poll.ts` (phát hiện), `src/myoffice.ts` (đẩy sang My Office), `src/format.ts` (chuẩn hoá trường) |
 
-Mục 2–4 dưới đây đã tóm tắt đủ để làm việc mà không cần đọc mã qlvb-watcher.
+Mục 2–4 dưới đây đã tóm tắt đủ để làm việc mà không cần đọc mã qlvb-watcher. **Mục 8** mô tả bộ kiểm định kỳ đang chạy trên Cloudflare và phương án khuyến nghị: Hermes kích hoạt và đọc kết quả từ bộ kiểm này thay vì tự đăng nhập HPnet.
 
 ---
 
@@ -282,7 +282,114 @@ Trang Văn bản của người dùng tự hiện văn bản mới trong vòng t
 
 ## 7. Cần hỏi chủ hệ thống trước khi chạy
 
-- Tài khoản HPnet dùng cho Hermes. Có được chạy song song với qlvb-watcher không, hay Hermes **thay thế** qlvb-watcher?
+- Hermes đi theo **mục 8** (gọi qlvb-watcher, khuyến nghị) hay mục 2–4 (tự quét HPnet)? Nếu tự quét: dùng tài khoản HPnet nào, có được chạy song song với qlvb-watcher không?
+- Nếu theo mục 8: `HERMES_KEY` (cấp sau khi cổng `/api/hermes/*` được triển khai).
 - Giá trị `ingestSecret` (kênh trao đổi an toàn).
 - Danh sách mục theo dõi (mặc định chỉ `status=18`) và điều kiện lọc (cơ quan ban hành, từ khoá, độ khẩn), nếu không đẩy mọi văn bản.
 - Hermes chạy ở đâu (nên đặt ở Việt Nam để tránh lỗi 522) và nhịp kiểm.
+
+---
+
+## 8. qlvb-watcher: bộ kiểm định kỳ đang chạy, và cách Hermes dùng nó thay vì tự quét HPnet
+
+> Phương án khuyến nghị: Hermes **không tự đăng nhập HPnet**, mà gọi qlvb-watcher kiểm tra rồi lấy kết quả. Làm vậy tránh được 3 rủi ro: 2 phiên đăng nhập song song, khoá tài khoản do đăng nhập sai, và đẩy trùng văn bản.
+
+### 8.1. Thành phần đang chạy
+
+| Thành phần | Vị trí | Vai trò |
+|---|---|---|
+| **Cloudflare Worker `qlvb-watcher`** | `https://qlvb-watcher.khoibm.workers.dev` | Bộ não: so sánh văn bản mới, báo Telegram, áp rule, đẩy sang My Office |
+| Cron Cloudflare | `*/5 * * * *` (nhịp) và `0 0 * * *` (00:00 UTC = 07:00 giờ VN) | Nhịp 5 phút **chỉ là đồng hồ**. Worker chỉ gọi HPnet khi **đến lượt** theo lịch người dùng đặt. Cron 07:00 gửi tin tổng hợp ngày |
+| Lịch kiểm (KV `schedule`) | Sửa tại My Office → Cài đặt → QLVB Watcher | Mặc định: **mỗi 60 phút, 07:00–17:00, thứ Hai–thứ Sáu**. Chu kỳ 5–1440 phút |
+| KV `STATE` | Cloudflare KV | Cookie phiên HPnet, tập `seen:<status>` các văn bản đã thấy, cache chi tiết văn bản `doc:<id>` (90 ngày), việc chờ, nhật ký 40 lần chạy gần nhất, rule tự đẩy |
+| **Runner Windows** (tuỳ chọn) | Máy Windows của anh Khôi, `node runner.mjs`, 2 phút/lần | Lấy danh sách HPnet bằng **mạng Việt Nam**: từ Cloudflare có khoảng 20–50% lần gọi bị lỗi 522. Runner gửi danh sách lên Worker qua `/api/ingest-list` và tải file cho các việc đẩy My Office. Khi runner còn "nhịp" (≤ 5 phút), cron không tự liệt kê văn bản để tránh báo trùng. Tắt runner thì cron tự chạy lại như cũ |
+| Bot Telegram | Chat của anh Khôi | Báo "VB mới" kèm nút 📥 Đẩy sang My Office · 📄 Gửi PDF. Lệnh `/check` kiểm ngay, `/status` xem trạng thái |
+
+### 8.2. Một vòng kiểm làm gì
+```
+đến lượt theo lịch, hoặc có yêu cầu kiểm (/check)
+ → dùng cookie phiên trong KV (hết hạn mới đăng nhập lại; sai mật khẩu thì hãm 15 phút)
+ → với mỗi mục theo dõi (mặc định 18 = Chờ xử lý): lấy danh sách → so với seen:<status>
+ → văn bản mới: lấy chi tiết và ý kiến chỉ đạo → lưu cache doc:<id> → báo Telegram
+ → rule khớp (cơ quan ban hành / từ khoá / độ khẩn / chuyên viên) → đẩy My Office (check-duplicate → upload → submit)
+ → ghi lastRun + nhật ký runs
+```
+Kết quả mỗi vòng (`RunSummary`):
+```json
+{ "at": "2026-11-04T02:00:05Z", "source": "cron", "statuses": [18], "seeded": [],
+  "totals": { "18": 7 }, "found": { "18": 1 }, "notified": 1, "pushed": 0,
+  "queued": 0, "dupes": 0, "relogged": false, "errors": [], "skipped": null, "ms": 4210 }
+```
+Lưu ý: `RunSummary` **chỉ có số đếm**, không có danh sách văn bản mới. Danh sách chi tiết hiện chỉ gửi qua Telegram.
+
+### 8.3. Hiện tại Hermes gọi được gì?
+
+Mọi endpoint quản trị của Worker (`/run`, `/status`, `/debug`, `/api/*`, `/admin`, `/reset-seen`) dùng **chung một khoá `ADMIN_KEY`**:
+
+| Endpoint | Tác dụng | Dùng cho Hermes? |
+|---|---|---|
+| `GET /run?key=…` | Chạy 1 vòng kiểm **đồng bộ** từ Cloudflare, trả `RunSummary` | Có thể dùng. Nhưng từ Cloudflare 20–50% lần bị 522 (trả 500, không tự thử lại) và kết quả chỉ có số đếm |
+| `GET /status?key=…` | `lastRun`, `lastOkAt`, việc chờ, 40 lần chạy gần nhất, trạng thái runner | Đọc được |
+| `POST /api/action {"action":"run"}` (header `x-admin-key`) | Giống `/run`, trả câu tóm tắt | Như `/run` |
+| `/api/runner-config`, `/api/config`, `/admin`, `/reset-seen`, `/api/rules`… | Trả **cookie phiên HPnet**, cấu hình bot; đổi mật khẩu, rule, xoá `seen` | **Không được** |
+
+**Kết luận:**
+- Về kỹ thuật, Hermes đã có thể kích hoạt kiểm tra (`/run`) và xem trạng thái (`/status`) ngay bây giờ.
+- **Nhưng không nên đưa `ADMIN_KEY` cho Hermes.** Khoá đó mở được cả cookie phiên HPnet lẫn toàn bộ cấu hình.
+- Hiện cũng **chưa có cách lấy danh sách văn bản mới**, chỉ có số đếm.
+
+### 8.4. Đề xuất bổ sung: cổng riêng cho Hermes (chưa làm, cần anh Khôi duyệt)
+
+Thêm vào qlvb-watcher một khoá riêng `HERMES_KEY` (Cloudflare secret), chỉ mở được 2 endpoint sau và không trả về cookie hay cấu hình:
+
+**a) Yêu cầu kiểm ngay** (không đồng bộ, chịu được lỗi 522)
+```http
+POST https://qlvb-watcher.khoibm.workers.dev/api/hermes/check
+x-hermes-key: <HERMES_KEY>
+```
+→ `202 { "requestId": "chk_…", "requestedAt": "…", "message": "Đã xếp lệnh kiểm" }`
+
+- Ghi một yêu cầu kiểm (giống lệnh Telegram `/check`) rồi thử chạy ngay.
+- Nếu Cloudflare chưa tới được HPnet, nhịp 5 phút hoặc runner Windows (mạng Việt Nam) sẽ làm trong vòng tối đa 30 phút.
+- Gọi lặp khi đang có yêu cầu chờ thì không tạo yêu cầu mới.
+
+**b) Lấy kết quả**
+```http
+GET https://qlvb-watcher.khoibm.workers.dev/api/hermes/result?since=2026-11-04T00:00:00Z
+x-hermes-key: <HERMES_KEY>
+```
+```json
+{
+  "check": { "requestId": "chk_…", "state": "done | pending | failed", "finishedAt": "…" },
+  "lastRun": { "...RunSummary..." },
+  "lastOkAt": "2026-11-04T02:00:05Z",
+  "newDocs": [
+    { "id": "<VanbanDenId>", "status": 18, "detectedAt": "…",
+      "docNumber": "12575/SYT-NVY", "title": "V/v …", "sender": "Sở Y tế",
+      "issueDate": "03/11/2026", "deadline": "", "priority": "normal", "assignee": "Yến",
+      "pushed": { "docId": "…", "appUrl": "https://my-office-inky.vercel.app/documents/…" } }
+  ]
+}
+```
+- `newDocs` lấy từ một nhật ký văn bản mới mà Worker ghi thêm khi phát hiện (giữ 200 mục / 30 ngày).
+- `pushed = null` nghĩa là văn bản chưa được đẩy sang My Office (không khớp rule nào).
+
+**c) (Tuỳ chọn) Đẩy một văn bản sang My Office**
+```http
+POST /api/hermes/push  { "id": "<VanbanDenId>" }
+```
+Tương đương bấm nút 📥 trên Telegram: xếp việc, runner hoặc Worker tải đủ file rồi đẩy, có kiểm trùng.
+
+Luồng dùng khi anh Khôi yêu cầu, ví dụ "Hermes, kiểm văn bản mới":
+```
+Hermes → POST /api/hermes/check
+       → mỗi 30–60 giây: GET /api/hermes/result?since=<thời điểm yêu cầu>  (tối đa ~30 phút)
+       → check.state = done → trả anh Khôi danh sách newDocs (số ký hiệu, trích yếu, cơ quan, hạn, link My Office nếu đã đẩy)
+       → anh Khôi chọn văn bản cần đẩy → POST /api/hermes/push (nếu bật mục c)
+```
+
+Ưu điểm so với để Hermes tự quét HPnet:
+- Không thêm phiên đăng nhập, nên không có nguy cơ làm văng phiên hay khoá tài khoản.
+- Dùng chung tập `seen` và kiểm trùng nên không báo hay đẩy trùng.
+- Tận dụng runner Windows để tránh lỗi 522.
+- Khoá của Hermes không mở được cookie, mật khẩu hay cấu hình.
