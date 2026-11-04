@@ -13,11 +13,12 @@ import { TagSidebarPanel } from '@/components/tags/TagSidebarPanel'
 import { DossierNavItem } from '@/components/dossiers/DossierTreeNav'
 import { NotificationBell } from '@/components/notifications/NotificationBell'
 import { useRecurringScheduler } from '@/hooks/useRecurringScheduler'
-import { GlobalDataProvider } from '@/contexts/GlobalDataProvider'
+import { GlobalDataProvider, useGlobalData } from '@/contexts/GlobalDataProvider'
 import { DriveTokenBanner } from '@/components/drive/DriveTokenBanner'
 import { MobileTabBar } from '@/components/layout/MobileTabBar'
 
 function InnerAppLayout({ children }: { children: React.ReactNode }) {
+  const { refreshDocuments } = useGlobalData()
   useRecurringScheduler()
   const { user, loading } = useAuth()
   const { role, isAdmin, isGuest, isStaff, staffName, logout: roleLogout } = useRole()
@@ -234,7 +235,11 @@ function InnerAppLayout({ children }: { children: React.ReactNode }) {
                 ) : (
                   <Link
                     href={href}
-                    onClick={() => setSidebarOpen(false)}
+                    onClick={() => {
+                      setSidebarOpen(false)
+                      // Clicking "Văn bản" always pulls the latest documents from the server
+                      if (href === '/documents') void refreshDocuments()
+                    }}
                     className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors shrink-0 ${
                       active
                         ? 'bg-slate-100 text-slate-900 font-semibold'

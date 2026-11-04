@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { useGlobalData } from '@/contexts/GlobalDataProvider'
 import { usePathname, useRouter } from 'next/navigation'
 import { FileText, CheckSquare, Folder, LayoutDashboard, PlusCircle } from 'lucide-react'
 
@@ -26,6 +27,7 @@ const BOTTOM_TABS: MobileNavItem[] = [
 export function MobileTabBar({ items, canAddDocument }: MobileTabBarProps) {
   const pathname = usePathname()
   const router = useRouter()
+  const { refreshDocuments } = useGlobalData()
   const [addMenuOpen, setAddMenuOpen] = useState(false)
 
   useEffect(() => {
@@ -88,6 +90,9 @@ export function MobileTabBar({ items, canAddDocument }: MobileTabBarProps) {
             <Link
               key={href}
               href={href}
+              onClick={() => {
+                if (href === '/documents') void refreshDocuments()
+              }}
               aria-current={active ? 'page' : undefined}
               className={`tap flex-1 flex flex-col items-center justify-center gap-0.5 py-1 text-[11px] transition-colors relative ${
                 active

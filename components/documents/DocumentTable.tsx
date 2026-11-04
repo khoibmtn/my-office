@@ -22,6 +22,7 @@ import { useSettings } from '@/hooks/useSettings'
 import { usePermissions } from '@/hooks/usePermissions'
 import { useRole } from '@/hooks/useRole'
 import { useOrgNames } from '@/hooks/useOrgNames'
+import { useGlobalData } from '@/contexts/GlobalDataProvider'
 
 // === Components ===
 
@@ -587,6 +588,7 @@ export function DocumentTable({ documents, storagePrefix = 'myoffice_docTable', 
   const [deleting, setDeleting] = useState<string | null>(null)
   const [viewingId, setViewingId] = useState<string | null>(null)
   const [createTaskDoc, setCreateTaskDoc] = useState<Document | null>(null)
+  const { refreshDocuments, documentsRefreshing, documentsUpdatedAt } = useGlobalData()
   const [copiedDocId, setCopiedDocId] = useState<string | null>(null)
   const [copyModalContent, setCopyModalContent] = useState<string | null>(null)
   const [filterStatus, setFilterStatus] = useState<string>(() => {
@@ -1473,6 +1475,16 @@ export function DocumentTable({ documents, storagePrefix = 'myoffice_docTable', 
             )}
           </div>
           <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={() => void refreshDocuments()}
+              disabled={documentsRefreshing}
+              className="inline-flex items-center gap-1 text-xs font-semibold text-slate-600 hover:text-blue-700 bg-white hover:bg-blue-50 border border-slate-200 hover:border-blue-200 px-2 py-0.5 max-sm:min-h-[36px] max-sm:px-2.5 rounded transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-wait"
+              title={`Tải lại danh sách văn bản từ máy chủ${documentsUpdatedAt ? ` · cập nhật lúc ${new Date(documentsUpdatedAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}` : ''}`}
+            >
+              <RefreshCw className={`w-3 h-3 max-sm:w-4 max-sm:h-4 ${documentsRefreshing ? 'animate-spin' : ''}`} />
+              <span className="hidden sm:inline">{documentsRefreshing ? 'Đang tải…' : 'Làm mới'}</span>
+            </button>
             <span className="filter-count hidden sm:inline whitespace-nowrap">{filteredDocs.length}/{baseDocs.length} văn bản</span>
             {hasActiveFilters && (
               <button
