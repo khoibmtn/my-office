@@ -287,16 +287,16 @@ export function MonthlySummary({ month }: { month: YearMonth }) {
   const isLoading = weeksLoading || configLoading || advisoryLoading
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-6 sm:px-6 space-y-6 text-base text-slate-900">
+    <div className="max-w-5xl mx-auto px-4 py-6 sm:px-6 space-y-6 text-sm text-slate-900">
       {/* Thanh tiêu đề & điều hướng tháng */}
       <Card>
-        <CardContent className="p-5 sm:p-6 space-y-4">
+        <CardContent className="p-3 sm:p-4 sm:p-6 space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex flex-wrap items-center gap-2">
               <Button
                 asChild
                 variant="outline"
-                className="h-auto min-h-[44px] min-w-[44px] px-4 py-2.5 text-base"
+                className="h-auto min-h-[44px] sm:min-h-[32px] min-w-[44px] sm:min-w-[32px] px-3 py-1.5 text-sm"
               >
                 <Link href={`/weekly-reports/monthly/${prevMonth}`}>
                   <ChevronLeft className="h-5 w-5" />
@@ -306,7 +306,7 @@ export function MonthlySummary({ month }: { month: YearMonth }) {
               <Button
                 asChild
                 variant="outline"
-                className="h-auto min-h-[44px] min-w-[44px] px-4 py-2.5 text-base"
+                className="h-auto min-h-[44px] sm:min-h-[32px] min-w-[44px] sm:min-w-[32px] px-3 py-1.5 text-sm"
               >
                 <Link href={`/weekly-reports/monthly/${nextMonth}`}>
                   <span>Tháng sau</span>
@@ -318,7 +318,7 @@ export function MonthlySummary({ month }: { month: YearMonth }) {
             <Button
               asChild
               variant="ghost"
-              className="h-auto min-h-[44px] min-w-[44px] px-4 py-2.5 text-base text-slate-700"
+              className="h-auto min-h-[44px] sm:min-h-[32px] min-w-[44px] sm:min-w-[32px] px-3 py-1.5 text-sm text-slate-700"
             >
               <Link href="/weekly-reports">
                 <Calendar className="h-5 w-5" />
@@ -332,7 +332,7 @@ export function MonthlySummary({ month }: { month: YearMonth }) {
               <h1 className="text-2xl font-bold tracking-tight text-slate-900">
                 Tổng hợp giao ban tháng {monthLabel}
               </h1>
-              <p className="text-base text-slate-600 tabular-nums">
+              <p className="text-sm text-slate-600 tabular-nums">
                 {weekEntries.length} tuần thuộc tháng · {finalizedCount} đã chốt ·{' '}
                 {allAdvisory.length} văn bản tham mưu
               </p>
@@ -344,7 +344,7 @@ export function MonthlySummary({ month }: { month: YearMonth }) {
                 variant="default"
                 disabled={isLoading || downloadingFormat !== null}
                 onClick={() => void handleDownload('docx')}
-                className="h-auto min-h-[44px] min-w-[44px] px-4 py-2.5 text-base"
+                className="h-auto min-h-[44px] sm:min-h-[32px] min-w-[44px] sm:min-w-[32px] px-3 py-1.5 text-sm"
               >
                 {downloadingFormat === 'docx' ? (
                   <Loader2 className="h-5 w-5 animate-spin" />
@@ -359,7 +359,7 @@ export function MonthlySummary({ month }: { month: YearMonth }) {
                 variant="outline"
                 disabled={isLoading || downloadingFormat !== null}
                 onClick={() => void handleDownload('md')}
-                className="h-auto min-h-[44px] min-w-[44px] px-4 py-2.5 text-base"
+                className="h-auto min-h-[44px] sm:min-h-[32px] min-w-[44px] sm:min-w-[32px] px-3 py-1.5 text-sm"
               >
                 {downloadingFormat === 'md' ? (
                   <Loader2 className="h-5 w-5 animate-spin" />
@@ -374,7 +374,7 @@ export function MonthlySummary({ month }: { month: YearMonth }) {
                 variant="outline"
                 disabled={isLoading}
                 onClick={() => void handleCopyMarkdown()}
-                className="h-auto min-h-[44px] min-w-[44px] px-4 py-2.5 text-base"
+                className="h-auto min-h-[44px] sm:min-h-[32px] min-w-[44px] sm:min-w-[32px] px-3 py-1.5 text-sm"
               >
                 {copied ? (
                   <Check className="h-5 w-5 text-emerald-600" />
@@ -389,7 +389,7 @@ export function MonthlySummary({ month }: { month: YearMonth }) {
           {exportError && (
             <div
               role="alert"
-              className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-base text-red-800"
+              className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"
             >
               {exportError}
             </div>
@@ -398,14 +398,14 @@ export function MonthlySummary({ month }: { month: YearMonth }) {
           {advisoryError && (
             <div
               role="alert"
-              className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-base text-red-800"
+              className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"
             >
               <span>{advisoryError}</span>
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => setReloadSeq((s) => s + 1)}
-                className="h-auto min-h-[44px] min-w-[44px] px-4 py-2.5 text-base border-red-300 bg-white text-red-800 hover:bg-red-100"
+                className="h-auto min-h-[44px] sm:min-h-[32px] min-w-[44px] sm:min-w-[32px] px-3 py-1.5 text-sm border-red-300 bg-white text-red-800 hover:bg-red-100"
               >
                 <RefreshCw className="h-5 w-5" />
                 <span>Thử lại</span>
@@ -419,7 +419,7 @@ export function MonthlySummary({ month }: { month: YearMonth }) {
       {!isLoading && isMonthIncomplete && lastPeriodEnd && (
         <div
           role="status"
-          className="flex items-start gap-3 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3.5 text-base text-amber-900"
+          className="flex items-start gap-3 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3.5 text-sm text-amber-900"
         >
           <AlertTriangle className="h-6 w-6 shrink-0 text-amber-600 mt-0.5" />
           <div className="space-y-1">
@@ -436,7 +436,7 @@ export function MonthlySummary({ month }: { month: YearMonth }) {
 
       {isLoading ? (
         <Card>
-          <CardContent className="p-8 flex items-center justify-center gap-3 text-base text-slate-600">
+          <CardContent className="p-8 flex items-center justify-center gap-3 text-sm text-slate-600">
             <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
             <span>Đang tải dữ liệu tổng hợp tháng {monthLabel}…</span>
           </CardContent>
@@ -446,18 +446,18 @@ export function MonthlySummary({ month }: { month: YearMonth }) {
           {/* Khối 1: Danh sách tuần thuộc tháng */}
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-xl text-slate-900">
+              <CardTitle className="text-lg text-slate-900">
                 1. Danh sách tuần thuộc tháng {monthLabel}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
               {weekEntries.length === 0 ? (
-                <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 p-5 space-y-3 text-base text-slate-700">
+                <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 p-3 sm:p-4 space-y-3 text-sm text-slate-700">
                   <p>Không tìm thấy tuần giao ban nào được gán cho tháng {monthLabel}.</p>
                   <Button
                     asChild
                     variant="outline"
-                    className="h-auto min-h-[44px] px-4 py-2.5 text-base"
+                    className="h-auto min-h-[44px] sm:min-h-[32px] px-3 py-1.5 text-sm"
                   >
                     <Link href="/weekly-reports">Mở trang Giao ban tuần</Link>
                   </Button>
@@ -484,18 +484,18 @@ export function MonthlySummary({ month }: { month: YearMonth }) {
                       >
                         <div className="space-y-2 min-w-0">
                           <div className="flex flex-wrap items-center gap-2">
-                            <span className="font-semibold text-lg text-slate-900">
+                            <span className="font-semibold text-base text-slate-900">
                               Giao ban {formatDMY(displayMeeting)}
                             </span>
                             {report?.actualMeetingDate &&
                               report.actualMeetingDate !== period.meetingDate && (
-                                <span className="text-base text-slate-600">
+                                <span className="text-sm text-slate-600">
                                   (Lịch gốc: {formatDMY(period.meetingDate)})
                                 </span>
                               )}
                           </div>
 
-                          <p className="text-base text-slate-700 tabular-nums">
+                          <p className="text-sm text-slate-700 tabular-nums">
                             Kỳ {formatDMY(period.periodStart)} – {formatDMY(period.periodEnd)} (
                             {period.dayCount} ngày) · {workItemCount} dòng việc ·{' '}
                             {advisory.length} văn bản tham mưu
@@ -503,40 +503,40 @@ export function MonthlySummary({ month }: { month: YearMonth }) {
 
                           <div className="flex flex-wrap items-center gap-2">
                             {isMissing ? (
-                              <Badge className="border-red-200 bg-red-50 px-3 py-1 text-base text-red-800">
+                              <Badge className="border-red-200 bg-red-50 px-3 py-1 text-sm text-red-800">
                                 Chưa có dữ liệu
                               </Badge>
                             ) : isFinalized ? (
-                              <Badge className="border-emerald-200 bg-emerald-50 px-3 py-1 text-base text-emerald-800">
+                              <Badge className="border-emerald-200 bg-emerald-50 px-3 py-1 text-sm text-emerald-800">
                                 Đã chốt
                               </Badge>
                             ) : (
-                              <Badge className="border-amber-200 bg-amber-50 px-3 py-1 text-base text-amber-900">
+                              <Badge className="border-amber-200 bg-amber-50 px-3 py-1 text-sm text-amber-900">
                                 Chưa chốt
                               </Badge>
                             )}
 
                             {boundary && (
-                              <Badge className="border-blue-200 bg-blue-50 px-3 py-1 text-base text-blue-800">
+                              <Badge className="border-blue-200 bg-blue-50 px-3 py-1 text-sm text-blue-800">
                                 Tuần giáp ranh
                               </Badge>
                             )}
 
                             {isSpecialPeriod && (
-                              <Badge className="border-purple-200 bg-purple-50 px-3 py-1 text-base text-purple-800">
+                              <Badge className="border-purple-200 bg-purple-50 px-3 py-1 text-sm text-purple-800">
                                 Kỳ đặc biệt
                               </Badge>
                             )}
 
                             {isMonthOverridden && (
-                              <Badge className="border-slate-300 bg-slate-100 px-3 py-1 text-base text-slate-800">
+                              <Badge className="border-slate-300 bg-slate-100 px-3 py-1 text-sm text-slate-800">
                                 Gán tháng thủ công
                               </Badge>
                             )}
                           </div>
 
                           {report?.periodNote && (
-                            <p className="text-base text-slate-700 italic">
+                            <p className="text-sm text-slate-700 italic">
                               Ghi chú kỳ: {report.periodNote}
                             </p>
                           )}
@@ -546,7 +546,7 @@ export function MonthlySummary({ month }: { month: YearMonth }) {
                           <Button
                             asChild
                             variant="outline"
-                            className="h-auto min-h-[44px] min-w-[44px] px-4 py-2.5 text-base"
+                            className="h-auto min-h-[44px] sm:min-h-[32px] min-w-[44px] sm:min-w-[32px] px-3 py-1.5 text-sm"
                           >
                             <Link href={`/weekly-reports/${period.weekId}`}>
                               <span>Mở tuần</span>
@@ -565,14 +565,14 @@ export function MonthlySummary({ month }: { month: YearMonth }) {
           {/* Khối 2: Bảng đếm văn bản tham mưu theo loại */}
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-xl text-slate-900">
+              <CardTitle className="text-lg text-slate-900">
                 2. Thống kê văn bản tham mưu theo loại
               </CardTitle>
-              <p className="text-base font-medium text-slate-700">{summaryText}</p>
+              <p className="text-sm font-medium text-slate-700">{summaryText}</p>
             </CardHeader>
             <CardContent>
               {allAdvisory.length === 0 ? (
-                <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 p-5 space-y-3 text-base text-slate-700">
+                <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 p-3 sm:p-4 space-y-3 text-sm text-slate-700">
                   <p>
                     Chưa có văn bản tham mưu nào được ghi nhận cho các tuần thuộc tháng{' '}
                     {monthLabel}. Hãy mở tuần giao ban hoặc vào mục Văn bản để bấm &ldquo;Tham
@@ -581,22 +581,22 @@ export function MonthlySummary({ month }: { month: YearMonth }) {
                   <Button
                     asChild
                     variant="outline"
-                    className="h-auto min-h-[44px] px-4 py-2.5 text-base"
+                    className="h-auto min-h-[44px] sm:min-h-[32px] px-3 py-1.5 text-sm"
                   >
                     <Link href="/weekly-reports">Đi tới Giao ban tuần</Link>
                   </Button>
                 </div>
               ) : (
-                <Table className="text-base">
+                <Table className="text-sm">
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="h-12 text-base font-semibold text-slate-700">
+                      <TableHead className="h-12 text-sm font-semibold text-slate-700">
                         Loại văn bản
                       </TableHead>
-                      <TableHead className="h-12 text-base font-semibold text-slate-700">
+                      <TableHead className="h-12 text-sm font-semibold text-slate-700">
                         Tiền tố
                       </TableHead>
-                      <TableHead className="h-12 text-right text-base font-semibold text-slate-700 tabular-nums">
+                      <TableHead className="h-12 text-right text-sm font-semibold text-slate-700 tabular-nums">
                         Số lượng
                       </TableHead>
                     </TableRow>
@@ -604,22 +604,22 @@ export function MonthlySummary({ month }: { month: YearMonth }) {
                   <TableBody>
                     {typeCounts.map((row) => (
                       <TableRow key={row.code}>
-                        <TableCell className="py-3 text-base font-medium text-slate-900">
+                        <TableCell className="py-3 text-sm font-medium text-slate-900">
                           {row.label}
                         </TableCell>
-                        <TableCell className="py-3 text-base text-slate-700">
+                        <TableCell className="py-3 text-sm text-slate-700">
                           {row.prefix || '—'}
                         </TableCell>
-                        <TableCell className="py-3 text-right text-base font-semibold text-slate-900 tabular-nums">
+                        <TableCell className="py-3 text-right text-sm font-semibold text-slate-900 tabular-nums">
                           {row.count}
                         </TableCell>
                       </TableRow>
                     ))}
                     <TableRow className="bg-slate-50 font-bold">
-                      <TableCell className="py-3 text-base text-slate-900" colSpan={2}>
+                      <TableCell className="py-3 text-sm text-slate-900" colSpan={2}>
                         Tổng cộng
                       </TableCell>
-                      <TableCell className="py-3 text-right text-base text-slate-900 tabular-nums">
+                      <TableCell className="py-3 text-right text-sm text-slate-900 tabular-nums">
                         {allAdvisory.length}
                       </TableCell>
                     </TableRow>
@@ -632,11 +632,11 @@ export function MonthlySummary({ month }: { month: YearMonth }) {
           {/* Khối 3: Toàn bộ văn bản tham mưu nhóm theo tuần */}
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-xl text-slate-900">
+              <CardTitle className="text-lg text-slate-900">
                 3. Danh sách văn bản tham mưu theo tuần
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-5">
+            <CardContent className="space-y-3">
               {weekEntries.map(({ period, report, advisory }) => {
                 const displayMeeting = report?.actualMeetingDate || period.meetingDate
                 return (
@@ -646,25 +646,25 @@ export function MonthlySummary({ month }: { month: YearMonth }) {
                   >
                     <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-2.5">
                       <div className="space-y-0.5">
-                        <h3 className="text-lg font-semibold text-slate-900">
+                        <h3 className="text-base font-semibold text-slate-900">
                           Tuần giao ban {formatDMY(displayMeeting)} (kỳ{' '}
                           {formatDMY(period.periodStart)} – {formatDMY(period.periodEnd)})
                         </h3>
-                        <p className="text-base text-slate-700">
+                        <p className="text-sm text-slate-700">
                           {formatAdvisorySummary(advisory, config.docTypes)}
                         </p>
                       </div>
                       <Button
                         asChild
                         variant="ghost"
-                        className="h-auto min-h-[44px] min-w-[44px] px-3 py-2.5 text-base text-blue-700"
+                        className="h-auto min-h-[44px] sm:min-h-[32px] min-w-[44px] sm:min-w-[32px] px-3 py-1.5 text-sm text-blue-700"
                       >
                         <Link href={`/weekly-reports/${period.weekId}`}>Xem tuần</Link>
                       </Button>
                     </div>
 
                     {advisory.length === 0 ? (
-                      <p className="text-base text-slate-600">
+                      <p className="text-sm text-slate-600">
                         Chưa có văn bản tham mưu nào trong tuần này.
                       </p>
                     ) : (
@@ -672,25 +672,25 @@ export function MonthlySummary({ month }: { month: YearMonth }) {
                         {advisory.map((doc) => (
                           <li
                             key={doc.id}
-                            className="flex flex-col gap-1 rounded-md bg-slate-50 px-3.5 py-2.5"
+                            className="flex flex-col gap-1 rounded-md bg-slate-50 px-3.5 py-1.5"
                           >
                             <span
                               className={
                                 doc.highlight
-                                  ? 'text-base font-bold text-red-700 break-words'
-                                  : 'text-base text-slate-900 break-words'
+                                  ? 'text-sm font-bold text-red-700 break-words'
+                                  : 'text-sm text-slate-900 break-words'
                               }
                             >
                               {formatAdvisoryLine(doc)}
                             </span>
-                            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-base text-slate-600">
+                            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-slate-600">
                               <span>Ngày {formatDMY(doc.advisedDate)}</span>
                               {doc.docNumber && <span>Số: {doc.docNumber}</span>}
                               {doc.sourceSnapshot.map((src) => (
                                 <Link
                                   key={src.id}
                                   href={`/documents/${src.id}`}
-                                  className="inline-flex min-h-[44px] items-center text-base font-medium text-blue-700 hover:underline"
+                                  className="inline-flex min-h-[44px] sm:min-h-[32px] items-center text-sm font-medium text-blue-700 hover:underline"
                                 >
                                   ↩ {src.docNumber || src.title}
                                 </Link>

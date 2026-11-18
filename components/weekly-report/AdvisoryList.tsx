@@ -136,16 +136,16 @@ export function AdvisoryList({ weekId, editable }: AdvisoryListProps) {
   return (
     <section
       aria-label="Văn bản tham mưu trong tuần"
-      className="rounded-xl border border-slate-200 bg-white p-4 space-y-3"
+      className="rounded-xl border border-slate-200 bg-white p-3 sm:p-4 space-y-3"
     >
       {/* Summary line */}
       <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-slate-100">
-        <p className="text-base font-medium text-slate-900 leading-relaxed">
+        <p className="text-sm font-medium text-slate-900 leading-relaxed">
           • {renderSummaryWithHighlight(summaryText)}
         </p>
         <Link
           href="/weekly-reports/advisory"
-          className="inline-flex items-center gap-1.5 min-h-[44px] sm:min-h-[34px] px-2.5 py-1 rounded-lg text-sm font-medium text-blue-700 hover:bg-blue-50 transition-colors"
+          className="inline-flex items-center gap-1.5 min-h-[44px] sm:min-h-[28px] px-2.5 py-1 rounded-lg text-xs font-medium text-blue-700 hover:bg-blue-50 transition-colors"
         >
           <BookOpen className="w-4 h-4" />
           Sổ tham mưu
@@ -155,7 +155,7 @@ export function AdvisoryList({ weekId, editable }: AdvisoryListProps) {
       {actionError && (
         <div
           role="alert"
-          className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-base text-red-700"
+          className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"
         >
           {actionError}
         </div>
@@ -163,19 +163,19 @@ export function AdvisoryList({ weekId, editable }: AdvisoryListProps) {
 
       {/* List */}
       {loading ? (
-        <div className="py-6 flex items-center justify-center gap-2 text-base text-slate-500">
+        <div className="py-6 flex items-center justify-center gap-2 text-sm text-slate-500">
           <Loader2 className="w-5 h-5 animate-spin text-blue-600" />
           <span>Đang tải văn bản tham mưu...</span>
         </div>
       ) : sortedDocs.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50/70 p-4 text-base text-slate-600">
+        <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50/70 p-4 text-sm text-slate-600">
           <p className="font-medium text-slate-800">Chưa có văn bản tham mưu nào trong tuần này.</p>
           {editable ? (
-            <p className="mt-1 text-sm text-slate-600">
+            <p className="mt-1 text-xs text-slate-600">
               Bấm &ldquo;+ Thêm văn bản tham mưu&rdquo; để nhập mới hoặc &ldquo;Dán nhiều dòng&rdquo; để chép nhanh từ danh sách có sẵn.
             </p>
           ) : (
-            <p className="mt-1 text-sm text-slate-500">
+            <p className="mt-1 text-xs text-slate-500">
               Chuyển sang chế độ chỉnh sửa hoặc bấm nút Tham mưu trên văn bản để bổ sung.
             </p>
           )}
@@ -198,14 +198,14 @@ export function AdvisoryList({ weekId, editable }: AdvisoryListProps) {
               >
                 <div className="min-w-0 flex-1 space-y-1.5">
                   <p
-                    className={`text-base leading-relaxed break-words ${
+                    className={`text-sm leading-relaxed break-words ${
                       doc.highlight ? 'text-red-700 font-bold' : 'text-slate-900 font-normal'
                     }`}
                   >
                     {formatAdvisoryLine(doc)}
                   </p>
 
-                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-sm text-slate-600">
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-slate-600">
                     <span>Ngày {formatDMY(doc.advisedDate)}</span>
                     {doc.docNumber && (
                       <span className="font-medium text-slate-700">Số: {doc.docNumber}</span>
@@ -234,7 +234,7 @@ export function AdvisoryList({ weekId, editable }: AdvisoryListProps) {
                   </div>
 
                   {doc.note && (
-                    <p className="text-sm text-slate-500 whitespace-pre-wrap">{doc.note}</p>
+                    <p className="text-xs text-slate-500 whitespace-pre-wrap">{doc.note}</p>
                   )}
                 </div>
 
@@ -250,7 +250,7 @@ export function AdvisoryList({ weekId, editable }: AdvisoryListProps) {
                           : 'Chỉ đổi thứ tự giữa các văn bản cùng ngày tham mưu'
                       }
                       aria-label="Đưa lên trên"
-                      className="min-w-[44px] min-h-[44px] sm:min-w-[34px] sm:min-h-[34px] inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 disabled:opacity-35 disabled:cursor-not-allowed transition-colors"
+                      className="min-w-[44px] sm:min-w-[32px] min-h-[44px] sm:min-h-[32px] sm:min-w-[28px] sm:min-h-[28px] inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 disabled:opacity-35 disabled:cursor-not-allowed transition-colors"
                     >
                       <ArrowUp className="w-4 h-4" />
                     </button>
@@ -264,7 +264,7 @@ export function AdvisoryList({ weekId, editable }: AdvisoryListProps) {
                           : 'Chỉ đổi thứ tự giữa các văn bản cùng ngày tham mưu'
                       }
                       aria-label="Đưa xuống dưới"
-                      className="min-w-[44px] min-h-[44px] sm:min-w-[34px] sm:min-h-[34px] inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 disabled:opacity-35 disabled:cursor-not-allowed transition-colors"
+                      className="min-w-[44px] sm:min-w-[32px] min-h-[44px] sm:min-h-[32px] sm:min-w-[28px] sm:min-h-[28px] inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 disabled:opacity-35 disabled:cursor-not-allowed transition-colors"
                     >
                       <ArrowDown className="w-4 h-4" />
                     </button>
@@ -273,7 +273,7 @@ export function AdvisoryList({ weekId, editable }: AdvisoryListProps) {
                       disabled={isBusy}
                       onClick={() => handleToggleHighlight(doc)}
                       title={doc.highlight ? 'Bỏ tô đỏ' : 'Tô đỏ (đỏ + đậm)'}
-                      className={`min-h-[44px] sm:min-h-[34px] px-2.5 inline-flex items-center gap-1 rounded-lg border text-sm font-medium transition-colors ${
+                      className={`min-h-[44px] sm:min-h-[28px] px-2.5 inline-flex items-center gap-1 rounded-lg border text-xs font-medium transition-colors ${
                         doc.highlight
                           ? 'border-red-300 bg-red-100 text-red-700 font-bold'
                           : 'border-slate-200 bg-white text-slate-700 hover:bg-red-50 hover:text-red-700'
@@ -290,7 +290,7 @@ export function AdvisoryList({ weekId, editable }: AdvisoryListProps) {
                         setFormOpen(true)
                       }}
                       title="Sửa hoặc xoá văn bản tham mưu"
-                      className="min-h-[44px] sm:min-h-[34px] px-2.5 inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-blue-50 hover:text-blue-700 text-sm font-medium transition-colors"
+                      className="min-h-[44px] sm:min-h-[28px] px-2.5 inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-blue-50 hover:text-blue-700 text-xs font-medium transition-colors"
                     >
                       <Pencil className="w-3.5 h-3.5" />
                       <span>Sửa</span>
@@ -313,7 +313,7 @@ export function AdvisoryList({ weekId, editable }: AdvisoryListProps) {
               setEditingDoc(null)
               setFormOpen(true)
             }}
-            className="min-h-[44px] text-base gap-1.5 border-blue-200 text-blue-700 hover:bg-blue-50 hover:text-blue-800"
+            className="min-h-[44px] sm:min-h-[32px] text-sm gap-1.5 border-blue-200 text-blue-700 hover:bg-blue-50 hover:text-blue-800"
           >
             <Plus className="w-4 h-4" />
             Thêm văn bản tham mưu
@@ -322,7 +322,7 @@ export function AdvisoryList({ weekId, editable }: AdvisoryListProps) {
             type="button"
             variant="outline"
             onClick={() => setBulkOpen(true)}
-            className="min-h-[44px] text-base gap-1.5 border-slate-300 text-slate-700 hover:bg-slate-50"
+            className="min-h-[44px] sm:min-h-[32px] text-sm gap-1.5 border-slate-300 text-slate-700 hover:bg-slate-50"
           >
             <ClipboardPaste className="w-4 h-4" />
             Dán nhiều dòng

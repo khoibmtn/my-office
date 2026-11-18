@@ -21,7 +21,7 @@ import type { WeekPeriodInfo, WeeklyReport, YearMonth } from '@/types/weekly-rep
 import { WeekPicker } from './WeekPicker'
 
 const iconNav =
-  'inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white min-h-[44px] min-w-[44px] sm:min-h-[38px] sm:min-w-[38px] text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition-colors'
+  'inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white min-h-[44px] sm:min-h-[32px] min-w-[44px] sm:min-w-[32px] sm:min-h-[32px] sm:min-w-[32px] text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition-colors'
 
 export type SaveIndicatorStatus = 'idle' | 'saving' | 'saved' | 'error'
 
@@ -79,7 +79,7 @@ export function WeekHeader({
   const monthLabel = formatMonthLabel(report.reportMonth)
 
   return (
-    <header className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm space-y-3">
+    <header className="rounded-xl border border-slate-200 bg-white p-3 sm:p-4 shadow-sm space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         {/* Điều hướng tuần: ‹ [lịch chọn tuần] › */}
         <div className="flex items-center gap-1.5">
@@ -94,7 +94,7 @@ export function WeekHeader({
             weekId={report.id}
             weeks={weeks}
             onSelect={onSelectWeek}
-            label={`Tuần giao ban ${formatDMY(report.meetingDate)}`}
+            label={`Giao ban ${formatDMY(report.meetingDate)}`}
           />
           {isPreview ? (
             <span aria-disabled className={`${iconNav} opacity-40`} title="Tuần sau"><ChevronRight className="h-4 w-4" /></span>
@@ -106,7 +106,7 @@ export function WeekHeader({
         </div>
 
         {/* Trạng thái lưu */}
-        <div className="flex items-center gap-2 text-sm font-medium" aria-live="polite">
+        <div className="flex items-center gap-2 text-xs font-medium" aria-live="polite">
           {saveStatus === 'saving' && (
             <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-3 py-1 text-blue-700">
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -142,7 +142,7 @@ export function WeekHeader({
       {/* Tiêu đề kỳ tuần & nút hành động */}
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 pt-1 border-t border-slate-100">
         <div className="space-y-1 min-w-0">
-          <h1 className="text-lg sm:text-xl font-bold text-slate-900 leading-snug">
+          <h1 className="text-base sm:text-lg font-bold text-slate-900 leading-snug">
             Giao ban {displayMeetingDate}
             <span className="font-normal text-slate-400"> · </span>
             <span className="font-semibold text-slate-800">kỳ {periodLabel}</span>
@@ -152,31 +152,31 @@ export function WeekHeader({
 
           <div className="flex flex-wrap items-center gap-2">
             {report.status === 'finalized' ? (
-              <span className="inline-flex items-center rounded-full bg-emerald-100 px-2.5 py-0.5 text-sm font-semibold text-emerald-800">
+              <span className="inline-flex items-center rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-semibold text-emerald-800">
                 Đã chốt
               </span>
             ) : (
-              <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-0.5 text-sm font-medium text-slate-700">
+              <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-700">
                 Đang soạn
               </span>
             )}
             {report.actualMeetingDate && report.actualMeetingDate !== report.meetingDate && (
-              <span className="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-0.5 text-sm font-semibold text-amber-900">
+              <span className="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-900">
                 Dời ngày họp (danh nghĩa {formatDMY(report.meetingDate)})
               </span>
             )}
             {report.periodOverridden && (
-              <span className="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-0.5 text-sm font-semibold text-amber-900">
+              <span className="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-900">
                 Tuần đặc biệt
               </span>
             )}
             {report.reportMonthOverridden && (
-              <span className="inline-flex items-center rounded-full bg-blue-100 px-2.5 py-0.5 text-sm font-medium text-blue-800">
+              <span className="inline-flex items-center rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-800">
                 Ghi đè tháng báo cáo
               </span>
             )}
             {report.periodNote && (
-              <span className="text-sm font-medium text-amber-900 bg-amber-50 border border-amber-200 rounded-md px-2 py-0.5">
+              <span className="text-xs font-medium text-amber-900 bg-amber-50 border border-amber-200 rounded-md px-2 py-0.5">
                 {report.periodNote}
               </span>
             )}
@@ -188,7 +188,7 @@ export function WeekHeader({
             <button
               type="button"
               onClick={onOpenReadView}
-              className="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-4 min-h-[44px] text-base font-medium text-white hover:bg-slate-800 transition-colors"
+              className="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-4 min-h-[44px] sm:min-h-[32px] text-sm font-medium text-white hover:bg-slate-800 transition-colors"
             >
               <BookOpen className="h-4 w-4" />
               <span>Bản đọc giao ban</span>
@@ -196,7 +196,7 @@ export function WeekHeader({
           ) : (
             <Link
               href={`/weekly-reports/${report.id}/read`}
-              className="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-4 min-h-[44px] text-base font-medium text-white hover:bg-slate-800 transition-colors"
+              className="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-4 min-h-[44px] sm:min-h-[32px] text-sm font-medium text-white hover:bg-slate-800 transition-colors"
             >
               <BookOpen className="h-4 w-4" />
               <span>Bản đọc giao ban</span>
@@ -206,7 +206,7 @@ export function WeekHeader({
           {!isPreview && (
             <Link
               href={`/weekly-reports/monthly/${report.reportMonth}`}
-              className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3.5 min-h-[44px] text-base font-medium text-slate-800 hover:bg-slate-50 transition-colors"
+              className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3.5 min-h-[44px] sm:min-h-[32px] text-sm font-medium text-slate-800 hover:bg-slate-50 transition-colors"
             >
               <CalendarRange className="h-4 w-4 text-blue-600" />
               <span>Tổng hợp tháng</span>
@@ -218,7 +218,7 @@ export function WeekHeader({
               <button
                 type="button"
                 aria-label="Tuỳ chọn tuần giao ban"
-                className="inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white min-h-[44px] min-w-[44px] px-2.5 text-slate-700 hover:bg-slate-50 transition-colors"
+                className="inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white min-h-[44px] sm:min-h-[32px] min-w-[44px] sm:min-w-[32px] px-2.5 text-slate-700 hover:bg-slate-50 transition-colors"
               >
                 <MoreHorizontal className="h-5 w-5" />
               </button>
@@ -228,11 +228,11 @@ export function WeekHeader({
               <DropdownMenu.Content
                 align="end"
                 sideOffset={6}
-                className="z-50 min-w-[230px] rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl text-base"
+                className="z-50 min-w-[230px] rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl text-sm"
               >
                 <DropdownMenu.Item
                   onSelect={onOpenPeriodDialog}
-                  className="flex cursor-pointer items-center gap-2.5 rounded-lg px-3 py-2.5 min-h-[44px] text-slate-800 outline-none hover:bg-slate-100 focus:bg-slate-100"
+                  className="flex cursor-pointer items-center gap-2.5 rounded-lg px-3 py-1.5 min-h-[44px] sm:min-h-[32px] text-slate-800 outline-none hover:bg-slate-100 focus:bg-slate-100"
                 >
                   <Calendar className="h-4 w-4 text-blue-600 shrink-0" />
                   <span>Chỉnh kỳ / tuần đặc biệt</span>
@@ -244,7 +244,7 @@ export function WeekHeader({
                       <DropdownMenu.Item asChild>
                         <Link
                           href={currentWeekHref}
-                          className="flex cursor-pointer items-center gap-2.5 rounded-lg px-3 py-2.5 min-h-[44px] text-slate-800 outline-none hover:bg-slate-100 focus:bg-slate-100"
+                          className="flex cursor-pointer items-center gap-2.5 rounded-lg px-3 py-1.5 min-h-[44px] sm:min-h-[32px] text-slate-800 outline-none hover:bg-slate-100 focus:bg-slate-100"
                         >
                           <CalendarRange className="h-4 w-4 text-emerald-600 shrink-0" />
                           <span>Về tuần hiện tại</span>
@@ -257,7 +257,7 @@ export function WeekHeader({
                     <DropdownMenu.Item asChild>
                       <Link
                         href="/weekly-reports/advisory"
-                        className="flex cursor-pointer items-center gap-2.5 rounded-lg px-3 py-2.5 min-h-[44px] text-slate-800 outline-none hover:bg-slate-100 focus:bg-slate-100"
+                        className="flex cursor-pointer items-center gap-2.5 rounded-lg px-3 py-1.5 min-h-[44px] sm:min-h-[32px] text-slate-800 outline-none hover:bg-slate-100 focus:bg-slate-100"
                       >
                         <FileText className="h-4 w-4 text-slate-600 shrink-0" />
                         <span>Sổ văn bản tham mưu</span>
@@ -267,7 +267,7 @@ export function WeekHeader({
                     <DropdownMenu.Item asChild>
                       <Link
                         href="/settings/weekly-report"
-                        className="flex cursor-pointer items-center gap-2.5 rounded-lg px-3 py-2.5 min-h-[44px] text-slate-800 outline-none hover:bg-slate-100 focus:bg-slate-100"
+                        className="flex cursor-pointer items-center gap-2.5 rounded-lg px-3 py-1.5 min-h-[44px] sm:min-h-[32px] text-slate-800 outline-none hover:bg-slate-100 focus:bg-slate-100"
                       >
                         <Settings className="h-4 w-4 text-slate-600 shrink-0" />
                         <span>Cài đặt giao ban</span>

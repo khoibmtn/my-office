@@ -166,14 +166,14 @@ export function WeeklyStatsPanel({
   }
 
   return (
-    <section className="rounded-xl border border-slate-200 bg-white p-4 sm:p-5 shadow-sm space-y-3">
+    <section className="rounded-xl border border-slate-200 bg-white p-3 sm:p-4 sm:p-4 shadow-sm space-y-3">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div className="flex items-center gap-2">
           <BarChart3 className="h-5 w-5 text-blue-600 shrink-0" />
           <div>
-            <h2 className="text-lg font-semibold text-slate-900">Số liệu tuần</h2>
+            <h2 className="text-base font-semibold text-slate-900">Số liệu tuần</h2>
             {fetchedLabel && (
-              <p className="text-sm text-slate-500">Chụp lúc {fetchedLabel}</p>
+              <p className="text-xs text-slate-500">Chụp lúc {fetchedLabel}</p>
             )}
           </div>
         </div>
@@ -184,7 +184,7 @@ export function WeeklyStatsPanel({
               type="button"
               onClick={handleFetch}
               disabled={fetching}
-              className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-3.5 py-2 min-h-[44px] sm:min-h-[38px] text-base font-medium text-white hover:bg-blue-700 disabled:opacity-60 transition-colors"
+              className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-3.5 py-2 min-h-[44px] sm:min-h-[32px] text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-60 transition-colors"
             >
               {fetching ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -199,7 +199,7 @@ export function WeeklyStatsPanel({
             href={bcsolieuUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3.5 py-2 min-h-[44px] sm:min-h-[38px] text-base font-medium text-slate-800 hover:bg-slate-50 transition-colors"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3.5 py-2 min-h-[44px] sm:min-h-[32px] text-sm font-medium text-slate-800 hover:bg-slate-50 transition-colors"
           >
             <span>Mở Báo cáo tuần bcsolieu</span>
             <ExternalLink className="h-4 w-4 shrink-0 text-slate-500" />
@@ -210,12 +210,12 @@ export function WeeklyStatsPanel({
       {error && (
         <div
           role="alert"
-          className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-base text-red-800"
+          className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800"
         >
           <AlertCircle className="h-5 w-5 shrink-0 text-red-600 mt-0.5" />
           <div>
             <p className="font-medium">{error}</p>
-            <p className="text-sm text-red-700 mt-0.5">
+            <p className="text-xs text-red-700 mt-0.5">
               Bạn vẫn có thể soạn báo cáo bình thường hoặc mở trực tiếp trang Báo cáo tuần bcsolieu.
             </p>
           </div>
@@ -223,17 +223,17 @@ export function WeeklyStatsPanel({
       )}
 
       {!snapshot ? (
-        <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 p-4 text-base text-slate-600">
+        <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-600">
           Chưa lấy bảng số liệu cho kỳ {formatDMY(periodStart)}–{formatDMY(periodEnd)}. Hệ thống chỉ tải khi bạn bấm <strong>&ldquo;Lấy số liệu&rdquo;</strong> để tiết kiệm lượt gọi máy chủ.
         </div>
       ) : snapshot.rows.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 p-4 text-base text-slate-600">
+        <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
           Không có dòng số liệu nào trong kỳ này.
         </div>
       ) : (
         <div className="space-y-2">
           {(snapshot.prevRange || snapshot.currRange) && (
-            <p className="text-sm text-slate-600">
+            <p className="text-xs text-slate-600">
               {snapshot.prevRange && (
                 <span>
                   Tuần trước: {formatDMY(snapshot.prevRange.from)}–{formatDMY(snapshot.prevRange.to)}
@@ -249,17 +249,17 @@ export function WeeklyStatsPanel({
           )}
 
           <div className="overflow-x-auto rounded-lg border border-slate-200">
-            <table className="w-full border-collapse text-base">
+            <table className="w-full border-collapse text-sm">
               <thead>
                 <tr className="border-b border-slate-200 bg-slate-50 text-left text-slate-700">
-                  <th className="px-3 py-2.5 font-semibold">Chỉ tiêu</th>
-                  <th className="px-3 py-2.5 text-right font-semibold whitespace-nowrap">
+                  <th className="px-3 py-1.5 font-semibold">Chỉ tiêu</th>
+                  <th className="px-3 py-1.5 text-right font-semibold whitespace-nowrap">
                     Tuần trước
                   </th>
-                  <th className="px-3 py-2.5 text-right font-semibold whitespace-nowrap">
+                  <th className="px-3 py-1.5 text-right font-semibold whitespace-nowrap">
                     Tuần này
                   </th>
-                  <th className="px-3 py-2.5 text-right font-semibold whitespace-nowrap">
+                  <th className="px-3 py-1.5 text-right font-semibold whitespace-nowrap">
                     Chênh lệch
                   </th>
                 </tr>
@@ -270,7 +270,7 @@ export function WeeklyStatsPanel({
                     <tr className="bg-slate-100/80 border-b border-slate-200">
                       <td
                         colSpan={4}
-                        className="px-3 py-1.5 text-sm font-bold uppercase tracking-wide text-slate-700"
+                        className="px-3 py-1.5 text-xs font-bold uppercase tracking-wide text-slate-700"
                       >
                         {groupName}
                       </td>

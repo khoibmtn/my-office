@@ -208,7 +208,7 @@ export function PeriodEditDialog({
             variant="outline"
             onClick={onClose}
             disabled={saving}
-            className="min-h-[44px] sm:min-h-[38px] text-base"
+            className="min-h-[44px] sm:min-h-[32px] text-sm"
           >
             Huỷ
           </Button>
@@ -216,19 +216,19 @@ export function PeriodEditDialog({
             type="submit"
             form="period-edit-form"
             disabled={saving || !validRange}
-            className="min-h-[44px] sm:min-h-[38px] bg-blue-600 hover:bg-blue-700 text-base text-white"
+            className="min-h-[44px] sm:min-h-[32px] bg-blue-600 hover:bg-blue-700 text-sm text-white"
           >
             {saving ? 'Đang lưu…' : 'Lưu thay đổi'}
           </Button>
         </div>
       }
     >
-      <form id="period-edit-form" onSubmit={handleSubmit} className="space-y-4 text-base">
+      <form id="period-edit-form" onSubmit={handleSubmit} className="space-y-4 text-sm">
         <div className="rounded-lg bg-slate-50 border border-slate-200 p-3 text-slate-700">
           <p className="font-medium text-slate-900">
             Tuần giao ban danh nghĩa: Thứ 6 ngày {formatDMY(report.meetingDate)}
           </p>
-          <p className="text-sm text-slate-600 mt-0.5">
+          <p className="text-xs text-slate-600 mt-0.5">
             Dùng khi họp dời ngày (nghỉ lễ, Tết) hoặc cần gán tuần giáp ranh sang tháng khác.
           </p>
         </div>
@@ -238,7 +238,7 @@ export function PeriodEditDialog({
           <button
             type="button"
             onClick={handleEarlyHolidayPreset}
-            className="inline-flex items-center gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3.5 py-2 min-h-[44px] text-base font-medium text-amber-900 hover:bg-amber-100 transition-colors"
+            className="inline-flex items-center gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3.5 py-2 min-h-[44px] sm:min-h-[32px] text-sm font-medium text-amber-900 hover:bg-amber-100 transition-colors"
           >
             <CalendarCheck2 className="h-4 w-4 shrink-0" />
             <span>Họp sớm trước kỳ nghỉ</span>
@@ -247,7 +247,7 @@ export function PeriodEditDialog({
           <button
             type="button"
             onClick={handleResetDefault}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 min-h-[44px] text-base font-medium text-slate-700 hover:bg-slate-50 transition-colors"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 min-h-[44px] sm:min-h-[32px] text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors"
           >
             <RotateCcw className="h-4 w-4 shrink-0" />
             <span>Mặc định</span>
@@ -264,7 +264,7 @@ export function PeriodEditDialog({
             type="date"
             value={actualMeetingDate}
             onChange={(e) => setActualMeetingDate(e.target.value)}
-            className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 min-h-[44px] text-base"
+            className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 min-h-[44px] sm:min-h-[32px] text-sm"
           />
         </div>
 
@@ -283,7 +283,7 @@ export function PeriodEditDialog({
                 setPeriodStart(e.target.value)
                 setPeriodOverridden(true)
               }}
-              className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 min-h-[44px] text-base"
+              className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 min-h-[44px] sm:min-h-[32px] text-sm"
             />
           </div>
 
@@ -300,12 +300,12 @@ export function PeriodEditDialog({
                 setPeriodEnd(e.target.value)
                 setPeriodOverridden(true)
               }}
-              className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 min-h-[44px] text-base"
+              className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 min-h-[44px] sm:min-h-[32px] text-sm"
             />
           </div>
         </div>
 
-        <div className="text-sm text-slate-600">
+        <div className="text-xs text-slate-600">
           {validRange ? (
             <span>
               Kỳ đã chọn gồm <strong>{dayCount} ngày</strong> ({formatDMY(periodStart)} → {formatDMY(periodEnd)}).
@@ -322,13 +322,13 @@ export function PeriodEditDialog({
         {warnings.length > 0 && (
           <div
             role="alert"
-            className="rounded-lg border border-amber-300 bg-amber-50 p-3 space-y-1.5 text-base text-amber-950"
+            className="rounded-lg border border-amber-300 bg-amber-50 p-3 space-y-1.5 text-sm text-amber-950"
           >
             <div className="flex items-center gap-2 font-semibold text-amber-900">
               <AlertTriangle className="h-5 w-5 shrink-0 text-amber-600" />
               <span>Cảnh báo lệch kỳ so với tuần lân cận</span>
             </div>
-            <ul className="list-disc pl-5 space-y-1 text-sm sm:text-base">
+            <ul className="list-disc pl-5 space-y-1 text-xs sm:text-sm">
               {warnings.map((w, idx) => (
                 <li key={idx}>{w}</li>
               ))}
@@ -347,7 +347,7 @@ export function PeriodEditDialog({
             value={periodNote}
             onChange={(e) => setPeriodNote(e.target.value)}
             placeholder="Ví dụ: Họp sớm trước nghỉ Tết"
-            className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 min-h-[44px] text-base"
+            className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 min-h-[44px] sm:min-h-[32px] text-sm"
           />
         </div>
 
@@ -388,7 +388,7 @@ export function PeriodEditDialog({
                 value={manualMonth}
                 onChange={(e) => setManualMonth(e.target.value)}
                 aria-label="Chọn tháng báo cáo ghi đè"
-                className="rounded-md border border-slate-300 bg-white px-3 py-2 min-h-[44px] text-base"
+                className="rounded-md border border-slate-300 bg-white px-3 py-2 min-h-[44px] sm:min-h-[32px] text-sm"
               />
             </div>
           )}

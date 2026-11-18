@@ -39,7 +39,7 @@ export function AdvisoryButton({
           e.stopPropagation()
           setOpen(true)
         }}
-        className={`min-h-[44px] sm:min-h-[36px] gap-1.5 text-emerald-700 border-emerald-200 hover:bg-emerald-50 hover:text-emerald-800 ${className}`}
+        className={`min-h-[44px] sm:min-h-[32px] gap-1.5 text-emerald-700 border-emerald-200 hover:bg-emerald-50 hover:text-emerald-800 ${className}`}
         title="Xử lý / Tham mưu văn bản"
       >
         <FilePlus2 className="w-4 h-4 shrink-0" />

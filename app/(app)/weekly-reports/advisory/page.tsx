@@ -81,7 +81,7 @@ export default function AdvisoryLedgerPage() {
 
   if (loading) {
     return (
-      <div className="min-h-[60vh] flex items-center justify-center gap-2 text-base text-slate-500">
+      <div className="min-h-[60vh] flex items-center justify-center gap-2 text-sm text-slate-500">
         <Loader2 className="w-5 h-5 animate-spin text-blue-600" />
         <span>Đang kiểm tra quyền truy cập...</span>
       </div>
@@ -92,16 +92,16 @@ export default function AdvisoryLedgerPage() {
     return (
       <main className="p-4 sm:p-6 max-w-2xl mx-auto">
         <div className="rounded-xl border border-amber-200 bg-amber-50 p-6 space-y-3">
-          <div className="flex items-center gap-2 text-amber-900 font-semibold text-lg">
+          <div className="flex items-center gap-2 text-amber-900 font-semibold text-base">
             <ShieldAlert className="w-5 h-5 text-amber-700" />
             <span>Chỉ quản trị viên mới truy cập được sổ văn bản tham mưu</span>
           </div>
-          <p className="text-base text-amber-800">
+          <p className="text-sm text-amber-800">
             Tài khoản hiện tại không có quyền xem hoặc chỉnh sửa dữ liệu Giao ban tuần.
           </p>
           <Link
             href="/documents"
-            className="inline-flex items-center gap-2 min-h-[44px] px-4 py-2 rounded-lg bg-white border border-amber-300 text-base font-medium text-amber-900 hover:bg-amber-100 transition-colors"
+            className="inline-flex items-center gap-2 min-h-[44px] sm:min-h-[32px] px-4 py-2 rounded-lg bg-white border border-amber-300 text-sm font-medium text-amber-900 hover:bg-amber-100 transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
             Quay về danh sách văn bản
@@ -242,11 +242,11 @@ function AdvisoryLedgerContent() {
   }
 
   return (
-    <main className="p-4 lg:p-6 max-w-6xl mx-auto space-y-5">
+    <main className="p-4 lg:p-6 max-w-6xl mx-auto space-y-3">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="space-y-1">
-          <div className="flex flex-wrap items-center gap-2 text-sm">
+          <div className="flex flex-wrap items-center gap-2 text-xs">
             <Link
               href="/weekly-reports"
               className="inline-flex items-center gap-1 min-h-[36px] text-blue-700 hover:underline font-medium"
@@ -275,7 +275,7 @@ function AdvisoryLedgerContent() {
             setEditingDoc(null)
             setFormOpen(true)
           }}
-          className="min-h-[44px] text-base bg-blue-600 hover:bg-blue-700 text-white gap-1.5 shrink-0"
+          className="min-h-[44px] sm:min-h-[32px] text-sm bg-blue-600 hover:bg-blue-700 text-white gap-1.5 shrink-0"
         >
           <Plus className="w-4 h-4" />
           Thêm văn bản tham mưu
@@ -283,7 +283,7 @@ function AdvisoryLedgerContent() {
       </div>
 
       {/* Filters */}
-      <section className="rounded-xl border border-slate-200 bg-white p-4 space-y-4">
+      <section className="rounded-xl border border-slate-200 bg-white p-3 sm:p-4 space-y-4">
         <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4">
           {/* Date mode + inputs */}
           <div className="space-y-2.5 flex-1">
@@ -291,7 +291,7 @@ function AdvisoryLedgerContent() {
               <button
                 type="button"
                 onClick={() => handleMonthPreset(currentMonth)}
-                className={`min-h-[44px] sm:min-h-[36px] px-3 py-1.5 rounded-lg border text-sm font-medium transition-colors ${
+                className={`min-h-[44px] sm:min-h-[32px] px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors ${
                   filterMode === 'month' && selectedMonth === currentMonth
                     ? 'bg-blue-600 text-white border-blue-600'
                     : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
@@ -302,7 +302,7 @@ function AdvisoryLedgerContent() {
               <button
                 type="button"
                 onClick={() => handleMonthPreset(previousMonth(currentMonth))}
-                className={`min-h-[44px] sm:min-h-[36px] px-3 py-1.5 rounded-lg border text-sm font-medium transition-colors ${
+                className={`min-h-[44px] sm:min-h-[32px] px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors ${
                   filterMode === 'month' && selectedMonth === previousMonth(currentMonth)
                     ? 'bg-blue-600 text-white border-blue-600'
                     : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
@@ -313,7 +313,7 @@ function AdvisoryLedgerContent() {
               <button
                 type="button"
                 onClick={handleYearPreset}
-                className={`min-h-[44px] sm:min-h-[36px] px-3 py-1.5 rounded-lg border text-sm font-medium transition-colors ${
+                className={`min-h-[44px] sm:min-h-[32px] px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors ${
                   filterMode === 'range' &&
                   fromDate === `${todayVN().slice(0, 4)}-01-01` &&
                   toDate === `${todayVN().slice(0, 4)}-12-31`
@@ -335,7 +335,7 @@ function AdvisoryLedgerContent() {
                     setFilterMode('month')
                   }
                 }}
-                className="min-h-[44px] sm:min-h-[36px] px-3 py-1.5 rounded-lg border border-slate-200 bg-slate-50 text-sm font-medium text-slate-700 hover:bg-slate-100 inline-flex items-center gap-1.5"
+                className="min-h-[44px] sm:min-h-[32px] px-3 py-1.5 rounded-lg border border-slate-200 bg-slate-50 text-xs font-medium text-slate-700 hover:bg-slate-100 inline-flex items-center gap-1.5"
               >
                 <Calendar className="w-4 h-4 text-slate-500" />
                 {filterMode === 'month' ? 'Chọn khoảng ngày' : 'Chọn theo tháng'}
@@ -344,7 +344,7 @@ function AdvisoryLedgerContent() {
 
             {filterMode === 'month' ? (
               <div className="flex flex-wrap items-center gap-3">
-                <label htmlFor="ledger-month" className="text-base font-medium text-slate-700">
+                <label htmlFor="ledger-month" className="text-sm font-medium text-slate-700">
                   Tháng:
                 </label>
                 <input
@@ -352,16 +352,16 @@ function AdvisoryLedgerContent() {
                   type="month"
                   value={selectedMonth}
                   onChange={(e) => setSelectedMonth(e.target.value)}
-                  className="min-h-[44px] rounded-lg border border-slate-300 bg-white px-3 py-2 text-base text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="min-h-[44px] sm:min-h-[32px] rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
-                <span className="text-sm text-slate-500">
+                <span className="text-xs text-slate-500">
                   ({formatDMY(activeRange.from)} – {formatDMY(activeRange.to)})
                 </span>
               </div>
             ) : (
               <div className="flex flex-wrap items-center gap-3">
                 <div className="flex items-center gap-2">
-                  <label htmlFor="ledger-from" className="text-base font-medium text-slate-700">
+                  <label htmlFor="ledger-from" className="text-sm font-medium text-slate-700">
                     Từ:
                   </label>
                   <input
@@ -369,11 +369,11 @@ function AdvisoryLedgerContent() {
                     type="date"
                     value={fromDate}
                     onChange={(e) => setFromDate(e.target.value)}
-                    className="min-h-[44px] rounded-lg border border-slate-300 bg-white px-3 py-2 text-base text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="min-h-[44px] sm:min-h-[32px] rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
                 <div className="flex items-center gap-2">
-                  <label htmlFor="ledger-to" className="text-base font-medium text-slate-700">
+                  <label htmlFor="ledger-to" className="text-sm font-medium text-slate-700">
                     Đến:
                   </label>
                   <input
@@ -381,7 +381,7 @@ function AdvisoryLedgerContent() {
                     type="date"
                     value={toDate}
                     onChange={(e) => setToDate(e.target.value)}
-                    className="min-h-[44px] rounded-lg border border-slate-300 bg-white px-3 py-2 text-base text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="min-h-[44px] sm:min-h-[32px] rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
               </div>
@@ -390,7 +390,7 @@ function AdvisoryLedgerContent() {
 
           {/* Search box */}
           <div className="lg:w-80">
-            <label htmlFor="ledger-search" className="block text-sm font-medium text-slate-700 mb-1">
+            <label htmlFor="ledger-search" className="block text-xs font-medium text-slate-700 mb-1">
               Tìm theo tên, số hiệu, văn bản gốc
             </label>
             <div className="relative">
@@ -401,7 +401,7 @@ function AdvisoryLedgerContent() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Nhập từ khoá..."
-                className="w-full min-h-[44px] pl-9 pr-9 py-2 rounded-lg border border-slate-300 bg-white text-base text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full min-h-[44px] sm:min-h-[32px] pl-9 pr-9 py-2 rounded-lg border border-slate-300 bg-white text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
               {searchQuery && (
                 <button
@@ -418,14 +418,14 @@ function AdvisoryLedgerContent() {
         </div>
 
         {activeRange.from > activeRange.to && (
-          <p className="text-base text-red-700 font-medium">
+          <p className="text-sm text-red-700 font-medium">
             Ngày bắt đầu không được lớn hơn ngày kết thúc.
           </p>
         )}
 
         {/* Type filter & counts */}
         <div className="pt-3 border-t border-slate-100 space-y-2.5">
-          <p className="text-base font-medium text-slate-900">
+          <p className="text-sm font-medium text-slate-900">
             {renderSummaryWithHighlight(summaryText)}
           </p>
 
@@ -433,7 +433,7 @@ function AdvisoryLedgerContent() {
             <button
               type="button"
               onClick={() => setSelectedType('ALL')}
-              className={`min-h-[44px] sm:min-h-[36px] px-3 py-1.5 rounded-lg border text-sm font-medium transition-colors tabular-nums ${
+              className={`min-h-[44px] sm:min-h-[32px] px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors tabular-nums ${
                 selectedType === 'ALL'
                   ? 'bg-slate-900 text-white border-slate-900'
                   : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
@@ -447,7 +447,7 @@ function AdvisoryLedgerContent() {
                 key={c.code}
                 type="button"
                 onClick={() => setSelectedType(selectedType === c.code ? 'ALL' : c.code)}
-                className={`min-h-[44px] sm:min-h-[36px] px-3 py-1.5 rounded-lg border text-sm font-medium transition-colors tabular-nums ${
+                className={`min-h-[44px] sm:min-h-[32px] px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors tabular-nums ${
                   selectedType === c.code
                     ? 'bg-blue-600 text-white border-blue-600'
                     : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
@@ -463,14 +463,14 @@ function AdvisoryLedgerContent() {
       {error && (
         <div
           role="alert"
-          className="rounded-xl border border-red-200 bg-red-50 p-4 text-base text-red-700 flex items-center justify-between gap-3"
+          className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 flex items-center justify-between gap-3"
         >
           <span>{error}</span>
           <Button
             type="button"
             variant="outline"
             onClick={() => void loadDocs(activeRange.from, activeRange.to)}
-            className="min-h-[44px]"
+            className="min-h-[44px] sm:min-h-[32px]"
           >
             Thử lại
           </Button>
@@ -479,18 +479,18 @@ function AdvisoryLedgerContent() {
 
       {/* Results */}
       {loading ? (
-        <div className="rounded-xl border border-slate-200 bg-white p-10 flex items-center justify-center gap-2 text-base text-slate-500">
+        <div className="rounded-xl border border-slate-200 bg-white p-10 flex items-center justify-center gap-2 text-sm text-slate-500">
           <Loader2 className="w-5 h-5 animate-spin text-blue-600" />
           <span>Đang tải sổ văn bản tham mưu...</span>
         </div>
       ) : filteredDocs.length === 0 ? (
         <div className="rounded-xl border border-dashed border-slate-300 bg-white p-8 text-center space-y-3">
-          <p className="text-base font-semibold text-slate-800">
+          <p className="text-sm font-semibold text-slate-800">
             {docs.length === 0
               ? `Không có văn bản tham mưu nào trong khoảng ${formatDMY(activeRange.from)} – ${formatDMY(activeRange.to)}.`
               : 'Không tìm thấy văn bản tham mưu phù hợp với bộ lọc hiện tại.'}
           </p>
-          <p className="text-base text-slate-600">
+          <p className="text-sm text-slate-600">
             {docs.length === 0
               ? 'Hãy chọn tháng/khoảng ngày khác hoặc bấm "+ Thêm văn bản tham mưu" để tạo mới.'
               : 'Thử bỏ chọn bộ lọc loại hoặc xoá từ khoá tìm kiếm.'}
@@ -500,7 +500,7 @@ function AdvisoryLedgerContent() {
               <Button
                 type="button"
                 variant="outline"
-                className="min-h-[44px] text-base"
+                className="min-h-[44px] sm:min-h-[32px] text-sm"
                 onClick={() => {
                   setSelectedType('ALL')
                   setSearchQuery('')
@@ -511,7 +511,7 @@ function AdvisoryLedgerContent() {
             )}
             <Button
               type="button"
-              className="min-h-[44px] text-base bg-blue-600 hover:bg-blue-700 text-white"
+              className="min-h-[44px] sm:min-h-[32px] text-sm bg-blue-600 hover:bg-blue-700 text-white"
               onClick={() => {
                 setEditingDoc(null)
                 setFormOpen(true)
@@ -536,7 +536,7 @@ function AdvisoryLedgerContent() {
                   }`}
                 >
                   <div className="flex items-start justify-between gap-2">
-                    <div className="flex flex-wrap items-center gap-2 text-sm text-slate-600 tabular-nums">
+                    <div className="flex flex-wrap items-center gap-2 text-xs text-slate-600 tabular-nums">
                       <span className="font-semibold text-slate-800">
                         {formatDMY(doc.advisedDate)}
                       </span>
@@ -550,7 +550,7 @@ function AdvisoryLedgerContent() {
                         setEditingDoc(doc)
                         setFormOpen(true)
                       }}
-                      className="min-w-[44px] min-h-[44px] px-3 inline-flex items-center justify-center gap-1 rounded-lg border border-slate-200 bg-white text-sm font-medium text-slate-700 hover:bg-blue-50 hover:text-blue-700"
+                      className="min-w-[44px] sm:min-w-[32px] min-h-[44px] sm:min-h-[32px] px-3 inline-flex items-center justify-center gap-1 rounded-lg border border-slate-200 bg-white text-xs font-medium text-slate-700 hover:bg-blue-50 hover:text-blue-700"
                     >
                       <Pencil className="w-4 h-4" />
                       Sửa
@@ -558,7 +558,7 @@ function AdvisoryLedgerContent() {
                   </div>
 
                   <p
-                    className={`text-base leading-relaxed break-words ${
+                    className={`text-sm leading-relaxed break-words ${
                       doc.highlight ? 'text-red-700 font-bold' : 'text-slate-900 font-medium'
                     }`}
                   >
@@ -566,10 +566,10 @@ function AdvisoryLedgerContent() {
                   </p>
 
                   {doc.docNumber && (
-                    <p className="text-sm text-slate-600">Số ký hiệu: {doc.docNumber}</p>
+                    <p className="text-xs text-slate-600">Số ký hiệu: {doc.docNumber}</p>
                   )}
 
-                  <div className="flex flex-wrap items-center gap-2 text-sm pt-1">
+                  <div className="flex flex-wrap items-center gap-2 text-xs pt-1">
                     <Link
                       href={`/weekly-reports/${doc.weekId}`}
                       className="inline-flex items-center gap-1 min-h-[36px] px-2.5 py-1 rounded-md bg-blue-50 text-blue-700 font-medium hover:bg-blue-100"
@@ -609,7 +609,7 @@ function AdvisoryLedgerContent() {
           <div className="hidden md:block rounded-xl border border-slate-200 bg-white overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="border-b border-slate-200 bg-slate-50 text-sm font-semibold text-slate-600">
+                <tr className="border-b border-slate-200 bg-slate-50 text-xs font-semibold text-slate-600">
                   <th className="py-3 px-4 w-32">Ngày</th>
                   <th className="py-3 px-4 w-36">Loại</th>
                   <th className="py-3 px-4">Nội dung văn bản tham mưu</th>
@@ -618,7 +618,7 @@ function AdvisoryLedgerContent() {
                   <th className="py-3 px-4 w-24 text-right">Thao tác</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 text-base">
+              <tbody className="divide-y divide-slate-100 text-sm">
                 {filteredDocs.map((doc) => {
                   const sources = getSourceLinks(doc)
                   return (
@@ -630,7 +630,7 @@ function AdvisoryLedgerContent() {
                         {formatDMY(doc.advisedDate)}
                       </td>
                       <td className="py-3 px-4 align-top whitespace-nowrap">
-                        <span className="inline-block px-2.5 py-0.5 rounded-md bg-slate-100 text-slate-800 text-sm font-medium">
+                        <span className="inline-block px-2.5 py-0.5 rounded-md bg-slate-100 text-slate-800 text-xs font-medium">
                           {typeLabelMap.get(doc.type) || doc.type}
                         </span>
                       </td>
@@ -642,7 +642,7 @@ function AdvisoryLedgerContent() {
                         >
                           {formatAdvisoryLine(doc)}
                         </p>
-                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-slate-600">
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-600">
                           {doc.docNumber && <span>Số: {doc.docNumber}</span>}
                           {doc.draftLink && (
                             <a
@@ -675,14 +675,14 @@ function AdvisoryLedgerContent() {
                                 key={src.id}
                                 href={`/documents/${src.id}`}
                                 title={src.title || 'Mở văn bản gốc'}
-                                className="inline-flex items-center gap-1 rounded-md bg-slate-100 hover:bg-blue-50 text-slate-700 hover:text-blue-700 px-2 py-0.5 text-sm font-medium transition-colors"
+                                className="inline-flex items-center gap-1 rounded-md bg-slate-100 hover:bg-blue-50 text-slate-700 hover:text-blue-700 px-2 py-0.5 text-xs font-medium transition-colors"
                               >
                                 ↩ {src.docNumber || src.title || 'VB gốc'}
                               </Link>
                             ))}
                           </div>
                         ) : (
-                          <span className="text-sm text-slate-400">—</span>
+                          <span className="text-xs text-slate-400">—</span>
                         )}
                       </td>
                       <td className="py-3 px-4 align-top text-right">
@@ -692,7 +692,7 @@ function AdvisoryLedgerContent() {
                             setEditingDoc(doc)
                             setFormOpen(true)
                           }}
-                          className="min-h-[36px] px-2.5 inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white text-sm font-medium text-slate-700 hover:bg-blue-50 hover:text-blue-700 transition-colors"
+                          className="min-h-[36px] px-2.5 inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white text-xs font-medium text-slate-700 hover:bg-blue-50 hover:text-blue-700 transition-colors"
                         >
                           <Pencil className="w-3.5 h-3.5" />
                           Sửa

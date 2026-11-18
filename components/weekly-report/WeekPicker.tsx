@@ -97,9 +97,9 @@ export function WeekPicker({ weekId, weeks, onSelect, label }: WeekPickerProps) 
   const yearStart = Math.floor(cursorY / 12) * 12
 
   const navBtn =
-    'inline-flex items-center justify-center rounded-md min-h-[44px] min-w-[44px] sm:min-h-[36px] sm:min-w-[36px] text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+    'inline-flex items-center justify-center rounded-md min-h-[44px] sm:min-h-[32px] min-w-[44px] sm:min-w-[32px] sm:min-h-[32px] sm:min-w-[32px] text-slate-600 hover:bg-slate-100 hover:text-slate-900'
   const titleBtn =
-    'inline-flex items-center rounded-md px-2 min-h-[44px] sm:min-h-[36px] text-base font-semibold text-slate-900 hover:bg-slate-100'
+    'inline-flex items-center rounded-md px-2 min-h-[44px] sm:min-h-[32px] text-sm font-semibold text-slate-900 hover:bg-slate-100'
 
   return (
     <div ref={rootRef} className="relative">
@@ -108,10 +108,10 @@ export function WeekPicker({ weekId, weeks, onSelect, label }: WeekPickerProps) 
         onClick={() => setOpen((o) => !o)}
         aria-haspopup="dialog"
         aria-expanded={open}
-        className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 min-h-[44px] sm:min-h-[38px] text-base font-medium text-slate-800 hover:bg-slate-50"
+        className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 min-h-[44px] sm:min-h-[32px] text-sm font-medium text-slate-800 hover:bg-slate-50"
       >
         <CalendarDays className="h-4 w-4 text-slate-500" />
-        <span>{label}</span>
+        <span className="whitespace-nowrap">{label}</span>
         <ChevronDown className="h-4 w-4 text-slate-500" />
       </button>
 
@@ -142,7 +142,7 @@ export function WeekPicker({ weekId, weeks, onSelect, label }: WeekPickerProps) 
                   {cursorY}
                 </button>
               ) : (
-                <span className="px-2 text-base font-semibold text-slate-900">
+                <span className="px-2 text-sm font-semibold text-slate-900">
                   {yearStart}–{yearStart + 11}
                 </span>
               )}
@@ -159,7 +159,7 @@ export function WeekPicker({ weekId, weeks, onSelect, label }: WeekPickerProps) 
 
           {view === 'day' && (
             <>
-              <div className="grid grid-cols-7 text-center text-sm font-medium text-slate-500">
+              <div className="grid grid-cols-7 text-center text-xs font-medium text-slate-500">
                 {WEEKDAYS.map((w) => (
                   <div key={w} className="py-1">{w}</div>
                 ))}
@@ -179,7 +179,7 @@ export function WeekPicker({ weekId, weeks, onSelect, label }: WeekPickerProps) 
                       onFocus={() => setHoverDay(d)}
                       aria-label={`Ngày ${formatDMY(d)}`}
                       className={[
-                        'relative h-11 sm:h-9 text-base tabular-nums transition-colors',
+                        'relative h-10 sm:h-8 text-sm tabular-nums transition-colors',
                         inCurrent ? 'bg-blue-600 text-white font-semibold' : inHover ? 'bg-blue-100 text-blue-900' : 'hover:bg-slate-100',
                         !inCurrent && !inMonth ? 'text-slate-400' : '',
                         !inCurrent && !inHover && inMonth ? 'text-slate-800' : '',
@@ -197,7 +197,7 @@ export function WeekPicker({ weekId, weeks, onSelect, label }: WeekPickerProps) 
                   )
                 })}
               </div>
-              <p className="mt-2 min-h-[2.5rem] text-sm text-slate-600">
+              <p className="mt-2 min-h-[2.5rem] text-xs text-slate-600">
                 {hoverPeriod
                   ? `Kỳ ${formatDM(hoverPeriod.periodStart)}–${formatDM(hoverPeriod.periodEnd)} → giao ban ${formatDMY(hoverPeriod.weekId)}`
                   : `Đang xem kỳ ${formatDM(current.periodStart)}–${formatDM(current.periodEnd)}. Chấm xanh: tuần đã có báo cáo.`}
@@ -205,7 +205,7 @@ export function WeekPicker({ weekId, weeks, onSelect, label }: WeekPickerProps) 
               <button
                 type="button"
                 onClick={() => pickDay(today)}
-                className="mt-1 w-full rounded-md border border-slate-200 min-h-[44px] sm:min-h-[36px] text-base font-medium text-blue-700 hover:bg-blue-50"
+                className="mt-1 w-full rounded-md border border-slate-200 min-h-[44px] sm:min-h-[32px] text-sm font-medium text-blue-700 hover:bg-blue-50"
               >
                 Tuần hiện tại
               </button>
@@ -219,7 +219,7 @@ export function WeekPicker({ weekId, weeks, onSelect, label }: WeekPickerProps) 
                   key={m}
                   type="button"
                   onClick={() => { setCursorM(m); setView('day') }}
-                  className={`min-h-[44px] rounded-md text-base ${
+                  className={`min-h-[44px] sm:min-h-[32px] rounded-md text-sm ${
                     m === cursorM ? 'bg-blue-600 text-white font-semibold' : 'text-slate-800 hover:bg-slate-100'
                   }`}
                 >
@@ -236,7 +236,7 @@ export function WeekPicker({ weekId, weeks, onSelect, label }: WeekPickerProps) 
                   key={y}
                   type="button"
                   onClick={() => { setCursorY(y); setView('month') }}
-                  className={`min-h-[44px] rounded-md text-base tabular-nums ${
+                  className={`min-h-[44px] sm:min-h-[32px] rounded-md text-sm tabular-nums ${
                     y === cursorY ? 'bg-blue-600 text-white font-semibold' : 'text-slate-800 hover:bg-slate-100'
                   }`}
                 >

@@ -31,7 +31,7 @@ export default function WeeklyReportSettingsPage() {
 
   if (loading) {
     return (
-      <div className="py-20 flex items-center justify-center gap-2 text-base text-slate-500">
+      <div className="py-20 flex items-center justify-center gap-2 text-sm text-slate-500">
         <Loader2 className="w-5 h-5 animate-spin text-blue-600" />
         <span>Đang kiểm tra quyền truy cập...</span>
       </div>
@@ -41,16 +41,16 @@ export default function WeeklyReportSettingsPage() {
   if (!isAdmin) {
     return (
       <div className="max-w-2xl rounded-xl border border-amber-200 bg-amber-50 p-6 space-y-3">
-        <div className="flex items-center gap-2 text-amber-900 font-semibold text-lg">
+        <div className="flex items-center gap-2 text-amber-900 font-semibold text-base">
           <ShieldAlert className="w-5 h-5 text-amber-700" />
           <span>Chỉ quản trị viên mới được chỉnh cấu hình Giao ban tuần</span>
         </div>
-        <p className="text-base text-amber-800">
+        <p className="text-sm text-amber-800">
           Vui lòng đăng nhập bằng tài khoản quản trị viên để thay đổi danh mục loại văn bản và nhãn báo cáo.
         </p>
         <Link
           href="/settings"
-          className="inline-flex items-center gap-2 min-h-[44px] px-4 py-2 rounded-lg bg-white border border-amber-300 text-base font-medium text-amber-900 hover:bg-amber-100"
+          className="inline-flex items-center gap-2 min-h-[44px] sm:min-h-[32px] px-4 py-2 rounded-lg bg-white border border-amber-300 text-sm font-medium text-amber-900 hover:bg-amber-100"
         >
           <ArrowLeft className="w-4 h-4" />
           Quay lại cài đặt
@@ -232,7 +232,7 @@ function WeeklyReportSettingsContent() {
 
   if (loading) {
     return (
-      <div className="py-20 flex items-center justify-center gap-2 text-base text-slate-500">
+      <div className="py-20 flex items-center justify-center gap-2 text-sm text-slate-500">
         <Loader2 className="w-5 h-5 animate-spin text-blue-600" />
         <span>Đang tải cấu hình giao ban tuần...</span>
       </div>
@@ -243,7 +243,7 @@ function WeeklyReportSettingsContent() {
     <div className="max-w-4xl space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="space-y-1">
-          <div className="flex flex-wrap items-center gap-3 text-sm">
+          <div className="flex flex-wrap items-center gap-3 text-xs">
             <Link
               href="/settings"
               className="inline-flex items-center gap-1 text-blue-700 hover:underline font-medium"
@@ -271,7 +271,7 @@ function WeeklyReportSettingsContent() {
           <h1 className="text-2xl font-bold text-slate-900">
             Cài đặt Giao ban tuần &amp; Văn bản tham mưu
           </h1>
-          <p className="text-base text-slate-600">
+          <p className="text-sm text-slate-600">
             Tuỳ chỉnh nhãn mục trong báo cáo giao ban và danh mục loại văn bản tham mưu.
           </p>
         </div>
@@ -280,14 +280,14 @@ function WeeklyReportSettingsContent() {
       {error && (
         <div
           role="alert"
-          className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-base text-red-700"
+          className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
         >
           {error}
         </div>
       )}
 
       {savedBanner && (
-        <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-base text-emerald-800 flex items-center gap-2">
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 flex items-center gap-2">
           <Check className="w-5 h-5 text-emerald-600 shrink-0" />
           <span>Đã lưu cấu hình Giao ban tuần. Loại văn bản mới áp dụng ngay lập tức.</span>
         </div>
@@ -295,12 +295,12 @@ function WeeklyReportSettingsContent() {
 
       <form onSubmit={handleSave} className="space-y-6">
         {/* Labels section */}
-        <section className="rounded-xl border border-slate-200 bg-white p-5 space-y-4">
-          <h2 className="text-lg font-semibold text-slate-900">Nhãn tiêu đề báo cáo</h2>
+        <section className="rounded-xl border border-slate-200 bg-white p-3 sm:p-4 space-y-4">
+          <h2 className="text-base font-semibold text-slate-900">Nhãn tiêu đề báo cáo</h2>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="md:col-span-2">
-              <label htmlFor="cfg-report-title" className="block text-base font-semibold text-slate-800 mb-1.5">
+              <label htmlFor="cfg-report-title" className="block text-sm font-semibold text-slate-800 mb-1.5">
                 Tiêu đề báo cáo
               </label>
               <input
@@ -313,12 +313,12 @@ function WeeklyReportSettingsContent() {
                   setReportTitle(e.target.value)
                 }}
                 placeholder="VD: Báo cáo giao ban Lãnh đạo tuần"
-                className="w-full min-h-[44px] rounded-lg border border-slate-300 bg-white px-3 py-2 text-base text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full min-h-[44px] sm:min-h-[32px] rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
 
             <div>
-              <label htmlFor="cfg-unit-heading" className="block text-base font-semibold text-slate-800 mb-1.5">
+              <label htmlFor="cfg-unit-heading" className="block text-sm font-semibold text-slate-800 mb-1.5">
                 Nhãn đơn vị Mục 1
               </label>
               <input
@@ -331,12 +331,12 @@ function WeeklyReportSettingsContent() {
                   setUnitHeading(e.target.value)
                 }}
                 placeholder="VD: 1. KHTH"
-                className="w-full min-h-[44px] rounded-lg border border-slate-300 bg-white px-3 py-2 text-base text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full min-h-[44px] sm:min-h-[32px] rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
 
             <div>
-              <label htmlFor="cfg-deputy-label" className="block text-base font-semibold text-slate-800 mb-1.5">
+              <label htmlFor="cfg-deputy-label" className="block text-sm font-semibold text-slate-800 mb-1.5">
                 Nhãn mục Ý kiến PGĐ
               </label>
               <input
@@ -349,20 +349,20 @@ function WeeklyReportSettingsContent() {
                   setDeputySectionLabel(e.target.value)
                 }}
                 placeholder="VD: Ý kiến PGĐ Khôi"
-                className="w-full min-h-[44px] rounded-lg border border-slate-300 bg-white px-3 py-2 text-base text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full min-h-[44px] sm:min-h-[32px] rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
           </div>
         </section>
 
         {/* Doc types section */}
-        <section className="rounded-xl border border-slate-200 bg-white p-5 space-y-4">
+        <section className="rounded-xl border border-slate-200 bg-white p-3 sm:p-4 space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
-              <h2 className="text-lg font-semibold text-slate-900">
+              <h2 className="text-base font-semibold text-slate-900">
                 Danh mục loại văn bản tham mưu ({docTypes.length})
               </h2>
-              <p className="text-sm text-slate-600">
+              <p className="text-xs text-slate-600">
                 Thứ tự quyết định vị trí các nút chọn nhanh và thứ tự liệt kê ở dòng đếm &ldquo;Tham mưu VB: ...&rdquo;.
               </p>
             </div>
@@ -371,7 +371,7 @@ function WeeklyReportSettingsContent() {
                 type="button"
                 variant="outline"
                 onClick={handleResetDefaultTypes}
-                className="min-h-[44px] sm:min-h-[38px] text-sm gap-1.5"
+                className="min-h-[44px] sm:min-h-[32px] text-xs gap-1.5"
               >
                 <RotateCcw className="w-4 h-4" />
                 Khôi phục mặc định
@@ -380,7 +380,7 @@ function WeeklyReportSettingsContent() {
                 type="button"
                 variant="outline"
                 onClick={handleAddType}
-                className="min-h-[44px] sm:min-h-[38px] text-sm gap-1.5 border-blue-200 text-blue-700 hover:bg-blue-50"
+                className="min-h-[44px] sm:min-h-[32px] text-xs gap-1.5 border-blue-200 text-blue-700 hover:bg-blue-50"
               >
                 <Plus className="w-4 h-4" />
                 Thêm loại văn bản
@@ -389,7 +389,7 @@ function WeeklyReportSettingsContent() {
           </div>
 
           <div className="border border-slate-200 rounded-lg overflow-hidden">
-            <div className="hidden md:grid md:grid-cols-[120px_1fr_96px_156px] gap-3 px-3 py-2 bg-slate-50 border-b border-slate-200 text-sm font-semibold text-slate-600">
+            <div className="hidden md:grid md:grid-cols-[120px_1fr_96px_156px] gap-3 px-3 py-2 bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-600">
               <span>Mã loại</span>
               <span>Tên hiển thị</span>
               <span className="text-right">Thứ tự</span>
@@ -406,7 +406,7 @@ function WeeklyReportSettingsContent() {
                   <div key={item.rowKey} className="p-3 space-y-2">
                     <div className="grid grid-cols-1 md:grid-cols-[120px_1fr_96px_156px] gap-2.5 items-center">
                       <div>
-                        <label className="md:hidden block text-sm font-medium text-slate-600 mb-1">
+                        <label className="md:hidden block text-xs font-medium text-slate-600 mb-1">
                           Mã loại
                         </label>
                         <input
@@ -417,14 +417,14 @@ function WeeklyReportSettingsContent() {
                             handleUpdateType(item.rowKey, { code: e.target.value })
                           }
                           placeholder="VD: CV"
-                          className={`w-full min-h-[44px] rounded-lg border px-3 py-2 text-base font-mono focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-slate-100 disabled:text-slate-600 ${
+                          className={`w-full min-h-[44px] sm:min-h-[32px] rounded-lg border px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-slate-100 disabled:text-slate-600 ${
                             isDup ? 'border-red-400 bg-red-50' : 'border-slate-300 bg-white'
                           }`}
                         />
                       </div>
 
                       <div>
-                        <label className="md:hidden block text-sm font-medium text-slate-600 mb-1">
+                        <label className="md:hidden block text-xs font-medium text-slate-600 mb-1">
                           Tên hiển thị
                         </label>
                         <input
@@ -434,12 +434,12 @@ function WeeklyReportSettingsContent() {
                             handleUpdateType(item.rowKey, { label: e.target.value })
                           }
                           placeholder="VD: Công văn"
-                          className="w-full min-h-[44px] rounded-lg border border-slate-300 bg-white px-3 py-2 text-base text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className="w-full min-h-[44px] sm:min-h-[32px] rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
                       </div>
 
                       <div>
-                        <label className="md:hidden block text-sm font-medium text-slate-600 mb-1">
+                        <label className="md:hidden block text-xs font-medium text-slate-600 mb-1">
                           Thứ tự
                         </label>
                         <input
@@ -450,7 +450,7 @@ function WeeklyReportSettingsContent() {
                               order: Number(e.target.value) || 0,
                             })
                           }
-                          className="w-full min-h-[44px] rounded-lg border border-slate-300 bg-white px-3 py-2 text-base text-right tabular-nums text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className="w-full min-h-[44px] sm:min-h-[32px] rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-right tabular-nums text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
                       </div>
 
@@ -461,7 +461,7 @@ function WeeklyReportSettingsContent() {
                           onClick={() => handleMoveType(idx, -1)}
                           title="Đưa lên"
                           aria-label="Đưa lên"
-                          className="min-w-[44px] min-h-[44px] sm:min-w-[36px] sm:min-h-[36px] inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 disabled:opacity-35 disabled:cursor-not-allowed"
+                          className="min-w-[44px] sm:min-w-[32px] min-h-[44px] sm:min-h-[32px] sm:min-w-[32px] sm:min-h-[32px] inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 disabled:opacity-35 disabled:cursor-not-allowed"
                         >
                           <ArrowUp className="w-4 h-4" />
                         </button>
@@ -471,7 +471,7 @@ function WeeklyReportSettingsContent() {
                           onClick={() => handleMoveType(idx, 1)}
                           title="Đưa xuống"
                           aria-label="Đưa xuống"
-                          className="min-w-[44px] min-h-[44px] sm:min-w-[36px] sm:min-h-[36px] inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 disabled:opacity-35 disabled:cursor-not-allowed"
+                          className="min-w-[44px] sm:min-w-[32px] min-h-[44px] sm:min-h-[32px] sm:min-w-[32px] sm:min-h-[32px] inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 disabled:opacity-35 disabled:cursor-not-allowed"
                         >
                           <ArrowDown className="w-4 h-4" />
                         </button>
@@ -485,7 +485,7 @@ function WeeklyReportSettingsContent() {
                               : 'Xoá loại văn bản này'
                           }
                           aria-label="Xoá loại văn bản"
-                          className="min-w-[44px] min-h-[44px] sm:min-w-[36px] sm:min-h-[36px] inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 hover:text-red-600 hover:bg-red-50 disabled:opacity-30 disabled:cursor-not-allowed"
+                          className="min-w-[44px] sm:min-w-[32px] min-h-[44px] sm:min-h-[32px] sm:min-w-[32px] sm:min-h-[32px] inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 hover:text-red-600 hover:bg-red-50 disabled:opacity-30 disabled:cursor-not-allowed"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -494,7 +494,7 @@ function WeeklyReportSettingsContent() {
 
                     {confirmingDelete && (
                       <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 flex flex-wrap items-center justify-between gap-2">
-                        <span className="text-sm font-medium text-red-800">
+                        <span className="text-xs font-medium text-red-800">
                           Xác nhận xoá loại &ldquo;{item.label || item.code || 'chưa đặt tên'}&rdquo;?
                         </span>
                         <div className="flex items-center gap-2">
@@ -530,13 +530,13 @@ function WeeklyReportSettingsContent() {
           <Button
             type="submit"
             disabled={saving}
-            className="min-h-[44px] px-6 text-base bg-blue-600 hover:bg-blue-700 text-white gap-2"
+            className="min-h-[44px] sm:min-h-[32px] px-6 text-sm bg-blue-600 hover:bg-blue-700 text-white gap-2"
           >
             {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
             Lưu cài đặt giao ban tuần
           </Button>
           {isDirty && !saving && (
-            <span className="text-sm font-medium text-amber-700">
+            <span className="text-xs font-medium text-amber-700">
               Có thay đổi chưa lưu
             </span>
           )}

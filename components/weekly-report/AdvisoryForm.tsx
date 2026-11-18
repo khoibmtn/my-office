@@ -390,7 +390,7 @@ function AdvisoryFormModal({
             <Button
               type="button"
               variant="destructive"
-              className="min-h-[44px] text-base"
+              className="min-h-[44px] sm:min-h-[32px] text-sm"
               disabled={saving || deleting}
               onClick={() => setConfirmDelete(true)}
             >
@@ -404,7 +404,7 @@ function AdvisoryFormModal({
             <Button
               type="button"
               variant="outline"
-              className="min-h-[44px] text-base"
+              className="min-h-[44px] sm:min-h-[32px] text-sm"
               onClick={onClose}
               disabled={saving || deleting}
             >
@@ -413,7 +413,7 @@ function AdvisoryFormModal({
             <Button
               type="submit"
               form="advisory-form"
-              className="min-h-[44px] text-base bg-blue-600 hover:bg-blue-700 text-white"
+              className="min-h-[44px] sm:min-h-[32px] text-sm bg-blue-600 hover:bg-blue-700 text-white"
               disabled={saving || deleting}
             >
               {saving && <Loader2 className="w-4 h-4 animate-spin" />}
@@ -427,7 +427,7 @@ function AdvisoryFormModal({
         {error && (
           <div
             role="alert"
-            className="rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-base text-red-700"
+            className="rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-sm text-red-700"
           >
             {error}
           </div>
@@ -436,17 +436,17 @@ function AdvisoryFormModal({
         {/* Delete confirmation */}
         {editingDoc && confirmDelete && (
           <div className="rounded-lg border border-red-300 bg-red-50 p-3.5 space-y-2.5">
-            <p className="text-base font-semibold text-red-800">
+            <p className="text-sm font-semibold text-red-800">
               Xác nhận xoá &ldquo;{formatAdvisoryLine(editingDoc)}&rdquo;?
             </p>
-            <p className="text-sm text-red-700">
+            <p className="text-xs text-red-700">
               Thao tác này sẽ xoá văn bản tham mưu khỏi tuần giao ban và gỡ liên kết ngược trên văn bản gốc.
             </p>
             <div className="flex flex-wrap gap-2">
               <Button
                 type="button"
                 variant="outline"
-                className="min-h-[44px] text-base"
+                className="min-h-[44px] sm:min-h-[32px] text-sm"
                 onClick={() => setConfirmDelete(false)}
                 disabled={deleting}
               >
@@ -455,7 +455,7 @@ function AdvisoryFormModal({
               <Button
                 type="button"
                 variant="destructive"
-                className="min-h-[44px] text-base"
+                className="min-h-[44px] sm:min-h-[32px] text-sm"
                 onClick={handleDelete}
                 disabled={deleting}
               >
@@ -468,20 +468,20 @@ function AdvisoryFormModal({
 
         {/* Source document warning for duplicate type */}
         {duplicateTypeDocs.length > 0 && (
-          <div className="rounded-lg border border-amber-300 bg-amber-50 px-3.5 py-2.5 flex items-start gap-2.5 text-amber-900">
+          <div className="rounded-lg border border-amber-300 bg-amber-50 px-3.5 py-1.5 flex items-start gap-2.5 text-amber-900">
             <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
-            <div className="text-base leading-snug">
+            <div className="text-sm leading-snug">
               <p className="font-semibold">
                 Văn bản gốc này đã có văn bản tham mưu loại {selectedTypeDef?.label || type}:
               </p>
-              <ul className="mt-1 space-y-0.5 text-sm text-amber-800">
+              <ul className="mt-1 space-y-0.5 text-xs text-amber-800">
                 {duplicateTypeDocs.map((d) => (
                   <li key={d.id}>
                     • {formatAdvisoryLine(d)} (tuần {formatDMY(d.weekId)})
                   </li>
                 ))}
               </ul>
-              <p className="mt-1 text-sm text-amber-800">
+              <p className="mt-1 text-xs text-amber-800">
                 Bạn vẫn có thể lưu nếu đây là văn bản khác.
               </p>
             </div>
@@ -491,11 +491,11 @@ function AdvisoryFormModal({
         {/* Type quick pills */}
         <div>
           <div className="flex items-center justify-between gap-2 mb-1.5">
-            <label className="text-base font-semibold text-slate-900">
+            <label className="text-sm font-semibold text-slate-900">
               Loại văn bản <span className="text-red-600">*</span>
             </label>
             {selectedTypeDef && (
-              <span className="text-sm font-medium text-blue-700">{selectedTypeDef.label}</span>
+              <span className="text-xs font-medium text-blue-700">{selectedTypeDef.label}</span>
             )}
           </div>
           <div className="flex flex-wrap gap-1.5">
@@ -507,7 +507,7 @@ function AdvisoryFormModal({
                   type="button"
                   title={t.label}
                   onClick={() => handleSelectType(t.code)}
-                  className={`min-h-[44px] sm:min-h-[38px] px-3 py-1.5 rounded-lg text-base font-medium border transition-colors ${
+                  className={`min-h-[44px] sm:min-h-[32px] px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors ${
                     active
                       ? 'bg-blue-600 text-white border-blue-600 shadow-xs'
                       : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50 hover:border-slate-300'
@@ -523,7 +523,7 @@ function AdvisoryFormModal({
         {/* Title / summary */}
         <div>
           <div className="flex items-center justify-between gap-2 mb-1.5">
-            <label htmlFor="advisory-title" className="text-base font-semibold text-slate-900">
+            <label htmlFor="advisory-title" className="text-sm font-semibold text-slate-900">
               Tên / trích yếu <span className="text-red-600">*</span>
             </label>
             {sources[0] && (
@@ -533,7 +533,7 @@ function AdvisoryFormModal({
                   setTitle(buildSuggestedTitle(type, sources[0]))
                   setTitleDirty(false)
                 }}
-                className="inline-flex items-center gap-1 min-h-[36px] px-2.5 py-1 rounded-md text-sm font-medium text-blue-700 hover:bg-blue-50 transition-colors"
+                className="inline-flex items-center gap-1 min-h-[36px] px-2.5 py-1 rounded-md text-xs font-medium text-blue-700 hover:bg-blue-50 transition-colors"
               >
                 <Sparkles className="w-3.5 h-3.5" />
                 Gợi ý từ VB gốc
@@ -550,9 +550,9 @@ function AdvisoryFormModal({
               setTitleDirty(true)
             }}
             placeholder="Nhập tên văn bản (không cần gõ tiền tố loại)..."
-            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-base text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
-          <p className="mt-1 text-sm text-slate-600">
+          <p className="mt-1 text-xs text-slate-600">
             Hiển thị trên báo cáo:{' '}
             <span className={highlight ? 'text-red-700 font-bold' : 'font-medium text-slate-900'}>
               {formatAdvisoryLine({ type, title: title.trim() || '...' })}
@@ -563,7 +563,7 @@ function AdvisoryFormModal({
         {/* Doc number + Advised date */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
-            <label htmlFor="advisory-doc-number" className="block text-base font-semibold text-slate-900 mb-1.5">
+            <label htmlFor="advisory-doc-number" className="block text-sm font-semibold text-slate-900 mb-1.5">
               Số ký hiệu
             </label>
             <input
@@ -572,12 +572,12 @@ function AdvisoryFormModal({
               value={docNumber}
               onChange={(e) => setDocNumber(e.target.value)}
               placeholder="VD: 123/TB-BV"
-              className="w-full min-h-[44px] rounded-lg border border-slate-300 bg-white px-3 py-2 text-base text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full min-h-[44px] sm:min-h-[32px] rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
 
           <div>
-            <label htmlFor="advisory-date" className="block text-base font-semibold text-slate-900 mb-1.5">
+            <label htmlFor="advisory-date" className="block text-sm font-semibold text-slate-900 mb-1.5">
               Ngày tham mưu <span className="text-red-600">*</span>
             </label>
             <input
@@ -586,7 +586,7 @@ function AdvisoryFormModal({
               required
               value={advisedDate}
               onChange={(e) => setAdvisedDate(e.target.value)}
-              className="w-full min-h-[44px] rounded-lg border border-slate-300 bg-white px-3 py-2 text-base text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full min-h-[44px] sm:min-h-[32px] rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
         </div>
@@ -594,23 +594,23 @@ function AdvisoryFormModal({
         {/* Target week indicator + override */}
         <div className="rounded-lg border border-blue-200 bg-blue-50/70 p-3 space-y-2">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <span className="text-base font-semibold text-blue-950">
+            <span className="text-sm font-semibold text-blue-950">
               → tuần giao ban {formatDMY(effectiveWeekId)}
             </span>
-            <span className="text-sm text-blue-800">
+            <span className="text-xs text-blue-800">
               Kỳ {formatDM(effectivePeriod.periodStart)}–{formatDM(effectivePeriod.periodEnd)}
               {overrideWeekId ? ' (đang ghi đè)' : ''}
             </span>
           </div>
           <div>
-            <label htmlFor="advisory-week-override" className="block text-sm font-medium text-slate-700 mb-1">
+            <label htmlFor="advisory-week-override" className="block text-xs font-medium text-slate-700 mb-1">
               Chọn tuần khác (nếu cần ghi đè)
             </label>
             <select
               id="advisory-week-override"
               value={overrideWeekId}
               onChange={(e) => setOverrideWeekId(e.target.value)}
-              className="w-full min-h-[44px] rounded-lg border border-slate-300 bg-white px-3 py-2 text-base text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full min-h-[44px] sm:min-h-[32px] rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="">
                 Tự động theo ngày tham mưu (Giao ban {formatDMY(autoWeekId)})
@@ -627,13 +627,13 @@ function AdvisoryFormModal({
         {/* Linked source documents */}
         <div className="rounded-lg border border-slate-200 bg-slate-50/70 p-3 space-y-2">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <span className="text-base font-semibold text-slate-900">
+            <span className="text-sm font-semibold text-slate-900">
               Văn bản gốc ({sources.length})
             </span>
             <button
               type="button"
               onClick={() => setShowSourcePicker((v) => !v)}
-              className="inline-flex items-center gap-1 min-h-[44px] sm:min-h-[36px] px-3 py-1 rounded-lg border border-slate-300 bg-white text-sm font-medium text-slate-700 hover:bg-slate-100 transition-colors"
+              className="inline-flex items-center gap-1 min-h-[44px] sm:min-h-[32px] px-3 py-1 rounded-lg border border-slate-300 bg-white text-xs font-medium text-slate-700 hover:bg-slate-100 transition-colors"
             >
               <Link2 className="w-4 h-4 text-blue-600" />
               {showSourcePicker ? 'Đóng chọn VB gốc' : sources.length > 0 ? 'Thay đổi VB gốc' : '+ Gắn văn bản gốc'}
@@ -648,13 +648,13 @@ function AdvisoryFormModal({
                   className="flex items-start justify-between gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2"
                 >
                   <div className="min-w-0 flex-1">
-                    <p className="text-base font-medium text-slate-900 break-words">
+                    <p className="text-sm font-medium text-slate-900 break-words">
                       <FileText className="w-4 h-4 inline-block mr-1.5 text-blue-600 -mt-0.5" />
                       {src.docNumber ? `${src.docNumber} — ` : ''}
                       {src.title || `Văn bản #${src.id.slice(-6)}`}
                     </p>
                     {(src.sender || src.issueDate) && (
-                      <p className="text-sm text-slate-600 mt-0.5">
+                      <p className="text-xs text-slate-600 mt-0.5">
                         {[src.sender, src.issueDate ? `ngày ${formatDMY(src.issueDate)}` : '']
                           .filter(Boolean)
                           .join(', ')}
@@ -666,7 +666,7 @@ function AdvisoryFormModal({
                     onClick={() => handleRemoveSource(src.id)}
                     aria-label="Gỡ văn bản gốc"
                     title="Gỡ văn bản gốc"
-                    className="min-w-[44px] min-h-[44px] sm:min-w-[32px] sm:min-h-[32px] inline-flex items-center justify-center rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors shrink-0"
+                    className="min-w-[44px] sm:min-w-[32px] min-h-[44px] sm:min-h-[32px] sm:min-w-[32px] sm:min-h-[32px] inline-flex items-center justify-center rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors shrink-0"
                   >
                     <X className="w-4 h-4" />
                   </button>
@@ -674,7 +674,7 @@ function AdvisoryFormModal({
               ))}
             </div>
           ) : (
-            <p className="text-sm text-slate-500">
+            <p className="text-xs text-slate-500">
               Không gắn văn bản gốc (có thể bấm &ldquo;+ Gắn văn bản gốc&rdquo; để liên kết ngay hoặc gắn lại sau).
             </p>
           )}
@@ -691,7 +691,7 @@ function AdvisoryFormModal({
 
         {/* Draft link */}
         <div>
-          <label htmlFor="advisory-draft-link" className="block text-base font-semibold text-slate-900 mb-1.5">
+          <label htmlFor="advisory-draft-link" className="block text-sm font-semibold text-slate-900 mb-1.5">
             Link bản thảo (Google Drive / Docs)
           </label>
           <input
@@ -700,13 +700,13 @@ function AdvisoryFormModal({
             value={draftLink}
             onChange={(e) => setDraftLink(e.target.value)}
             placeholder="https://docs.google.com/..."
-            className="w-full min-h-[44px] rounded-lg border border-slate-300 bg-white px-3 py-2 text-base text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full min-h-[44px] sm:min-h-[32px] rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
 
         {/* Note */}
         <div>
-          <label htmlFor="advisory-note" className="block text-base font-semibold text-slate-900 mb-1.5">
+          <label htmlFor="advisory-note" className="block text-sm font-semibold text-slate-900 mb-1.5">
             Ghi chú
           </label>
           <textarea
@@ -715,34 +715,34 @@ function AdvisoryFormModal({
             value={note}
             onChange={(e) => setNote(e.target.value)}
             placeholder="Ghi chú thêm (không bắt buộc)..."
-            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-base text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
 
         {/* Checkboxes */}
         <div className="space-y-1 pt-1">
           {!editingDoc && sources.length > 0 && (
-            <label className="flex items-center gap-3 min-h-[44px] px-2 rounded-lg hover:bg-slate-50 cursor-pointer select-none">
+            <label className="flex items-center gap-3 min-h-[44px] sm:min-h-[32px] px-2 rounded-lg hover:bg-slate-50 cursor-pointer select-none">
               <input
                 type="checkbox"
                 checked={markSourceCompleted}
                 onChange={(e) => setMarkSourceCompleted(e.target.checked)}
                 className="w-5 h-5 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
               />
-              <span className="text-base text-slate-800">
+              <span className="text-sm text-slate-800">
                 Đánh dấu văn bản gốc đã xử lý xong
               </span>
             </label>
           )}
 
-          <label className="flex items-center gap-3 min-h-[44px] px-2 rounded-lg hover:bg-slate-50 cursor-pointer select-none">
+          <label className="flex items-center gap-3 min-h-[44px] sm:min-h-[32px] px-2 rounded-lg hover:bg-slate-50 cursor-pointer select-none">
             <input
               type="checkbox"
               checked={highlight}
               onChange={(e) => setHighlight(e.target.checked)}
               className="w-5 h-5 rounded border-slate-300 text-red-600 focus:ring-red-500"
             />
-            <span className={highlight ? 'text-base text-red-700 font-bold' : 'text-base text-slate-800'}>
+            <span className={highlight ? 'text-sm text-red-700 font-bold' : 'text-sm text-slate-800'}>
               Tô đỏ (nhấn mạnh đỏ + đậm trong báo cáo)
             </span>
           </label>

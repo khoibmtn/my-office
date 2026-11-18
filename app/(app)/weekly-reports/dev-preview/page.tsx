@@ -358,8 +358,8 @@ export default function WeeklyReportDevPreviewPage() {
   const deputyEnabled = report.sections.deputyOpinions !== null
 
   return (
-    <div className="mx-auto max-w-6xl p-4 sm:p-6 space-y-5">
-      <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-base text-blue-950 flex flex-wrap items-center justify-between gap-2">
+    <div className="mx-auto max-w-6xl p-4 sm:p-6 space-y-3">
+      <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-950 flex flex-wrap items-center justify-between gap-2">
         <div>
           <strong>Chế độ kiểm thử giao diện (dev-preview)</strong> — Dữ liệu giả, không cần đăng nhập, không ghi Firestore hay gọi mạng ngoài.
         </div>
@@ -369,7 +369,7 @@ export default function WeeklyReportDevPreviewPage() {
             setReport(INITIAL_MOCK_REPORT)
             setShowCarriedToast(true)
           }}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-blue-300 bg-white px-3 py-1.5 min-h-[44px] sm:min-h-[34px] text-sm font-semibold text-blue-800 hover:bg-blue-100"
+          className="inline-flex items-center gap-1.5 rounded-lg border border-blue-300 bg-white px-3 py-1.5 min-h-[44px] sm:min-h-[28px] text-xs font-semibold text-blue-800 hover:bg-blue-100"
         >
           <RotateCcw className="h-3.5 w-3.5" />
           <span>Đặt lại dữ liệu mẫu</span>
@@ -379,7 +379,7 @@ export default function WeeklyReportDevPreviewPage() {
       {showCarriedToast && (
         <div
           role="status"
-          className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-base text-emerald-950 shadow-sm"
+          className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-950 shadow-sm"
         >
           <div className="flex items-center gap-2">
             <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-600" />
@@ -392,7 +392,7 @@ export default function WeeklyReportDevPreviewPage() {
                 handleWorkItemsChange(report.workItems.filter((w) => w.source !== 'carried'))
                 setShowCarriedToast(false)
               }}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-300 bg-white px-3 py-1.5 min-h-[44px] sm:min-h-[34px] text-sm font-semibold text-emerald-900 hover:bg-emerald-100"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-300 bg-white px-3 py-1.5 min-h-[44px] sm:min-h-[28px] text-xs font-semibold text-emerald-900 hover:bg-emerald-100"
             >
               <RotateCcw className="h-3.5 w-3.5" />
               <span>Hoàn tác</span>
@@ -419,12 +419,12 @@ export default function WeeklyReportDevPreviewPage() {
         isPreview
       />
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
-        <section className="lg:col-span-8 rounded-xl border border-slate-200 bg-white p-4 sm:p-5 shadow-sm space-y-5">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 items-start">
+        <section className="lg:col-span-8 rounded-xl border border-slate-200 bg-white p-3 sm:p-4 sm:p-4 shadow-sm space-y-3">
           <div className="space-y-3">
             <div>
-              <h2 className="text-lg font-bold text-slate-900">{report.unitHeading}</h2>
-              <p className="text-base font-medium text-slate-700">
+              <h2 className="text-base font-bold text-slate-900">{report.unitHeading}</h2>
+              <p className="text-sm font-medium text-slate-700">
                 Tình hình thực hiện nhiệm vụ tuần qua:
               </p>
             </div>
@@ -438,21 +438,21 @@ export default function WeeklyReportDevPreviewPage() {
 
           {/* Minh hoạ khối AdvisoryList trong dev-preview (không gọi Firestore) */}
           <div className="border-t border-slate-200 pt-4 space-y-2">
-            <div className="flex items-center gap-2 text-base font-semibold text-slate-900">
+            <div className="flex items-center gap-2 text-sm font-semibold text-slate-900">
               <FileText className="h-4 w-4 text-blue-600" />
               <span>{advisorySummary}</span>
               <span className="rounded bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
                 Mẫu hiển thị (T-213)
               </span>
             </div>
-            <ul className="space-y-1.5 pl-5 list-disc text-base">
+            <ul className="space-y-1.5 pl-5 list-disc text-sm">
               {sortedAdvisory.map((doc) => (
                 <li
                   key={doc.id}
                   className={doc.highlight ? 'font-bold text-red-700' : 'text-slate-800'}
                 >
                   <span>{formatAdvisoryLine(doc)}</span>
-                  <span className="ml-2 text-sm font-normal text-slate-500">
+                  <span className="ml-2 text-xs font-normal text-slate-500">
                     ({formatDMY(doc.advisedDate)})
                   </span>
                 </li>
@@ -473,8 +473,8 @@ export default function WeeklyReportDevPreviewPage() {
         </div>
       </div>
 
-      <section className="rounded-xl border border-slate-200 bg-white p-4 sm:p-5 shadow-sm space-y-3">
-        <h2 className="text-lg font-bold text-slate-900">{RICH_SECTION_LABELS.opinions}</h2>
+      <section className="rounded-xl border border-slate-200 bg-white p-3 sm:p-4 sm:p-4 shadow-sm space-y-3">
+        <h2 className="text-base font-bold text-slate-900">{RICH_SECTION_LABELS.opinions}</h2>
         <RichEditor
           value={report.sections.opinions?.docJson ?? null}
           onChange={(json, plain) => handleSectionChange('opinions', json, plain)}
@@ -485,8 +485,8 @@ export default function WeeklyReportDevPreviewPage() {
         />
       </section>
 
-      <section className="rounded-xl border border-slate-200 bg-white p-4 sm:p-5 shadow-sm space-y-3">
-        <h2 className="text-lg font-bold text-slate-900">{RICH_SECTION_LABELS.nextWeek}</h2>
+      <section className="rounded-xl border border-slate-200 bg-white p-3 sm:p-4 sm:p-4 shadow-sm space-y-3">
+        <h2 className="text-base font-bold text-slate-900">{RICH_SECTION_LABELS.nextWeek}</h2>
         <RichEditor
           value={report.sections.nextWeek?.docJson ?? null}
           onChange={(json, plain) => handleSectionChange('nextWeek', json, plain)}
@@ -498,7 +498,7 @@ export default function WeeklyReportDevPreviewPage() {
       </section>
 
       {editable && (!proposedEnabled || !deputyEnabled) && (
-        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-dashed border-slate-300 bg-white px-4 py-3 text-base">
+        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-dashed border-slate-300 bg-white px-4 py-3 text-sm">
           <span className="font-medium text-slate-700 mr-1">+ Thêm mục:</span>
           {!proposedEnabled && (
             <button
@@ -510,7 +510,7 @@ export default function WeeklyReportDevPreviewPage() {
                   '',
                 )
               }
-              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-slate-50 px-3 py-1.5 min-h-[44px] sm:min-h-[36px] text-base font-medium text-slate-800 hover:bg-slate-100"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-slate-50 px-3 py-1.5 min-h-[44px] sm:min-h-[32px] text-sm font-medium text-slate-800 hover:bg-slate-100"
             >
               <Plus className="h-4 w-4" />
               <span>{RICH_SECTION_LABELS.proposedSchedule}</span>
@@ -526,7 +526,7 @@ export default function WeeklyReportDevPreviewPage() {
                   '',
                 )
               }
-              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-slate-50 px-3 py-1.5 min-h-[44px] sm:min-h-[36px] text-base font-medium text-slate-800 hover:bg-slate-100"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-slate-50 px-3 py-1.5 min-h-[44px] sm:min-h-[32px] text-sm font-medium text-slate-800 hover:bg-slate-100"
             >
               <Plus className="h-4 w-4" />
               <span>{DEFAULT_WEEKLY_REPORT_CONFIG.deputySectionLabel}</span>
@@ -536,9 +536,9 @@ export default function WeeklyReportDevPreviewPage() {
       )}
 
       {proposedEnabled && (
-        <section className="rounded-xl border border-slate-200 bg-white p-4 sm:p-5 shadow-sm space-y-3">
+        <section className="rounded-xl border border-slate-200 bg-white p-3 sm:p-4 sm:p-4 shadow-sm space-y-3">
           <div className="flex items-center justify-between gap-2">
-            <h2 className="text-lg font-bold text-slate-900">
+            <h2 className="text-base font-bold text-slate-900">
               {RICH_SECTION_LABELS.proposedSchedule}
             </h2>
             {editable && (
@@ -550,7 +550,7 @@ export default function WeeklyReportDevPreviewPage() {
                     sections: { ...prev.sections, proposedSchedule: null },
                   }))
                 }
-                className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 px-3 py-1.5 min-h-[44px] sm:min-h-[36px] text-sm font-medium text-red-700 hover:bg-red-50"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 px-3 py-1.5 min-h-[44px] sm:min-h-[32px] text-xs font-medium text-red-700 hover:bg-red-50"
               >
                 <Trash2 className="h-4 w-4" />
                 <span>Xoá mục</span>
@@ -569,9 +569,9 @@ export default function WeeklyReportDevPreviewPage() {
       )}
 
       {deputyEnabled && (
-        <section className="rounded-xl border border-slate-200 bg-white p-4 sm:p-5 shadow-sm space-y-3">
+        <section className="rounded-xl border border-slate-200 bg-white p-3 sm:p-4 sm:p-4 shadow-sm space-y-3">
           <div className="flex items-center justify-between gap-2">
-            <h2 className="text-lg font-bold text-slate-900">
+            <h2 className="text-base font-bold text-slate-900">
               {DEFAULT_WEEKLY_REPORT_CONFIG.deputySectionLabel}
             </h2>
             {editable && (
@@ -583,7 +583,7 @@ export default function WeeklyReportDevPreviewPage() {
                     sections: { ...prev.sections, deputyOpinions: null },
                   }))
                 }
-                className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 px-3 py-1.5 min-h-[44px] sm:min-h-[36px] text-sm font-medium text-red-700 hover:bg-red-50"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 px-3 py-1.5 min-h-[44px] sm:min-h-[32px] text-xs font-medium text-red-700 hover:bg-red-50"
               >
                 <Trash2 className="h-4 w-4" />
                 <span>Xoá mục</span>
