@@ -16,6 +16,7 @@ import {
 import { useRole } from '@/hooks/useRole'
 import { useWeeklyReport } from '@/hooks/useWeeklyReport'
 import { useWeeks } from '@/hooks/useWeeks'
+import { useRouter } from 'next/navigation'
 import { useWeeklyReportConfig } from '@/hooks/useWeeklyReportConfig'
 import {
   finalizeWeek,
@@ -67,6 +68,7 @@ interface PendingRichPayload {
 function WeeklyReportWorkspace({ weekId }: { weekId: string }) {
   const { report, loading, error, carriedCount } = useWeeklyReport(weekId)
   const { weeks } = useWeeks()
+  const router = useRouter()
   const { config } = useWeeklyReportConfig()
 
   const [workItems, setWorkItems] = useState<WorkItem[]>([])
@@ -514,6 +516,8 @@ function WeeklyReportWorkspace({ weekId }: { weekId: string }) {
         saveErrorMessage={saveErrorMessage}
         onRetrySave={() => void flushAllPendingSaves()}
         onOpenPeriodDialog={() => setPeriodDialogOpen(true)}
+        weeks={weeks}
+        onSelectWeek={(id) => { if (id !== weekId) router.push(`/weekly-reports/${id}`) }}
         currentWeekHref={
           fallbackCurrentWeek !== weekId ? `/weekly-reports/${fallbackCurrentWeek}` : undefined
         }

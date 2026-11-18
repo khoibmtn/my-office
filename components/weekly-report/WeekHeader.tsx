@@ -17,7 +17,11 @@ import {
   Settings,
 } from 'lucide-react'
 import { addDays, formatDM, formatDMY } from '@/lib/weekly-report/period'
-import type { WeeklyReport, YearMonth } from '@/types/weekly-report'
+import type { WeekPeriodInfo, WeeklyReport, YearMonth } from '@/types/weekly-report'
+import { WeekPicker } from './WeekPicker'
+
+const iconNav =
+  'inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white min-h-[44px] min-w-[44px] sm:min-h-[38px] sm:min-w-[38px] text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition-colors'
 
 export type SaveIndicatorStatus = 'idle' | 'saving' | 'saved' | 'error'
 
@@ -31,6 +35,9 @@ export interface WeekHeaderProps {
   onOpenReadView?: () => void
   isPreview?: boolean
   currentWeekHref?: string
+  /** Saved weeks (for special periods in the picker) */
+  weeks?: WeekPeriodInfo[]
+  onSelectWeek?: (weekId: string) => void
 }
 
 function formatMonthLabel(month: YearMonth): string {
@@ -62,6 +69,8 @@ export function WeekHeader({
   onOpenReadView,
   isPreview = false,
   currentWeekHref,
+  weeks = [],
+  onSelectWeek,
 }: WeekHeaderProps) {
   const prevWeekId = addDays(report.id, -7)
   const nextWeekId = addDays(report.id, 7)
@@ -72,40 +81,25 @@ export function WeekHeader({
   return (
     <header className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        {/* Điều hướng tuần trước / sau */}
-        <div className="flex flex-wrap items-center gap-1.5">
+        {/* Điều hướng tuần: ‹ [lịch chọn tuần] › */}
+        <div className="flex items-center gap-1.5">
           {isPreview ? (
-            <span
-              className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-slate-50 px-3 min-h-[44px] sm:min-h-[38px] text-base font-medium text-slate-500"
-              title="Chế độ xem thử dữ liệu mẫu"
-            >
-              <ChevronLeft className="h-4 w-4" />
-              <span>Tuần trước</span>
-            </span>
+            <span aria-disabled className={`${iconNav} opacity-40`} title="Tuần trước"><ChevronLeft className="h-4 w-4" /></span>
           ) : (
-            <Link
-              href={`/weekly-reports/${prevWeekId}`}
-              className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 min-h-[44px] sm:min-h-[38px] text-base font-medium text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition-colors"
-            >
+            <Link href={`/weekly-reports/${prevWeekId}`} className={iconNav} aria-label="Tuần trước" title="Tuần trước">
               <ChevronLeft className="h-4 w-4" />
-              <span>Tuần trước</span>
             </Link>
           )}
-
+          <WeekPicker
+            weekId={report.id}
+            weeks={weeks}
+            onSelect={onSelectWeek}
+            label={`Tuần giao ban ${formatDMY(report.meetingDate)}`}
+          />
           {isPreview ? (
-            <span
-              className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-slate-50 px-3 min-h-[44px] sm:min-h-[38px] text-base font-medium text-slate-500"
-              title="Chế độ xem thử dữ liệu mẫu"
-            >
-              <span>Tuần sau</span>
-              <ChevronRight className="h-4 w-4" />
-            </span>
+            <span aria-disabled className={`${iconNav} opacity-40`} title="Tuần sau"><ChevronRight className="h-4 w-4" /></span>
           ) : (
-            <Link
-              href={`/weekly-reports/${nextWeekId}`}
-              className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 min-h-[44px] sm:min-h-[38px] text-base font-medium text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition-colors"
-            >
-              <span>Tuần sau</span>
+            <Link href={`/weekly-reports/${nextWeekId}`} className={iconNav} aria-label="Tuần sau" title="Tuần sau">
               <ChevronRight className="h-4 w-4" />
             </Link>
           )}
