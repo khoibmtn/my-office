@@ -73,7 +73,7 @@ export function weekToMarkdown(input: WeekExportInput): string {
   for (const doc of sortedAdv) {
     const advLine = formatAdvisoryLine(doc)
     if (!advLine) continue
-    lines.push(`- ${formatBulletText(advLine, doc.highlight)}`)
+    lines.push(`  - ${formatBulletText(advLine, doc.highlight)}`)
   }
 
   if (includeRichSections && week.sections) {
