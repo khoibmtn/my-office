@@ -69,6 +69,7 @@ function WeeklyReportWorkspace({ weekId }: { weekId: string }) {
   const { report, loading, error, carriedCount } = useWeeklyReport(weekId)
   const { weeks } = useWeeks()
   const router = useRouter()
+  const [activeTab, setActiveTab] = useState<'content' | 'stats'>('content')
   const { config } = useWeeklyReportConfig()
 
   const [workItems, setWorkItems] = useState<WorkItem[]>([])
@@ -529,160 +530,188 @@ function WeeklyReportWorkspace({ weekId }: { weekId: string }) {
         </div>
       )}
 
-      {/* Mục 1 + Gợi ý Công việc */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 items-start">
-        <section className="lg:col-span-8 rounded-xl border border-slate-200 bg-white p-3 sm:p-4 sm:p-4 shadow-sm space-y-3">
-          <div className="space-y-3">
-            <div>
-              <h2 className="text-base font-bold text-slate-900">
-                {report.unitHeading || config.unitHeading || '1. KHTH'}
-              </h2>
-              <p className="text-sm font-medium text-slate-700">
-                Tình hình thực hiện nhiệm vụ tuần qua:
-              </p>
+      {/* Tabs: nội dung giao ban | số liệu tuần */}
+      <div role="tablist" aria-label="Phần của báo cáo tuần" className="flex gap-1 border-b border-slate-200">
+        {([
+          ['content', 'Nội dung giao ban'],
+          ['stats', 'Số liệu tuần'],
+        ] as const).map(([key, label]) => (
+          <button
+            key={key}
+            type="button"
+            role="tab"
+            aria-selected={activeTab === key}
+            onClick={() => setActiveTab(key)}
+            className={`-mb-px border-b-2 px-3 min-h-[44px] sm:min-h-[36px] text-sm font-semibold transition-colors ${
+              activeTab === key ? 'border-blue-600 text-blue-700' : 'border-transparent text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {/* Kept mounted (hidden) so autosave timers and editors are not torn down when switching tabs */}
+      <div role="tabpanel" className={activeTab === 'content' ? 'space-y-3' : 'hidden'}>
+        {/* Mục 1 + Gợi ý Công việc */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 items-start">
+          <section className="lg:col-span-8 rounded-xl border border-slate-200 bg-white p-3 sm:p-4 sm:p-4 shadow-sm space-y-3">
+            <div className="space-y-3">
+              <div>
+                <h2 className="text-base font-bold text-slate-900">
+                  {report.unitHeading || config.unitHeading || '1. KHTH'}
+                </h2>
+                <p className="text-sm font-medium text-slate-700">
+                  Tình hình thực hiện nhiệm vụ tuần qua:
+                </p>
+              </div>
+
+              <WorkItemOutliner
+                items={workItems}
+                onChange={handleWorkItemsChange}
+                editable={editable}
+              />
             </div>
 
-            <WorkItemOutliner
-              items={workItems}
-              onChange={handleWorkItemsChange}
+            <div className="border-t border-slate-200 pt-4">
+              <AdvisoryList weekId={weekId} editable={editable} />
+            </div>
+          </section>
+
+          <div className="lg:col-span-4 lg:sticky lg:top-4">
+            <TaskSuggestions
+              periodStart={report.periodStart}
+              periodEnd={report.periodEnd}
+              workItems={workItems}
+              onAddTask={handleAddTaskSuggestion}
               editable={editable}
             />
           </div>
+        </div>
 
-          <div className="border-t border-slate-200 pt-4">
-            <AdvisoryList weekId={weekId} editable={editable} />
-          </div>
+        {/* Mục 2: Ý kiến */}
+        <section className="rounded-xl border border-slate-200 bg-white p-3 sm:p-4 sm:p-4 shadow-sm space-y-3">
+          <h2 className="text-base font-bold text-slate-900">{RICH_SECTION_LABELS.opinions}</h2>
+          <RichEditor
+            value={sectionsState.opinions?.docJson ?? null}
+            onChange={(json, plain) => handleSectionChange('opinions', json, plain)}
+            weekId={weekId}
+            section="opinions"
+            editable={editable}
+            placeholder="Ghi ý kiến chỉ đạo, góp ý hoặc dán ảnh chụp công văn…"
+          />
         </section>
 
-        <div className="lg:col-span-4 lg:sticky lg:top-4">
-          <TaskSuggestions
-            periodStart={report.periodStart}
-            periodEnd={report.periodEnd}
-            workItems={workItems}
-            onAddTask={handleAddTaskSuggestion}
+        {/* Mục 3: Tuần tới */}
+        <section className="rounded-xl border border-slate-200 bg-white p-3 sm:p-4 sm:p-4 shadow-sm space-y-3">
+          <h2 className="text-base font-bold text-slate-900">{RICH_SECTION_LABELS.nextWeek}</h2>
+          <RichEditor
+            value={sectionsState.nextWeek?.docJson ?? null}
+            onChange={(json, plain) => handleSectionChange('nextWeek', json, plain)}
+            weekId={weekId}
+            section="nextWeek"
             editable={editable}
+            placeholder="Nhập dự kiến công việc, trọng tâm tuần tới…"
           />
-        </div>
+        </section>
+
+        {/* Nút bật 2 mục tuỳ chọn */}
+        {editable && (!proposedEnabled || !deputyEnabled) && (
+          <div className="flex flex-wrap items-center gap-2 rounded-xl border border-dashed border-slate-300 bg-white px-4 py-3 text-sm">
+            <span className="font-medium text-slate-700 mr-1">+ Thêm mục:</span>
+            {!proposedEnabled && (
+              <button
+                type="button"
+                onClick={() => void handleEnableOptionalSection('proposedSchedule')}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-slate-50 px-3 py-1.5 min-h-[44px] sm:min-h-[32px] text-sm font-medium text-slate-800 hover:bg-slate-100 transition-colors"
+              >
+                <Plus className="h-4 w-4" />
+                <span>{RICH_SECTION_LABELS.proposedSchedule}</span>
+              </button>
+            )}
+            {!deputyEnabled && (
+              <button
+                type="button"
+                onClick={() => void handleEnableOptionalSection('deputyOpinions')}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-slate-50 px-3 py-1.5 min-h-[44px] sm:min-h-[32px] text-sm font-medium text-slate-800 hover:bg-slate-100 transition-colors"
+              >
+                <Plus className="h-4 w-4" />
+                <span>{deputyLabel}</span>
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Mục tuỳ chọn: Đề xuất lịch tuần tới */}
+        {proposedEnabled && (
+          <section className="rounded-xl border border-slate-200 bg-white p-3 sm:p-4 sm:p-4 shadow-sm space-y-3">
+            <div className="flex items-center justify-between gap-2">
+              <h2 className="text-base font-bold text-slate-900">
+                {RICH_SECTION_LABELS.proposedSchedule}
+              </h2>
+              {editable && (
+                <button
+                  type="button"
+                  onClick={() => setConfirmRemoveSection('proposedSchedule')}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-white px-3 py-1.5 min-h-[44px] sm:min-h-[32px] text-xs font-medium text-red-700 hover:bg-red-50 transition-colors"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  <span>Xoá mục</span>
+                </button>
+              )}
+            </div>
+            <RichEditor
+              value={sectionsState.proposedSchedule?.docJson ?? null}
+              onChange={(json, plain) => handleSectionChange('proposedSchedule', json, plain)}
+              weekId={weekId}
+              section="proposedSchedule"
+              editable={editable}
+              placeholder="Nhập đề xuất lịch họp, lịch công tác tuần tới…"
+            />
+          </section>
+        )}
+
+        {/* Mục tuỳ chọn: Ý kiến PGĐ */}
+        {deputyEnabled && (
+          <section className="rounded-xl border border-slate-200 bg-white p-3 sm:p-4 sm:p-4 shadow-sm space-y-3">
+            <div className="flex items-center justify-between gap-2">
+              <h2 className="text-base font-bold text-slate-900">{deputyLabel}</h2>
+              {editable && (
+                <button
+                  type="button"
+                  onClick={() => setConfirmRemoveSection('deputyOpinions')}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-white px-3 py-1.5 min-h-[44px] sm:min-h-[32px] text-xs font-medium text-red-700 hover:bg-red-50 transition-colors"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  <span>Xoá mục</span>
+                </button>
+              )}
+            </div>
+            <RichEditor
+              value={sectionsState.deputyOpinions?.docJson ?? null}
+              onChange={(json, plain) => handleSectionChange('deputyOpinions', json, plain)}
+              weekId={weekId}
+              section="deputyOpinions"
+              editable={editable}
+              placeholder={`Nhập ${deputyLabel.toLowerCase()}…`}
+            />
+          </section>
+        )}
+
       </div>
 
-      {/* Mục 2: Ý kiến */}
-      <section className="rounded-xl border border-slate-200 bg-white p-3 sm:p-4 sm:p-4 shadow-sm space-y-3">
-        <h2 className="text-base font-bold text-slate-900">{RICH_SECTION_LABELS.opinions}</h2>
-        <RichEditor
-          value={sectionsState.opinions?.docJson ?? null}
-          onChange={(json, plain) => handleSectionChange('opinions', json, plain)}
+      <div role="tabpanel" className={activeTab === 'stats' ? 'space-y-3' : 'hidden'}>
+        {/* Số liệu tuần bcsolieu */}
+        <WeeklyStatsPanel
           weekId={weekId}
-          section="opinions"
+          periodStart={report.periodStart}
+          periodEnd={report.periodEnd}
+          statsSnapshotJson={report.statsSnapshotJson}
+          statsFetchedAt={report.statsFetchedAt}
           editable={editable}
-          placeholder="Ghi ý kiến chỉ đạo, góp ý hoặc dán ảnh chụp công văn…"
         />
-      </section>
 
-      {/* Mục 3: Tuần tới */}
-      <section className="rounded-xl border border-slate-200 bg-white p-3 sm:p-4 sm:p-4 shadow-sm space-y-3">
-        <h2 className="text-base font-bold text-slate-900">{RICH_SECTION_LABELS.nextWeek}</h2>
-        <RichEditor
-          value={sectionsState.nextWeek?.docJson ?? null}
-          onChange={(json, plain) => handleSectionChange('nextWeek', json, plain)}
-          weekId={weekId}
-          section="nextWeek"
-          editable={editable}
-          placeholder="Nhập dự kiến công việc, trọng tâm tuần tới…"
-        />
-      </section>
-
-      {/* Nút bật 2 mục tuỳ chọn */}
-      {editable && (!proposedEnabled || !deputyEnabled) && (
-        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-dashed border-slate-300 bg-white px-4 py-3 text-sm">
-          <span className="font-medium text-slate-700 mr-1">+ Thêm mục:</span>
-          {!proposedEnabled && (
-            <button
-              type="button"
-              onClick={() => void handleEnableOptionalSection('proposedSchedule')}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-slate-50 px-3 py-1.5 min-h-[44px] sm:min-h-[32px] text-sm font-medium text-slate-800 hover:bg-slate-100 transition-colors"
-            >
-              <Plus className="h-4 w-4" />
-              <span>{RICH_SECTION_LABELS.proposedSchedule}</span>
-            </button>
-          )}
-          {!deputyEnabled && (
-            <button
-              type="button"
-              onClick={() => void handleEnableOptionalSection('deputyOpinions')}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-slate-50 px-3 py-1.5 min-h-[44px] sm:min-h-[32px] text-sm font-medium text-slate-800 hover:bg-slate-100 transition-colors"
-            >
-              <Plus className="h-4 w-4" />
-              <span>{deputyLabel}</span>
-            </button>
-          )}
-        </div>
-      )}
-
-      {/* Mục tuỳ chọn: Đề xuất lịch tuần tới */}
-      {proposedEnabled && (
-        <section className="rounded-xl border border-slate-200 bg-white p-3 sm:p-4 sm:p-4 shadow-sm space-y-3">
-          <div className="flex items-center justify-between gap-2">
-            <h2 className="text-base font-bold text-slate-900">
-              {RICH_SECTION_LABELS.proposedSchedule}
-            </h2>
-            {editable && (
-              <button
-                type="button"
-                onClick={() => setConfirmRemoveSection('proposedSchedule')}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-white px-3 py-1.5 min-h-[44px] sm:min-h-[32px] text-xs font-medium text-red-700 hover:bg-red-50 transition-colors"
-              >
-                <Trash2 className="h-4 w-4" />
-                <span>Xoá mục</span>
-              </button>
-            )}
-          </div>
-          <RichEditor
-            value={sectionsState.proposedSchedule?.docJson ?? null}
-            onChange={(json, plain) => handleSectionChange('proposedSchedule', json, plain)}
-            weekId={weekId}
-            section="proposedSchedule"
-            editable={editable}
-            placeholder="Nhập đề xuất lịch họp, lịch công tác tuần tới…"
-          />
-        </section>
-      )}
-
-      {/* Mục tuỳ chọn: Ý kiến PGĐ */}
-      {deputyEnabled && (
-        <section className="rounded-xl border border-slate-200 bg-white p-3 sm:p-4 sm:p-4 shadow-sm space-y-3">
-          <div className="flex items-center justify-between gap-2">
-            <h2 className="text-base font-bold text-slate-900">{deputyLabel}</h2>
-            {editable && (
-              <button
-                type="button"
-                onClick={() => setConfirmRemoveSection('deputyOpinions')}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-white px-3 py-1.5 min-h-[44px] sm:min-h-[32px] text-xs font-medium text-red-700 hover:bg-red-50 transition-colors"
-              >
-                <Trash2 className="h-4 w-4" />
-                <span>Xoá mục</span>
-              </button>
-            )}
-          </div>
-          <RichEditor
-            value={sectionsState.deputyOpinions?.docJson ?? null}
-            onChange={(json, plain) => handleSectionChange('deputyOpinions', json, plain)}
-            weekId={weekId}
-            section="deputyOpinions"
-            editable={editable}
-            placeholder={`Nhập ${deputyLabel.toLowerCase()}…`}
-          />
-        </section>
-      )}
-
-      {/* Số liệu tuần bcsolieu */}
-      <WeeklyStatsPanel
-        weekId={weekId}
-        periodStart={report.periodStart}
-        periodEnd={report.periodEnd}
-        statsSnapshotJson={report.statsSnapshotJson}
-        statsFetchedAt={report.statsFetchedAt}
-        editable={editable}
-      />
+      </div>
 
       {/* Thanh chốt / mở lại tuần */}
       <FinalizeBar

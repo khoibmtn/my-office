@@ -12,10 +12,29 @@ export interface WeeklyStatsRow {
   label: string
   prev: number | null
   curr: number | null
+  // Display metadata from bcsolieu (optional — older snapshots lack it)
+  key?: string
+  groupKey?: string
+  parent?: string
+  style?: string
+  labelMain?: string
+  labelSub?: string
+  bold?: boolean
+  italic?: boolean
+  numItalic?: boolean
+  decimals?: number
+  inside?: boolean
+}
+
+export interface WeeklyStatsGroup {
+  key: string
+  name: string
+  bedNote: string | null
 }
 
 export interface WeeklyStatsData {
   rows: WeeklyStatsRow[]
+  groups?: WeeklyStatsGroup[]
   prevRange: { from: string; to: string } | null
   currRange: { from: string; to: string } | null
 }
@@ -27,6 +46,7 @@ export function parseStatsSnapshot(json: string | null | undefined): WeeklyStats
     if (!parsed || !Array.isArray(parsed.rows)) return null
     return {
       rows: parsed.rows,
+      groups: parsed.groups ?? [],
       prevRange: parsed.prevRange ?? null,
       currRange: parsed.currRange ?? null,
     }
@@ -231,77 +251,161 @@ export function WeeklyStatsPanel({
           Không có dòng số liệu nào trong kỳ này.
         </div>
       ) : (
-        <div className="space-y-2">
-          {(snapshot.prevRange || snapshot.currRange) && (
-            <p className="text-xs text-slate-600">
-              {snapshot.prevRange && (
-                <span>
-                  Tuần trước: {formatDMY(snapshot.prevRange.from)}–{formatDMY(snapshot.prevRange.to)}
-                </span>
-              )}
-              {snapshot.prevRange && snapshot.currRange && <span> · </span>}
-              {snapshot.currRange && (
-                <span>
-                  Tuần này: {formatDMY(snapshot.currRange.from)}–{formatDMY(snapshot.currRange.to)}
-                </span>
-              )}
-            </p>
-          )}
+        <StatsBoards data={snapshot} />
+      )}
+    </section>
+  )
+}
 
-          <div className="overflow-x-auto rounded-lg border border-slate-200">
-            <table className="w-full border-collapse text-sm">
-              <thead>
-                <tr className="border-b border-slate-200 bg-slate-50 text-left text-slate-700">
-                  <th className="px-3 py-1.5 font-semibold">Chỉ tiêu</th>
-                  <th className="px-3 py-1.5 text-right font-semibold whitespace-nowrap">
-                    Tuần trước
-                  </th>
-                  <th className="px-3 py-1.5 text-right font-semibold whitespace-nowrap">
-                    Tuần này
-                  </th>
-                  <th className="px-3 py-1.5 text-right font-semibold whitespace-nowrap">
-                    Chênh lệch
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {groupedRows.map(([groupName, rows]) => (
-                  <React.Fragment key={groupName}>
-                    <tr className="bg-slate-100/80 border-b border-slate-200">
-                      <td
-                        colSpan={4}
-                        className="px-3 py-1.5 text-xs font-bold uppercase tracking-wide text-slate-700"
-                      >
-                        {groupName}
-                      </td>
+// ===== Visual boards (mirrors bcsolieu /bao-cao-tuan) =====
+
+const ACCENTS: Record<string, string> = {
+  BENH_VIEN: 'bg-blue-950',
+  MINH_DUC: 'bg-teal-900',
+  QUANG_THANH: 'bg-indigo-950',
+}
+const ACCENT_FALLBACK = ['bg-slate-900', 'bg-emerald-900', 'bg-indigo-900', 'bg-sky-900']
+
+function fmt(v: number | null | undefined, decimals = 0): string {
+  if (v === null || v === undefined || Number.isNaN(v)) return '—'
+  return new Intl.NumberFormat('vi-VN', { minimumFractionDigits: decimals, maximumFractionDigits: decimals }).format(v)
+}
+
+function DeltaBadge({ prev, curr, decimals = 0 }: { prev: number | null; curr: number | null; decimals?: number }) {
+  if (prev === null || curr === null || prev === curr) {
+    return <span className="text-xs text-slate-400" aria-label="Không đổi">—</span>
+  }
+  const up = curr > prev
+  const diff = fmt(Math.abs(curr - prev), decimals)
+  return (
+    <span
+      className={`inline-flex items-center gap-0.5 whitespace-nowrap rounded px-1.5 py-0.5 text-xs font-semibold tabular-nums ring-1 ${
+        up ? 'bg-emerald-50 text-emerald-700 ring-emerald-600/20' : 'bg-orange-50 text-orange-700 ring-orange-600/20'
+      }`}
+    >
+      {up ? '↗ +' : '↘ −'}
+      {diff}
+    </span>
+  )
+}
+
+function StatsBoards({ data }: { data: WeeklyStatsData }) {
+  const groups = useMemo(() => {
+    const order: WeeklyStatsGroup[] = data.groups?.length
+      ? data.groups
+      : Array.from(new Set(data.rows.map((r) => r.group))).map((name) => ({ key: name, name, bedNote: null }))
+    return order.map((g, i) => ({
+      ...g,
+      accent: ACCENTS[g.key] ?? ACCENT_FALLBACK[i % ACCENT_FALLBACK.length],
+      rows: data.rows.filter((r) => (r.groupKey ? r.groupKey === g.key : r.group === g.name)),
+    }))
+  }, [data])
+  const [filter, setFilter] = useState<string>('ALL')
+  const shown = filter === 'ALL' ? groups : groups.filter((g) => g.key === filter)
+  const range = (r: { from: string; to: string } | null) =>
+    r ? `${r.from.slice(8, 10)}/${r.from.slice(5, 7)}–${r.to.slice(8, 10)}/${r.to.slice(5, 7)}` : ''
+
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center gap-1.5 max-md:flex-nowrap max-md:overflow-x-auto max-md:pb-1">
+        {[{ key: 'ALL', name: `Tất cả khối (${groups.length})`, count: null as number | null }, ...groups.map((g) => ({ key: g.key, name: g.name, count: g.rows.length }))].map((chip) => (
+          <button
+            key={chip.key}
+            type="button"
+            onClick={() => setFilter(chip.key)}
+            className={`shrink-0 rounded-md border px-2.5 min-h-[36px] sm:min-h-[28px] text-xs font-semibold uppercase ${
+              filter === chip.key ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+            }`}
+          >
+            {chip.name}
+            {chip.count !== null && <span className="ml-1 font-normal opacity-70">{chip.count}</span>}
+          </button>
+        ))}
+      </div>
+
+      <div className={`grid grid-cols-1 gap-3 ${filter === 'ALL' && shown.length >= 3 ? 'xl:grid-cols-3 lg:grid-cols-2' : filter === 'ALL' && shown.length === 2 ? 'lg:grid-cols-2' : ''}`}>
+        {shown.map((g) => {
+          const parentIds = new Set(g.rows.map((r) => r.parent).filter(Boolean) as string[])
+          const byKey = new Map(g.rows.map((r) => [r.key ?? r.label, r]))
+          const up = g.rows.filter((r) => r.prev !== null && r.curr !== null && r.curr > r.prev).length
+          const down = g.rows.filter((r) => r.prev !== null && r.curr !== null && r.curr < r.prev).length
+          return (
+            <section key={g.key} aria-label={`Khối ${g.name}`} className="self-start overflow-hidden rounded-lg border border-slate-300 bg-white">
+              <div className={`flex items-center justify-between gap-2 px-3 py-2 ${g.accent}`}>
+                <div className="flex items-baseline gap-2">
+                  <h3 className="text-sm font-bold uppercase tracking-wide text-white">{g.name}</h3>
+                  {g.bedNote && (
+                    <span className="rounded border border-white/30 bg-white/10 px-1.5 py-0.5 text-[11px] font-semibold text-white/90">
+                      {g.bedNote.replace(/^\(|\)$/g, '')}
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-1 text-xs tabular-nums">
+                  <span className="rounded bg-emerald-500/20 px-1.5 py-0.5 font-semibold text-emerald-200 ring-1 ring-emerald-400/30" title="Số chỉ tiêu tăng">↑ {up}</span>
+                  <span className="rounded bg-orange-500/20 px-1.5 py-0.5 font-semibold text-orange-200 ring-1 ring-orange-400/30" title="Số chỉ tiêu giảm">↓ {down}</span>
+                </div>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse text-[13px] leading-snug">
+                  <thead>
+                    <tr className="border-b border-slate-300 bg-slate-100 text-slate-900">
+                      <th className="px-2.5 py-1.5 text-left text-[11px] font-bold uppercase">Danh mục</th>
+                      <th className="w-[70px] px-2 py-1.5 text-right text-[11px] font-bold">
+                        Tuần 1<div className="font-normal text-slate-500">{range(data.prevRange)}</div>
+                      </th>
+                      <th className="w-[76px] px-2 py-1.5 text-right text-[11px] font-bold text-blue-900">
+                        Tuần 2<div className="font-normal text-blue-700">{range(data.currRange)}</div>
+                      </th>
+                      <th className="w-[72px] px-2 py-1.5 text-right text-[11px] font-bold uppercase">Δ</th>
                     </tr>
-                    {rows.map((row, rIdx) => {
-                      const diff = formatStatDiff(row.prev, row.curr)
+                  </thead>
+                  <tbody className="divide-y divide-slate-200/80">
+                    {g.rows.map((r, i) => {
+                      const isGroup = r.style === 'tong_dam' || r.bold === true || (!!r.key && parentIds.has(r.key))
+                      const isChild = !isGroup && (!!r.parent || r.style === 'con_nghieng')
+                      const italic = r.italic ?? r.style === 'thuong_nghieng'
+                      const parent = r.parent ? byKey.get(r.parent) : undefined
+                      let bar = 0
+                      if (parent && parent.curr && parent.curr > 0 && r.curr !== null) bar = Math.min(100, Math.round((r.curr / parent.curr) * 100))
+                      else if ((r.prev ?? 0) > 0 || (r.curr ?? 0) > 0) bar = Math.max(6, Math.round(((r.curr ?? 0) / Math.max(r.prev ?? 0, r.curr ?? 0, 1)) * 100))
+                      const barColor = r.prev !== null && r.curr !== null && r.curr > r.prev ? 'bg-emerald-500' : r.prev !== null && r.curr !== null && r.curr < r.prev ? 'bg-orange-500' : 'bg-blue-500'
                       return (
-                        <tr
-                          key={`${groupName}-${rIdx}`}
-                          className="border-b border-slate-100 last:border-b-0 hover:bg-slate-50/70"
-                        >
-                          <td className="px-3 py-2 text-slate-900">{row.label}</td>
-                          <td className="px-3 py-2 text-right tabular-nums text-slate-700">
-                            {formatStatNumber(row.prev)}
+                        <tr key={r.key ?? `${g.key}-${i}`} className={isGroup ? 'bg-slate-100/80' : 'bg-white hover:bg-slate-50'}>
+                          <td className={`py-1.5 pr-2 align-middle ${isChild ? 'pl-5 font-normal text-slate-700' : 'pl-2.5'} ${isGroup ? 'font-bold text-slate-900' : !isChild ? 'font-medium text-slate-900' : ''} ${italic ? 'italic' : ''}`}>
+                            {isChild && <span aria-hidden className="mr-1 text-xs text-slate-400">└</span>}
+                            {r.labelSub ? (
+                              <>
+                                <span className={isGroup ? 'font-bold' : 'font-semibold'}>{r.labelMain}</span>{' '}
+                                <span className="text-xs font-normal text-slate-500">{r.labelSub}</span>
+                              </>
+                            ) : (
+                              r.label
+                            )}
                           </td>
-                          <td className="px-3 py-2 text-right tabular-nums font-medium text-slate-900">
-                            {formatStatNumber(row.curr)}
+                          <td className={`px-2 py-1.5 text-right align-middle tabular-nums ${isGroup ? 'font-bold text-slate-900' : 'text-slate-700'} ${r.numItalic ? 'italic' : ''}`}>
+                            {fmt(r.prev, r.decimals)}
                           </td>
-                          <td className={`px-3 py-2 text-right tabular-nums ${diff.toneClass}`}>
-                            {diff.text}
+                          <td className={`px-2 py-1.5 text-right align-middle tabular-nums ${isGroup ? 'font-bold text-blue-800' : 'font-semibold text-blue-700'} ${r.numItalic ? 'italic' : ''}`}>
+                            <div>{fmt(r.curr, r.decimals)}</div>
+                            {bar > 0 && (
+                              <div aria-hidden className="ml-auto mt-0.5 h-1 w-12 overflow-hidden rounded-full bg-slate-200">
+                                <div className={`h-full rounded-full ${barColor}`} style={{ width: `${bar}%` }} />
+                              </div>
+                            )}
+                          </td>
+                          <td className="px-2 py-1.5 text-right align-middle">
+                            <DeltaBadge prev={r.prev} curr={r.curr} decimals={r.decimals} />
                           </td>
                         </tr>
                       )
                     })}
-                  </React.Fragment>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-    </section>
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          )
+        })}
+      </div>
+    </div>
   )
 }

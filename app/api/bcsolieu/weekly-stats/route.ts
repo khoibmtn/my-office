@@ -41,7 +41,7 @@ export async function GET(request: Request) {
     const d = json.data ?? json // bcsolieu returns fields at top level
     return NextResponse.json({
       ok: true,
-      data: { rows: d.rows ?? [], prevRange: d.prevRange ?? null, currRange: d.currRange ?? null },
+      data: { rows: d.rows ?? [], groups: d.groups ?? [], prevRange: d.prevRange ?? null, currRange: d.currRange ?? null },
     })
   } catch {
     return NextResponse.json({ ok: false, message: 'Không kết nối được bcsolieu (quá 20 giây)' }, { status: 504 })
