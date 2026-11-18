@@ -251,7 +251,18 @@ export function WeeklyStatsPanel({
           Không có dòng số liệu nào trong kỳ này.
         </div>
       ) : (
-        <StatsBoards data={snapshot} />
+        <>
+          {!snapshot.rows.some((r) => r.groupKey) && (
+            <div role="status" className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+              <span>
+                Bản số liệu này lấy bằng phiên bản cũ nên chưa có dòng tổng / dòng con.
+                {editable ? <> Bấm <strong>&ldquo;Cập nhật số liệu&rdquo;</strong> để hiển thị đúng như trang Báo cáo tuần.</> : null}
+              </span>
+            </div>
+          )}
+          <StatsBoards data={snapshot} />
+        </>
       )}
     </section>
   )
