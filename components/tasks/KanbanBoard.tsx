@@ -372,7 +372,7 @@ export function KanbanBoard({ tasks, allTasks, actorId, actorName }: KanbanBoard
                       </div>
                       <div className="flex items-center gap-1 shrink-0">
                         <TaskPriorityBadge priority={task.priority} size="sm" showLabel={true} />
-                        <div className="relative md:hidden" onClick={(e) => e.stopPropagation()}>
+                        <div className="relative" onClick={(e) => e.stopPropagation()}>
                           <button
                             type="button"
                             aria-label="Chuyển trạng thái"
@@ -382,7 +382,7 @@ export function KanbanBoard({ tasks, allTasks, actorId, actorName }: KanbanBoard
                               e.stopPropagation()
                               setOpenMenuTaskId(prev => (prev === task.id ? null : task.id))
                             }}
-                            className="min-w-[40px] min-h-[40px] w-10 h-10 -mr-2 -my-2 inline-flex items-center justify-center rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-100 active:bg-slate-200 transition-colors"
+                            className="min-w-[44px] min-h-[44px] w-11 h-11 md:min-w-[32px] md:min-h-[32px] md:w-8 md:h-8 -mr-2 -my-2 inline-flex items-center justify-center rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-100 active:bg-slate-200 transition-colors"
                           >
                             <span className="text-base font-bold leading-none">⋯</span>
                           </button>
@@ -406,7 +406,7 @@ export function KanbanBoard({ tasks, allTasks, actorId, actorName }: KanbanBoard
                                       setOpenMenuTaskId(null)
                                       void executeStatusTransition(task, nextStatus)
                                     }}
-                                    className="w-full min-h-[40px] px-3 py-2 text-left text-xs font-medium text-slate-700 hover:bg-slate-50 active:bg-slate-100 flex items-center gap-2 transition-colors"
+                                    className="w-full min-h-[44px] md:min-h-[36px] px-3 py-2 text-left text-sm md:text-xs font-medium text-slate-700 hover:bg-slate-50 active:bg-slate-100 flex items-center gap-2 transition-colors"
                                   >
                                     <span className={`w-2 h-2 rounded-full shrink-0 ${statusColors.dot}`} />
                                     <span>{TASK_STATUS_LABELS[nextStatus]}</span>
@@ -508,9 +508,9 @@ export function KanbanBoard({ tasks, allTasks, actorId, actorName }: KanbanBoard
               })}
 
               {columnTasks.length === 0 && (
-                <div className="text-center py-10 px-4 rounded-lg border-2 border-dashed border-slate-200 text-xs text-slate-400">
-                  <span className="hidden md:inline">Kéo thả công việc vào đây</span>
-                  <span className="md:hidden">Chạm ⋯ để chuyển trạng thái</span>
+                <div className="text-center py-10 px-4 rounded-lg border-2 border-dashed border-slate-200 text-xs text-slate-500">
+                  <span className="hidden md:inline">Không có việc ở cột này · Kéo thả thẻ hoặc bấm ⋯ để chuyển trạng thái</span>
+                  <span className="md:hidden">Không có việc ở cột này · Chạm ⋯ trên thẻ để chuyển trạng thái</span>
                 </div>
               )}
             </div>

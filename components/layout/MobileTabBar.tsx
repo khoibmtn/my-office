@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useGlobalData } from '@/contexts/GlobalDataProvider'
 import { usePathname, useRouter } from 'next/navigation'
-import { FileText, CheckSquare, Folder, LayoutDashboard, PlusCircle } from 'lucide-react'
+import { FileText, CheckSquare, Folder, LayoutDashboard, PlusCircle, ClipboardList } from 'lucide-react'
 
 export interface MobileNavItem {
   href: string
@@ -19,6 +19,7 @@ interface MobileTabBarProps {
 
 const BOTTOM_TABS: MobileNavItem[] = [
   { href: '/documents', icon: FileText, label: 'Văn bản' },
+  { href: '/weekly-reports', icon: ClipboardList, label: 'Giao ban' },
   { href: '/tasks', icon: CheckSquare, label: 'Công việc' },
   { href: '/dossiers', icon: Folder, label: 'Hồ sơ' },
   { href: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },

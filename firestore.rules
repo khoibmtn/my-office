@@ -6,6 +6,34 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    // ===== Giao ban tuần (chỉ tài khoản admin) — docs/WEEKLY_REPORT_PLAN.md §5.5 =====
+    function isOwnerAdmin() {
+      return request.auth != null
+        && request.auth.token.email == 'khoibm.tn@gmail.com'
+        && request.auth.token.email_verified == true;
+    }
+    match /weeklyReports/{weekId} {
+      allow read, write: if isOwnerAdmin();
+      match /snapshots/{snapId} {
+        allow read, create: if isOwnerAdmin();
+        allow update, delete: if false;
+      }
+    }
+    match /advisoryDocs/{advId} {
+      allow read, write: if isOwnerAdmin();
+    }
+    match /weeklyReportConfig/{cfgId} {
+      allow read, write: if isOwnerAdmin();
+    }
+    match /weeklyReportImages/{imgId} {
+      allow read: if isOwnerAdmin();
+      allow write: if false;
+    }
+    match /coworkAccessLogs/{logId} {
+      allow read: if isOwnerAdmin();
+      allow write: if false;
+    }
+
     // Documents & Attachments
     match /documents/{docId} {
       allow read, write: if isAuthenticated();

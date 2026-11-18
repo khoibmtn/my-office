@@ -1,49 +1,21 @@
 'use client'
 
-import React, { useState, useEffect, useMemo } from 'react'
+import React, { Suspense } from 'react'
 import { Loader2 } from 'lucide-react'
-import { useTasks, isVisibleTask } from '@/hooks/useTasks'
-import { useRole } from '@/hooks/useRole'
-import { KanbanBoard } from '@/components/tasks/KanbanBoard'
+import { TasksWorkspace } from '@/components/tasks/TasksWorkspace'
+
+function TasksFallback() {
+  return (
+    <div className="flex items-center justify-center py-20">
+      <Loader2 className="w-6 h-6 animate-spin text-slate-400" />
+    </div>
+  )
+}
 
 export default function KanbanPage() {
-  const { staffId, staffName } = useRole()
-  const { tasks, loading } = useTasks({ view: 'all' })
-
-  const [now, setNow] = useState(() => Date.now())
-  useEffect(() => {
-    const timer = setInterval(() => setNow(Date.now()), 60_000)
-    return () => clearInterval(timer)
-  }, [])
-
-  const visibleTasks = useMemo(() => {
-    return tasks.filter((t) => isVisibleTask(t, now))
-  }, [tasks, now])
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <Loader2 className="w-6 h-6 animate-spin text-slate-400" />
-      </div>
-    )
-  }
-
   return (
-    <div className="p-4 lg:p-6 h-[calc(100dvh-56px-4rem-env(safe-area-inset-bottom))] lg:h-[calc(100dvh-56px)] flex flex-col">
-      <div className="mb-4">
-        <h1 className="text-xl font-bold text-slate-900">Kanban</h1>
-        <p className="hidden md:block text-sm text-slate-500">Kéo thả để chuyển trạng thái công việc</p>
-        <p className="md:hidden text-sm text-slate-500">Chạm ⋯ để chuyển trạng thái</p>
-      </div>
-
-      <div className="flex-1 overflow-hidden">
-        <KanbanBoard
-          tasks={visibleTasks}
-          allTasks={tasks}
-          actorId={staffId || 'unknown'}
-          actorName={staffName || 'Unknown'}
-        />
-      </div>
-    </div>
+    <Suspense fallback={<TasksFallback />}>
+      <TasksWorkspace initialMode="kanban" />
+    </Suspense>
   )
 }

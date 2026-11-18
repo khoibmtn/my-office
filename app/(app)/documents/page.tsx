@@ -1,12 +1,17 @@
 'use client'
 
-import React, { Suspense } from 'react'
+import React, { Suspense, useState } from 'react'
 import { useDocuments } from '@/hooks/useDocuments'
+import { useRole } from '@/hooks/useRole'
 import { DocumentTable } from '@/components/documents/DocumentTable'
+import { AdvisoryForm } from '@/components/weekly-report/AdvisoryForm'
 import { Skeleton } from '@/components/ui/skeleton'
+import type { Document } from '@/types'
 
 function DocumentsContent() {
   const { documents, loading } = useDocuments()
+  const { isAdmin } = useRole()
+  const [adviseDoc, setAdviseDoc] = useState<Document | null>(null)
 
   if (loading) {
     return (
@@ -31,7 +36,14 @@ function DocumentsContent() {
 
   return (
     <main className="p-4 lg:p-6 xl:p-8">
-      <DocumentTable documents={documents} />
+      <DocumentTable documents={documents} onAdvise={isAdmin ? setAdviseDoc : undefined} />
+      {isAdmin && (
+        <AdvisoryForm
+          open={!!adviseDoc}
+          onClose={() => setAdviseDoc(null)}
+          sourceDocument={adviseDoc}
+        />
+      )}
     </main>
   )
 }

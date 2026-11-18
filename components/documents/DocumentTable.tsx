@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react'
-import { Loader2, Trash2, Eye, RefreshCw, CheckCircle2, Clock, CircleDot, Search, Pencil, ArrowUpDown, ClipboardCopy, Calendar, ChevronLeft, ChevronRight, X, Folder, ArrowRightLeft, FolderPlus, User, ChevronDown, RotateCcw, FileText, Send, Check, ClipboardList } from 'lucide-react'
+import { Loader2, Trash2, Eye, RefreshCw, CheckCircle2, Clock, CircleDot, Search, Pencil, ArrowUpDown, ClipboardCopy, Calendar, ChevronLeft, ChevronRight, X, Folder, ArrowRightLeft, FolderPlus, User, ChevronDown, RotateCcw, FileText, Send, Check, ClipboardList, FilePlus2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
@@ -303,7 +303,7 @@ function toDateSafe(ts: any): Date | null {
 // === Mobile Card Component ===
 function DocumentCard({
   doc, idx, days, eff, rowClass, prio, searchQuery,
-  onToggleComplete, onView, onCreateTask, onDelete, onRetry, onAssign,
+  onToggleComplete, onView, onCreateTask, onAdvise, onDelete, onRetry, onAssign,
   retrying, deleting, staffList, perms, currentStaffId, getStaffName, settings,
 }: {
   doc: Document; idx: number; days: number | null;
@@ -313,6 +313,7 @@ function DocumentCard({
   onToggleComplete: (doc: Document) => void;
   onView: (id: string) => void;
   onCreateTask?: (doc: Document) => void;
+  onAdvise?: (doc: Document) => void;
   onDelete: (id: string, title: string) => void;
   onRetry: (doc: Document) => void;
   onAssign: (id: string, person: string) => void;
@@ -470,6 +471,15 @@ function DocumentCard({
                 <ClipboardList className="h-4 w-4" />
               </button>
             )}
+            {onAdvise && (
+              <button
+                onClick={() => onAdvise(doc)}
+                className="min-w-[44px] min-h-[44px] inline-flex items-center justify-center p-2 rounded-lg text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors"
+                title="Xử lý / Tham mưu văn bản này"
+              >
+                <FilePlus2 className="h-4 w-4" />
+              </button>
+            )}
             {perms.canEditDocument && (
               <Link
                 href={`/documents/${doc.id}/edit`}
@@ -566,7 +576,7 @@ function Pagination({
 
 // === Main Component ===
 
-export function DocumentTable({ documents, storagePrefix = 'myoffice_docTable', defaultFilterStatus = 'pending' }: { documents: Document[]; storagePrefix?: string; defaultFilterStatus?: string }) {
+export function DocumentTable({ documents, storagePrefix = 'myoffice_docTable', defaultFilterStatus = 'pending', onAdvise }: { documents: Document[]; storagePrefix?: string; defaultFilterStatus?: string; onAdvise?: (doc: Document) => void }) {
   // Helper to build localStorage keys scoped by storagePrefix
   const lsKey = (suffix: string) => `${storagePrefix}_${suffix}`
   const router = useRouter()
@@ -577,7 +587,7 @@ export function DocumentTable({ documents, storagePrefix = 'myoffice_docTable', 
   const staffList = useMemo(() => staff.filter(s => s.isActive), [staff])
   const settings = useSettings()
   const perms = usePermissions()
-  const { role, staffId: currentStaffId, isGuest, isStaff } = useRole()
+  const { role, isAdmin, staffId: currentStaffId, isGuest, isStaff } = useRole()
   const { dossiers } = useDossiers()
   const { tags: allTags } = useTags()
 
@@ -2133,6 +2143,15 @@ export function DocumentTable({ documents, storagePrefix = 'myoffice_docTable', 
                               >
                                 <ClipboardList className="h-3.5 w-3.5" />
                               </button>
+                              {isAdmin && onAdvise && (
+                                <button
+                                  onClick={() => onAdvise(doc)}
+                                  className="p-1 rounded-md text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors"
+                                  title="Xử lý / Tham mưu văn bản này"
+                                >
+                                  <FilePlus2 className="h-3.5 w-3.5" />
+                                </button>
+                              )}
                               {perms.canEditDocument && (
                                 <Link
                                   href={`/documents/${doc.id}/edit`}
@@ -2216,6 +2235,7 @@ export function DocumentTable({ documents, storagePrefix = 'myoffice_docTable', 
               onToggleComplete={handleToggleComplete}
               onView={setViewingId}
               onCreateTask={setCreateTaskDoc}
+              onAdvise={isAdmin ? onAdvise : undefined}
               onDelete={handleDelete}
               onRetry={handleRetry}
               onAssign={handleAssign}

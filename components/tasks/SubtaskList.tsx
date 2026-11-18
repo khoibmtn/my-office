@@ -462,19 +462,19 @@ export function SubtaskList({
                     )}
                   </div>
 
-                  {/* Action buttons on hover (always visible on touch/mobile via hover-reveal) */}
+                  {/* Action buttons — always visible (not hidden behind hover) */}
                   {canEdit && !isEditing && (
-                    <div className="flex items-center gap-0.5 ml-auto sm:ml-0 opacity-0 group-hover:opacity-100 hover-reveal max-lg:opacity-100 transition-opacity shrink-0">
+                    <div className="flex items-center gap-0.5 ml-auto sm:ml-0 shrink-0">
                       <button
                         type="button"
                         onClick={() => setExpandedMetaId(isExpanded ? null : subtask.id)}
                         title="Phân công / Hạn việc con"
                         aria-label="Phân công / Hạn việc con"
-                        className={`max-lg:min-w-[36px] max-lg:min-h-[36px] inline-flex items-center justify-center rounded p-1 ${
-                          isExpanded ? 'text-blue-600' : 'text-slate-400 hover:text-blue-600'
+                        className={`max-md:min-w-[44px] max-md:min-h-[44px] inline-flex items-center justify-center rounded p-1 ${
+                          isExpanded ? 'text-blue-600' : 'text-slate-500 hover:text-blue-600'
                         }`}
                       >
-                        <User className="w-3 h-3" />
+                        <User className="w-3.5 h-3.5" />
                       </button>
                       <button
                         type="button"
@@ -482,9 +482,9 @@ export function SubtaskList({
                         disabled={index === 0}
                         title="Di chuyển lên"
                         aria-label="Di chuyển lên"
-                        className="max-lg:min-w-[36px] max-lg:min-h-[36px] inline-flex items-center justify-center rounded p-1 text-slate-400 hover:text-slate-700 disabled:!opacity-30 disabled:cursor-not-allowed"
+                        className="max-md:min-w-[44px] max-md:min-h-[44px] inline-flex items-center justify-center rounded p-1 text-slate-500 hover:text-slate-800 disabled:!opacity-30 disabled:cursor-not-allowed"
                       >
-                        <ChevronUp className="w-3 h-3" />
+                        <ChevronUp className="w-3.5 h-3.5" />
                       </button>
                       <button
                         type="button"
@@ -492,27 +492,27 @@ export function SubtaskList({
                         disabled={index === localItems.length - 1}
                         title="Di chuyển xuống"
                         aria-label="Di chuyển xuống"
-                        className="max-lg:min-w-[36px] max-lg:min-h-[36px] inline-flex items-center justify-center rounded p-1 text-slate-400 hover:text-slate-700 disabled:!opacity-30 disabled:cursor-not-allowed"
+                        className="max-md:min-w-[44px] max-md:min-h-[44px] inline-flex items-center justify-center rounded p-1 text-slate-500 hover:text-slate-800 disabled:!opacity-30 disabled:cursor-not-allowed"
                       >
-                        <ChevronDown className="w-3 h-3" />
+                        <ChevronDown className="w-3.5 h-3.5" />
                       </button>
                       <button
                         type="button"
                         onClick={() => handleStartEdit(subtask)}
                         title="Sửa tên việc con"
                         aria-label="Sửa tên việc con"
-                        className="max-lg:min-w-[36px] max-lg:min-h-[36px] inline-flex items-center justify-center rounded p-1 text-slate-400 hover:text-blue-600"
+                        className="max-md:min-w-[44px] max-md:min-h-[44px] inline-flex items-center justify-center rounded p-1 text-slate-500 hover:text-blue-600"
                       >
-                        <Edit2 className="w-3 h-3" />
+                        <Edit2 className="w-3.5 h-3.5" />
                       </button>
                       <button
                         type="button"
                         onClick={() => handleDelete(subtask.id)}
                         title="Xóa việc con"
                         aria-label="Xóa việc con"
-                        className="max-lg:min-w-[36px] max-lg:min-h-[36px] inline-flex items-center justify-center rounded p-1 text-slate-400 hover:text-red-600"
+                        className="max-md:min-w-[44px] max-md:min-h-[44px] inline-flex items-center justify-center rounded p-1 text-slate-500 hover:text-red-600"
                       >
-                        <Trash2 className="w-3 h-3" />
+                        <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     </div>
                   )}

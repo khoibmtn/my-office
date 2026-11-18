@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
-import { Building2, Users, Shield, Tag, Settings, FolderSync, BellRing } from 'lucide-react'
+import { Building2, Users, Shield, Tag, Settings, FolderSync, BellRing, ClipboardList } from 'lucide-react'
 import { useRole } from '@/hooks/useRole'
 
 const SETTINGS_TABS = [
@@ -13,6 +13,7 @@ const SETTINGS_TABS = [
   { id: 'general', label: 'Chung', icon: Settings, href: '/settings/general' },
   { id: 'drive', label: 'Drive', icon: FolderSync, href: '/settings/drive' },
   { id: 'qlvb-watcher', label: 'QLVB Watcher', icon: BellRing, href: '/settings/qlvb-watcher' },
+  { id: 'weekly-report', label: 'Giao ban tuần', icon: ClipboardList, href: '/settings/weekly-report' },
 ] as const
 
 export default function SettingsLayout({ children }: { children: React.ReactNode }) {

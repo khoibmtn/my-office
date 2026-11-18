@@ -212,9 +212,12 @@ export function TaskTable({ tasks, emptyMessage = 'Không có công việc nào'
 
   if (tasks.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-16 text-slate-400">
+      <div className="flex flex-col items-center justify-center py-14 px-4 text-center text-slate-500">
         <div className="text-4xl mb-3">📋</div>
-        <p className="text-sm">{emptyMessage}</p>
+        <p className="text-base font-medium text-slate-700">{emptyMessage}</p>
+        <p className="text-sm text-slate-500 mt-1 max-w-md">
+          Gõ tiêu đề vào ô thêm nhanh phía trên và nhấn Enter để tạo công việc mới, hoặc điều chỉnh bộ lọc đang áp dụng.
+        </p>
       </div>
     )
   }
@@ -230,7 +233,7 @@ export function TaskTable({ tasks, emptyMessage = 'Không có công việc nào'
             <button
               key={badge.key}
               onClick={() => handleQuickFilter(badge.key)}
-              className={`inline-flex items-center gap-1 px-2 py-1 max-md:min-h-[40px] max-md:px-2.5 rounded-full text-[11px] font-medium border transition-all whitespace-nowrap shrink-0 ${
+              className={`inline-flex items-center gap-1 px-2.5 py-1 max-md:min-h-[44px] rounded-full text-xs font-medium border transition-all whitespace-nowrap shrink-0 ${
                 isActive ? badge.activeColor : badge.color
               } hover:shadow-sm`}
             >
@@ -246,7 +249,7 @@ export function TaskTable({ tasks, emptyMessage = 'Không có công việc nào'
         {quickFilter && (
           <button
             onClick={() => setQuickFilter(null)}
-            className="text-[11px] text-slate-400 hover:text-red-500 px-1.5 py-1 max-md:min-h-[40px] max-md:min-w-[40px] max-md:inline-flex max-md:items-center max-md:justify-center max-md:px-2.5 transition-colors whitespace-nowrap shrink-0"
+            className="text-xs text-slate-500 hover:text-red-600 px-2 py-1 max-md:min-h-[44px] max-md:min-w-[44px] max-md:inline-flex max-md:items-center max-md:justify-center max-md:px-2.5 transition-colors whitespace-nowrap shrink-0"
           >
             ✕ Bỏ lọc
           </button>
@@ -256,8 +259,8 @@ export function TaskTable({ tasks, emptyMessage = 'Không có công việc nào'
       {/* Mobile Card List (< sm) */}
       <div className="sm:hidden">
         {sortedTasks.length === 0 ? (
-          <div className="py-10 text-center text-slate-400 text-sm">
-            Không có công việc nào khớp bộ lọc
+          <div className="py-10 px-4 text-center text-slate-500 text-sm">
+            Không có công việc nào khớp bộ lọc — bấm &ldquo;✕ Bỏ lọc&rdquo; để xem toàn bộ.
           </div>
         ) : (
           <div className="divide-y divide-slate-100">
@@ -287,10 +290,10 @@ export function TaskTable({ tasks, emptyMessage = 'Không có công việc nào'
                   }`}
                 >
                   <div className="flex items-start gap-2">
-                    {/* Checkbox touch target >= 40x40px */}
+                    {/* Checkbox touch target >= 44x44px */}
                     <label
                       onClick={(e) => e.stopPropagation()}
-                      className="min-w-[40px] min-h-[40px] w-10 h-10 -ml-1.5 -mt-1 inline-flex items-center justify-center rounded-lg hover:bg-slate-100 shrink-0 cursor-pointer"
+                      className="min-w-[44px] min-h-[44px] w-11 h-11 -ml-2 -mt-1 inline-flex items-center justify-center rounded-lg hover:bg-slate-100 shrink-0 cursor-pointer"
                     >
                       <input
                         type="checkbox"
@@ -304,7 +307,7 @@ export function TaskTable({ tasks, emptyMessage = 'Không có công việc nào'
                     <div className="flex-1 min-w-0">
                       {/* Title + priority dot + recurring icon */}
                       <div className="flex items-start justify-between gap-2">
-                        <div className="font-medium text-sm text-slate-900 break-words leading-snug">
+                        <div className="font-medium text-base text-slate-900 break-words leading-snug">
                           {task.seriesId && (
                             <span
                               className="inline-flex items-center gap-0.5 text-[10px] text-violet-600 bg-violet-50 rounded px-1 py-0.5 mr-1.5 align-middle"
@@ -321,8 +324,13 @@ export function TaskTable({ tasks, emptyMessage = 'Không có công việc nào'
                       </div>
 
                       {/* Status badge */}
-                      <div className="mt-1.5">
+                      <div className="mt-1.5 flex items-center gap-1.5 flex-wrap">
                         <TaskStatusBadge status={task.status} derivedStates={derivedStates} />
+                        {task.weeklyReportWeekId && (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
+                            ✓ Giao ban
+                          </span>
+                        )}
                       </div>
 
                       {/* Assignee & Due date */}
@@ -462,8 +470,8 @@ export function TaskTable({ tasks, emptyMessage = 'Không có công việc nào'
         <tbody>
           {sortedTasks.length === 0 ? (
             <tr>
-              <td colSpan={7} className="py-10 text-center text-slate-400 text-sm">
-                Không có công việc nào khớp bộ lọc
+              <td colSpan={7} className="py-10 text-center text-slate-500 text-sm">
+                Không có công việc nào khớp bộ lọc — bấm &ldquo;✕ Bỏ lọc&rdquo; để xem toàn bộ.
               </td>
             </tr>
           ) : (
@@ -492,16 +500,21 @@ export function TaskTable({ tasks, emptyMessage = 'Không có công việc nào'
 
                   {/* Title + recurring badge */}
                   <td className="py-2.5 px-3">
-                    <div className="font-medium text-slate-900 group-hover:text-blue-600 transition-colors">
+                    <div className="text-base font-medium text-slate-900 group-hover:text-blue-600 transition-colors flex items-center gap-1.5 flex-wrap">
                       {task.seriesId && (
-                        <span className="inline-flex items-center gap-0.5 text-[10px] text-violet-600 bg-violet-50 rounded px-1 py-0.5 mr-1.5 align-middle" title="Định kỳ">
+                        <span className="inline-flex items-center gap-0.5 text-[10px] text-violet-600 bg-violet-50 rounded px-1 py-0.5 align-middle" title="Định kỳ">
                           <RefreshCw className="w-2.5 h-2.5" />
                         </span>
                       )}
-                      {task.title}
+                      <span>{task.title}</span>
+                      {task.weeklyReportWeekId && (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
+                          ✓ Giao ban
+                        </span>
+                      )}
                     </div>
                     {task.description && (
-                      <div className="text-xs text-slate-400 mt-0.5 line-clamp-1">{task.description}</div>
+                      <div className="text-sm text-slate-500 mt-0.5 line-clamp-1">{task.description}</div>
                     )}
                   </td>
 

@@ -121,7 +121,7 @@ export function TaskCalendar({ tasks }: TaskCalendarProps) {
             type="button"
             aria-label="Tháng trước"
             onClick={prevMonth}
-            className="p-1.5 max-md:min-w-[40px] max-md:min-h-[40px] max-md:inline-flex max-md:items-center max-md:justify-center rounded-lg hover:bg-slate-100 transition-colors"
+            className="p-1.5 max-md:min-w-[44px] max-md:min-h-[44px] max-md:inline-flex max-md:items-center max-md:justify-center rounded-lg hover:bg-slate-100 transition-colors"
           >
             <ChevronLeft className="w-4 h-4 text-slate-500" />
           </button>
@@ -130,7 +130,7 @@ export function TaskCalendar({ tasks }: TaskCalendarProps) {
             type="button"
             aria-label="Tháng sau"
             onClick={nextMonth}
-            className="p-1.5 max-md:min-w-[40px] max-md:min-h-[40px] max-md:inline-flex max-md:items-center max-md:justify-center rounded-lg hover:bg-slate-100 transition-colors"
+            className="p-1.5 max-md:min-w-[44px] max-md:min-h-[44px] max-md:inline-flex max-md:items-center max-md:justify-center rounded-lg hover:bg-slate-100 transition-colors"
           >
             <ChevronRight className="w-4 h-4 text-slate-500" />
           </button>
@@ -138,7 +138,7 @@ export function TaskCalendar({ tasks }: TaskCalendarProps) {
         <button
           type="button"
           onClick={goToToday}
-          className="text-xs text-blue-600 hover:bg-blue-50 px-2 py-1 max-md:min-w-[40px] max-md:min-h-[40px] max-md:inline-flex max-md:items-center max-md:justify-center rounded-lg transition-colors"
+          className="text-sm sm:text-xs font-medium text-blue-600 hover:bg-blue-50 px-2.5 py-1 max-md:min-w-[44px] max-md:min-h-[44px] max-md:inline-flex max-md:items-center max-md:justify-center rounded-lg transition-colors"
         >
           Hôm nay
         </button>
@@ -244,8 +244,8 @@ export function TaskCalendar({ tasks }: TaskCalendarProps) {
         </div>
 
         {selectedDayTasks.length === 0 ? (
-          <div className="py-6 text-center text-xs text-slate-400 bg-white rounded-lg border border-slate-100">
-            Không có công việc nào trong ngày này
+          <div className="py-6 px-3 text-center text-sm text-slate-500 bg-white rounded-lg border border-slate-100">
+            Không có công việc đến hạn ngày này — chạm ngày có chấm màu trên lịch hoặc thêm việc nhanh phía trên.
           </div>
         ) : (
           <div className="space-y-2">

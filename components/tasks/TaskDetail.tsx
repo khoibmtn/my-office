@@ -733,9 +733,9 @@ export function TaskDetail({
                 <button
                   type="button"
                   onClick={() => setIsEditingDesc(true)}
-                  className="hover-reveal max-lg:opacity-100 max-lg:min-h-[40px] max-lg:px-2 text-xs text-blue-600 hover:text-blue-700 font-medium inline-flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                  className="max-md:min-h-[44px] max-md:px-3 text-sm sm:text-xs text-blue-600 hover:text-blue-700 font-medium inline-flex items-center gap-1 transition-colors"
                 >
-                  <Edit2 className="w-3 h-3" /> Sửa mô tả
+                  <Edit2 className="w-3.5 h-3.5" /> Sửa mô tả
                 </button>
               )}
             </div>

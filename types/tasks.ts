@@ -106,6 +106,8 @@ export interface Task {
   tagIds: string[]
   attachments: Attachment[]
   source: TaskSource
+  resultAdvisoryDocIds?: string[]
+  weeklyReportWeekId?: string | null
 
   // Audit
   createdAt: Timestamp

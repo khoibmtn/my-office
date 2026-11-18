@@ -21,6 +21,7 @@ import { TaskCreateDrawer } from '@/components/tasks/TaskCreateDrawer'
 import { TaskStatusBadge } from '@/components/tasks/TaskStatusBadge'
 import { QuickDossierTagPicker } from './QuickDossierTagPicker'
 import { CoAssigneePicker } from './CoAssigneePicker'
+import { DocumentAdvisorySection } from './DocumentAdvisorySection'
 import type { Document } from '@/types'
 
 function getDaysRemaining(ts: { toDate(): Date } | undefined): number | null {
@@ -79,7 +80,7 @@ export function DocumentModal({ docId, onClose }: DocumentModalProps) {
   const router = useRouter()
   const { user } = useAuth()
   const perms = usePermissions()
-  const { staffId: currentStaffId, staffName, isGuest } = useRole()
+  const { staffId: currentStaffId, staffName, isGuest, isAdmin } = useRole()
   const { staff, getStaffName } = useStaff()
   const [doc, setDoc] = useState<Document | null>(null)
   const [loading, setLoading] = useState(true)
@@ -195,11 +196,15 @@ export function DocumentModal({ docId, onClose }: DocumentModalProps) {
   }, [])
 
   const handleBackdropClick = useCallback((e: React.MouseEvent) => {
-    if (e.target === e.currentTarget) onClose()
+    if (e.target === e.currentTarget && !window.document.querySelector('[role="dialog"]')) onClose()
   }, [onClose])
 
   useEffect(() => {
-    const handleEsc = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !e.defaultPrevented && !window.document.querySelector('[role="dialog"]')) {
+        onClose()
+      }
+    }
     window.addEventListener('keydown', handleEsc)
     return () => window.removeEventListener('keydown', handleEsc)
   }, [onClose])
@@ -509,6 +514,21 @@ export function DocumentModal({ docId, onClose }: DocumentModalProps) {
                     onUpdate={(fields) => setDoc(prev => prev ? { ...prev, ...fields } : prev)}
                     readOnly={isGuest || !perms.canEditDocument}
                   />
+
+                  {/* Advisory Docs Section (admin only) */}
+                  {isAdmin && (
+                    <div className="mt-3">
+                      <DocumentAdvisorySection
+                        document={doc}
+                        onNavigate={onClose}
+                        onDocumentUpdated={() => {
+                          getDocument(doc.id).then((fresh) => {
+                            if (fresh) setDoc(fresh)
+                          }).catch(() => {})
+                        }}
+                      />
+                    </div>
+                  )}
 
                   {/* Linked Tasks Section */}
                   <div className="mt-3 pt-3 border-t border-slate-200">

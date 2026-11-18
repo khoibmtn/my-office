@@ -10,6 +10,8 @@ import { useAuth } from '@/hooks/useAuth'
 import { IframePreview } from './IframePreview'
 import { QuickDossierTagPicker } from './QuickDossierTagPicker'
 import { DocumentTaskSection } from './DocumentTaskSection'
+import { DocumentAdvisorySection } from './DocumentAdvisorySection'
+import { getDocument } from '@/lib/firestore'
 
 interface DocumentViewerProps {
   doc: Document
@@ -111,6 +113,16 @@ export function DocumentViewer({ doc }: DocumentViewerProps) {
         <QuickDossierTagPicker
           document={docItem}
           onUpdate={(fields) => setDocItem(prev => ({ ...prev, ...fields }))}
+        />
+
+        {/* Document Advisory */}
+        <DocumentAdvisorySection
+          document={docItem}
+          onDocumentUpdated={() => {
+            getDocument(docItem.id).then((fresh) => {
+              if (fresh) setDocItem(fresh)
+            }).catch(() => {})
+          }}
         />
 
         {/* Document Tasks */}
