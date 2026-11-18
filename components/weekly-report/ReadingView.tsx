@@ -6,7 +6,7 @@ import { formatDMY } from '@/lib/weekly-report/period'
 import {
   formatAdvisoryLine,
   formatAdvisorySummary,
-  sortAdvisory,
+  sortAdvisoryForReport,
 } from '@/lib/weekly-report/advisory-format'
 import { RichViewer, isRichSectionEmpty } from './RichViewer'
 import {
@@ -70,7 +70,7 @@ export function ReadingView({
       .filter((item) => item.text.trim().length > 0 || item.children.length > 0)
   }, [report.workItems])
 
-  const sortedAdvisory = useMemo(() => sortAdvisory(advisoryDocs), [advisoryDocs])
+  const sortedAdvisory = useMemo(() => sortAdvisoryForReport(advisoryDocs, config.docTypes), [advisoryDocs])
   const advisorySummary = useMemo(
     () => formatAdvisorySummary(sortedAdvisory, config.docTypes),
     [sortedAdvisory, config.docTypes],

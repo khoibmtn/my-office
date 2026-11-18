@@ -221,45 +221,24 @@ export function WorkItemOutliner({
                           : 'text-slate-900 placeholder:text-slate-400'
                       }`}
                     />
-
-                    {(item.pinned || item.source === 'carried' || item.source === 'task') && (
-                      <div className="mt-1 flex flex-wrap items-center gap-1.5 px-2">
-                        {item.pinned && (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800">
-                            <Pin className="h-3 w-3" />
-                            <span>Ghim tuần sau</span>
-                          </span>
-                        )}
-                        {item.source === 'carried' && (
-                          <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">
-                            Mang từ tuần trước
-                          </span>
-                        )}
-                        {item.source === 'task' && (
-                          <span className="inline-flex items-center rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-800">
-                            Từ Công việc
-                          </span>
-                        )}
-                      </div>
-                    )}
                   </div>
                 </div>
 
                 {editable && (
-                  <div className={`${activeId === item.id ? 'flex' : 'hidden'} sm:flex flex-wrap items-center gap-1 shrink-0 pl-4 sm:pl-0`}>
+                  <div className={`${activeId === item.id ? 'flex' : 'hidden'} sm:flex flex-wrap items-center gap-0 shrink-0 pl-4 sm:pl-0`}>
                     <button
                       type="button"
                       onClick={() => dispatch({ type: 'togglePinned', id: item.id })}
                       aria-pressed={item.pinned}
                       title={item.pinned ? 'Bỏ ghim việc thường xuyên' : 'Ghim (việc thường xuyên, mang sang tuần sau)'}
                       aria-label={item.pinned ? 'Bỏ ghim' : 'Ghim việc thường xuyên'}
-                      className={`inline-flex items-center justify-center rounded-md min-h-[44px] sm:min-h-[32px] min-w-[44px] sm:min-w-[32px] sm:min-h-[28px] sm:min-w-[28px] px-2 transition-colors ${
+                      className={`inline-flex items-center justify-center rounded-md min-h-[40px] min-w-[36px] sm:min-h-[26px] sm:min-w-[26px] transition-colors ${
                         item.pinned
-                          ? 'bg-amber-100 text-amber-800 border border-amber-300'
+                          ? 'bg-amber-100 text-amber-700'
                           : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900'
                       }`}
                     >
-                      <Pin className="h-4 w-4" />
+                      <Pin className="h-3.5 w-3.5" />
                     </button>
 
                     <button
@@ -268,10 +247,10 @@ export function WorkItemOutliner({
                       aria-pressed={item.highlight}
                       title="Tô đỏ đậm (Ctrl/⌘+Shift+H)"
                       aria-label="Tô đỏ đậm"
-                      className={`inline-flex items-center justify-center rounded-md min-h-[44px] sm:min-h-[32px] min-w-[44px] sm:min-w-[32px] sm:min-h-[28px] sm:min-w-[28px] px-2 text-xs font-bold transition-colors ${
+                      className={`inline-flex items-center justify-center rounded-md min-h-[40px] min-w-[36px] sm:min-h-[26px] sm:min-w-[26px] px-1 text-xs font-bold transition-colors ${
                         item.highlight
                           ? 'bg-red-700 text-white'
-                          : 'text-red-700 hover:bg-red-50 border border-slate-200'
+                          : 'text-red-700 hover:bg-red-50'
                       }`}
                     >
                       Đỏ
@@ -283,9 +262,9 @@ export function WorkItemOutliner({
                       onClick={() => dispatch({ type: 'indent', id: item.id })}
                       title="Lùi thành ý con (Tab)"
                       aria-label="Lùi cấp"
-                      className="inline-flex items-center justify-center rounded-md min-h-[44px] sm:min-h-[32px] min-w-[44px] sm:min-w-[32px] sm:min-h-[28px] sm:min-w-[28px] text-slate-600 hover:bg-slate-100 hover:text-slate-900 disabled:opacity-30 disabled:pointer-events-none"
+                      className="inline-flex items-center justify-center rounded-md min-h-[40px] min-w-[36px] sm:min-h-[26px] sm:min-w-[26px] text-slate-600 hover:bg-slate-100 hover:text-slate-900 disabled:opacity-30 disabled:pointer-events-none"
                     >
-                      <IndentIncrease className="h-4 w-4" />
+                      <IndentIncrease className="h-3.5 w-3.5" />
                     </button>
 
                     <button
@@ -294,9 +273,9 @@ export function WorkItemOutliner({
                       onClick={() => dispatch({ type: 'moveUp', id: item.id })}
                       title="Đưa lên (Alt+↑)"
                       aria-label="Đưa lên"
-                      className="inline-flex items-center justify-center rounded-md min-h-[44px] sm:min-h-[32px] min-w-[44px] sm:min-w-[32px] sm:min-h-[28px] sm:min-w-[28px] text-slate-600 hover:bg-slate-100 hover:text-slate-900 disabled:opacity-30 disabled:pointer-events-none"
+                      className="inline-flex items-center justify-center rounded-md min-h-[40px] min-w-[36px] sm:min-h-[26px] sm:min-w-[26px] text-slate-600 hover:bg-slate-100 hover:text-slate-900 disabled:opacity-30 disabled:pointer-events-none"
                     >
-                      <ArrowUp className="h-4 w-4" />
+                      <ArrowUp className="h-3.5 w-3.5" />
                     </button>
 
                     <button
@@ -305,9 +284,9 @@ export function WorkItemOutliner({
                       onClick={() => dispatch({ type: 'moveDown', id: item.id })}
                       title="Đưa xuống (Alt+↓)"
                       aria-label="Đưa xuống"
-                      className="inline-flex items-center justify-center rounded-md min-h-[44px] sm:min-h-[32px] min-w-[44px] sm:min-w-[32px] sm:min-h-[28px] sm:min-w-[28px] text-slate-600 hover:bg-slate-100 hover:text-slate-900 disabled:opacity-30 disabled:pointer-events-none"
+                      className="inline-flex items-center justify-center rounded-md min-h-[40px] min-w-[36px] sm:min-h-[26px] sm:min-w-[26px] text-slate-600 hover:bg-slate-100 hover:text-slate-900 disabled:opacity-30 disabled:pointer-events-none"
                     >
-                      <ArrowDown className="h-4 w-4" />
+                      <ArrowDown className="h-3.5 w-3.5" />
                     </button>
 
                     <button
@@ -315,9 +294,9 @@ export function WorkItemOutliner({
                       onClick={() => dispatch({ type: 'remove', id: item.id })}
                       title="Xoá dòng"
                       aria-label="Xoá dòng"
-                      className="inline-flex items-center justify-center rounded-md min-h-[44px] sm:min-h-[32px] min-w-[44px] sm:min-w-[32px] sm:min-h-[28px] sm:min-w-[28px] text-slate-500 hover:bg-red-50 hover:text-red-700"
+                      className="inline-flex items-center justify-center rounded-md min-h-[40px] min-w-[36px] sm:min-h-[26px] sm:min-w-[26px] text-slate-500 hover:bg-red-50 hover:text-red-700"
                     >
-                      <Trash2 className="h-4 w-4" />
+                      <Trash2 className="h-3.5 w-3.5" />
                     </button>
                   </div>
                 )}
@@ -371,14 +350,14 @@ export function WorkItemOutliner({
                       </div>
 
                       {editable && (
-                        <div className={`${activeId === child.id ? 'flex' : 'hidden'} sm:flex flex-wrap items-center gap-1 shrink-0 pl-3 sm:pl-0`}>
+                        <div className={`${activeId === child.id ? 'flex' : 'hidden'} sm:flex flex-wrap items-center gap-0 shrink-0 pl-3 sm:pl-0`}>
                           <button
                             type="button"
                             onClick={() => dispatch({ type: 'toggleHighlight', id: child.id })}
                             aria-pressed={child.highlight}
                             title="Tô đỏ đậm (Ctrl/⌘+Shift+H)"
                             aria-label="Tô đỏ đậm ý con"
-                            className={`inline-flex items-center justify-center rounded-md min-h-[44px] sm:min-h-[32px] min-w-[44px] sm:min-w-[32px] sm:min-h-[28px] sm:min-w-[28px] px-2 text-xs font-bold transition-colors ${
+                            className={`inline-flex items-center justify-center rounded-md min-h-[40px] min-w-[36px] sm:min-h-[26px] sm:min-w-[26px] px-1 text-xs font-bold transition-colors ${
                               child.highlight
                                 ? 'bg-red-700 text-white'
                                 : 'text-red-700 hover:bg-red-50 border border-slate-200 bg-white'
@@ -392,9 +371,9 @@ export function WorkItemOutliner({
                             onClick={() => dispatch({ type: 'outdent', id: child.id })}
                             title="Ra cấp chính (Shift+Tab)"
                             aria-label="Ra cấp chính"
-                            className="inline-flex items-center justify-center rounded-md min-h-[44px] sm:min-h-[32px] min-w-[44px] sm:min-w-[32px] sm:min-h-[28px] sm:min-w-[28px] text-slate-600 hover:bg-slate-200 hover:text-slate-900"
+                            className="inline-flex items-center justify-center rounded-md min-h-[40px] min-w-[36px] sm:min-h-[26px] sm:min-w-[26px] text-slate-600 hover:bg-slate-200 hover:text-slate-900"
                           >
-                            <IndentDecrease className="h-4 w-4" />
+                            <IndentDecrease className="h-3.5 w-3.5" />
                           </button>
 
                           <button
@@ -403,9 +382,9 @@ export function WorkItemOutliner({
                             onClick={() => dispatch({ type: 'moveUp', id: child.id })}
                             title="Đưa lên (Alt+↑)"
                             aria-label="Đưa ý con lên"
-                            className="inline-flex items-center justify-center rounded-md min-h-[44px] sm:min-h-[32px] min-w-[44px] sm:min-w-[32px] sm:min-h-[28px] sm:min-w-[28px] text-slate-600 hover:bg-slate-200 hover:text-slate-900 disabled:opacity-30 disabled:pointer-events-none"
+                            className="inline-flex items-center justify-center rounded-md min-h-[40px] min-w-[36px] sm:min-h-[26px] sm:min-w-[26px] text-slate-600 hover:bg-slate-200 hover:text-slate-900 disabled:opacity-30 disabled:pointer-events-none"
                           >
-                            <ArrowUp className="h-4 w-4" />
+                            <ArrowUp className="h-3.5 w-3.5" />
                           </button>
 
                           <button
@@ -414,9 +393,9 @@ export function WorkItemOutliner({
                             onClick={() => dispatch({ type: 'moveDown', id: child.id })}
                             title="Đưa xuống (Alt+↓)"
                             aria-label="Đưa ý con xuống"
-                            className="inline-flex items-center justify-center rounded-md min-h-[44px] sm:min-h-[32px] min-w-[44px] sm:min-w-[32px] sm:min-h-[28px] sm:min-w-[28px] text-slate-600 hover:bg-slate-200 hover:text-slate-900 disabled:opacity-30 disabled:pointer-events-none"
+                            className="inline-flex items-center justify-center rounded-md min-h-[40px] min-w-[36px] sm:min-h-[26px] sm:min-w-[26px] text-slate-600 hover:bg-slate-200 hover:text-slate-900 disabled:opacity-30 disabled:pointer-events-none"
                           >
-                            <ArrowDown className="h-4 w-4" />
+                            <ArrowDown className="h-3.5 w-3.5" />
                           </button>
 
                           <button
@@ -424,9 +403,9 @@ export function WorkItemOutliner({
                             onClick={() => dispatch({ type: 'remove', id: child.id })}
                             title="Xoá ý con"
                             aria-label="Xoá ý con"
-                            className="inline-flex items-center justify-center rounded-md min-h-[44px] sm:min-h-[32px] min-w-[44px] sm:min-w-[32px] sm:min-h-[28px] sm:min-w-[28px] text-slate-500 hover:bg-red-50 hover:text-red-700"
+                            className="inline-flex items-center justify-center rounded-md min-h-[40px] min-w-[36px] sm:min-h-[26px] sm:min-w-[26px] text-slate-500 hover:bg-red-50 hover:text-red-700"
                           >
-                            <Trash2 className="h-4 w-4" />
+                            <Trash2 className="h-3.5 w-3.5" />
                           </button>
                         </div>
                       )}

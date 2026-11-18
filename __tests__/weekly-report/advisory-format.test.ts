@@ -69,3 +69,19 @@ describe('sortAdvisory', () => {
     expect(docs[0].id).toBe('c')
   })
 })
+
+import { sortAdvisoryForReport } from '@/lib/weekly-report/advisory-format'
+describe('sortAdvisoryForReport', () => {
+  it('red first, then by type order, then by advised date ascending', () => {
+    const mk = (id: string, type: string, advisedDate: string, highlight = false) => ({ id, type, advisedDate, highlight, order: 0 })
+    const out = sortAdvisoryForReport([
+      mk('a', 'TB', '2026-11-10'),
+      mk('b', 'KH', '2026-11-12', true),
+      mk('c', 'CV', '2026-11-11'),
+      mk('d', 'CV', '2026-11-09'),
+      mk('e', 'BC', '2026-11-08', true),
+      mk('f', 'KH', '2026-11-07', true),
+    ])
+    expect(out.map((d) => d.id)).toEqual(['f', 'b', 'e', 'd', 'c', 'a'])
+  })
+})

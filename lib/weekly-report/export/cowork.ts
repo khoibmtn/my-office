@@ -10,7 +10,7 @@ import {
   type WeeklyReportStatus,
   type YearMonth,
 } from '@/types/weekly-report'
-import { countByType, sortAdvisory } from '../advisory-format'
+import { countByType, sortAdvisoryForReport } from '../advisory-format'
 import { diffDays, formatDMY, isBoundaryWeek, reportMonthFor, todayVN } from '../period'
 
 export type CoworkWarningCode =
@@ -113,7 +113,7 @@ function mapAdvisoryDocs(
   config: WeeklyReportConfig,
 ): CoworkAdvisoryDoc[] {
   const typeLabelMap = new Map(config.docTypes.map((t) => [t.code, t.label]))
-  return sortAdvisory(docs).map((doc) => ({
+  return sortAdvisoryForReport(docs, config.docTypes).map((doc) => ({
     id: doc.id,
     type: doc.type,
     typeLabel: typeLabelMap.get(doc.type) ?? doc.type,
@@ -209,7 +209,7 @@ export function toCoworkWeek(input: ToCoworkWeekInput): CoworkWeek {
         })),
     }))
 
-  const sortedRawAdv = sortAdvisory(advisory)
+  const sortedRawAdv = sortAdvisoryForReport(advisory, config.docTypes)
   const advisoryDocs = mapAdvisoryDocs(sortedRawAdv, config)
   const countsByType = countByType(sortedRawAdv, config.docTypes)
 
@@ -257,7 +257,7 @@ export function toCoworkMonth(input: ToCoworkMonthInput): CoworkMonth {
     }
   }
 
-  const sortedAllAdv = sortAdvisory(uniqueRawAdv)
+  const sortedAllAdv = sortAdvisoryForReport(uniqueRawAdv, input.config.docTypes)
   const advisoryDocs = mapAdvisoryDocs(sortedAllAdv, input.config)
   const countsByType = countByType(sortedAllAdv, input.config.docTypes)
 

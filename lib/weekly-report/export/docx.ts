@@ -17,7 +17,7 @@ import {
   RICH_SECTION_LABELS,
   type RichSectionKey,
 } from '@/types/weekly-report'
-import { formatAdvisoryLine, formatAdvisorySummary, sortAdvisory } from '../advisory-format'
+import { formatAdvisoryLine, formatAdvisorySummary, sortAdvisoryForReport } from '../advisory-format'
 import { formatDMY } from '../period'
 import type { MonthExportInput, WeekExportInput } from './markdown'
 import { isRedMark, parseTiptapDoc, type TiptapNode } from './tiptap-markdown'
@@ -296,7 +296,7 @@ function buildWeekParagraphs(input: WeekExportInput): Paragraph[] {
     }
   }
 
-  const sortedAdv = sortAdvisory(advisory)
+  const sortedAdv = sortAdvisoryForReport(advisory, config.docTypes)
   paragraphs.push(
     new Paragraph({
       numbering: { reference: BULLET_REF, level: 0 },

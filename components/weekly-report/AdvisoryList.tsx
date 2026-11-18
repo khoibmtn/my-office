@@ -20,7 +20,8 @@ import { useWeeks } from '@/hooks/useWeeks'
 import {
   formatAdvisoryLine,
   formatAdvisorySummary,
-  sortAdvisory,
+  sortAdvisoryForReport,
+  sameReportSlot,
 } from '@/lib/weekly-report/advisory-format'
 import { updateAdvisoryDoc } from '@/lib/weekly-report/firestore'
 import { formatDMY, resolvePeriod, todayVN } from '@/lib/weekly-report/period'
@@ -73,7 +74,7 @@ export function AdvisoryList({ weekId, editable }: AdvisoryListProps) {
   const [busyId, setBusyId] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
 
-  const sortedDocs = useMemo(() => sortAdvisory(docs), [docs])
+  const sortedDocs = useMemo(() => sortAdvisoryForReport(docs, config.docTypes), [docs, config.docTypes])
   const summaryText = useMemo(
     () => formatAdvisorySummary(sortedDocs, config.docTypes),
     [sortedDocs, config.docTypes],
@@ -107,9 +108,9 @@ export function AdvisoryList({ weekId, editable }: AdvisoryListProps) {
     if (targetIndex < 0 || targetIndex >= sortedDocs.length) return
     const current = sortedDocs[index]
     const neighbor = sortedDocs[targetIndex]
-    if (current.advisedDate !== neighbor.advisedDate) return
+    if (!sameReportSlot(current, neighbor)) return
 
-    const sameDateGroup = sortedDocs.filter((d) => d.advisedDate === current.advisedDate)
+    const sameDateGroup = sortedDocs.filter((d) => sameReportSlot(d, current))
     const posInGroup = sameDateGroup.findIndex((d) => d.id === current.id)
     const targetPosInGroup = posInGroup + delta
     if (posInGroup < 0 || targetPosInGroup < 0 || targetPosInGroup >= sameDateGroup.length) return

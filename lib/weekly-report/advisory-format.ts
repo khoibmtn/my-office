@@ -1,5 +1,5 @@
 /** Advisory document formatting/parsing — pure. */
-import { DOC_TYPE_PREFIX } from '@/types/weekly-report'
+import { DEFAULT_DOC_TYPES, DOC_TYPE_PREFIX } from '@/types/weekly-report'
 import type { AdvisoryDoc, DocTypeDef } from '@/types/weekly-report'
 
 export function countByType(
@@ -86,4 +86,32 @@ export function sortAdvisory<T extends Pick<AdvisoryDoc, 'order' | 'advisedDate'
     .map((d, i) => ({ d, i }))
     .sort((a, b) => a.d.advisedDate.localeCompare(b.d.advisedDate) || a.d.order - b.d.order || a.i - b.i)
     .map((x) => x.d)
+}
+
+/**
+ * Order used in the weekly report (anh Khôi, 19/11/2026): red-highlighted docs first, then the rest;
+ * inside each part group by document type (config order), then by advised date — all ascending.
+ */
+export function sortAdvisoryForReport<T extends Pick<AdvisoryDoc, 'order' | 'advisedDate' | 'type' | 'highlight'>>(
+  docs: T[],
+  types: DocTypeDef[] = DEFAULT_DOC_TYPES,
+): T[] {
+  const rank = new Map(types.map((t) => [t.code, t.order]))
+  const r = (code: string) => rank.get(code) ?? 999
+  return docs
+    .map((d, i) => ({ d, i }))
+    .sort(
+      (a, b) =>
+        Number(!!b.d.highlight) - Number(!!a.d.highlight) ||
+        r(a.d.type) - r(b.d.type) ||
+        a.d.advisedDate.localeCompare(b.d.advisedDate) ||
+        a.d.order - b.d.order ||
+        a.i - b.i,
+    )
+    .map((x) => x.d)
+}
+
+/** Docs that sort into the same slot (manual order only applies inside this group). */
+export function sameReportSlot(a: Pick<AdvisoryDoc, 'advisedDate' | 'type' | 'highlight'>, b: Pick<AdvisoryDoc, 'advisedDate' | 'type' | 'highlight'>): boolean {
+  return !!a.highlight === !!b.highlight && a.type === b.type && a.advisedDate === b.advisedDate
 }
