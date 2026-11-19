@@ -95,6 +95,9 @@ function WeeklyReportWorkspace({ weekId }: { weekId: string }) {
   const [hasPendingDirty, setHasPendingDirty] = useState(false)
 
   const initializedWeekRef = useRef<string | null>(null)
+  // Rich editors must only mount after the week's sections are loaded into state,
+  // otherwise they start empty and any spurious update could persist an empty doc.
+  const [hydratedWeekId, setHydratedWeekId] = useState<string | null>(null)
   const dirtyWorkItemsRef = useRef(false)
   const pendingWorkItemsRef = useRef<WorkItem[] | null>(null)
   const workItemsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -190,6 +193,7 @@ function WeeklyReportWorkspace({ weekId }: { weekId: string }) {
             }
           : null,
       })
+      setHydratedWeekId(report.id)
       return
     }
 
@@ -495,6 +499,7 @@ function WeeklyReportWorkspace({ weekId }: { weekId: string }) {
 
   const editable = report.status === 'draft'
   const deputyLabel = config.deputySectionLabel || RICH_SECTION_LABELS.deputyOpinions
+  const sectionsReady = hydratedWeekId === weekId
   const proposedEnabled = sectionsState.proposedSchedule !== null
   const deputyEnabled = sectionsState.deputyOpinions !== null
 
@@ -619,27 +624,35 @@ function WeeklyReportWorkspace({ weekId }: { weekId: string }) {
         {/* Mục 2: Ý kiến */}
         <section className="rounded-xl border border-slate-200 bg-white p-3 sm:p-4 sm:p-4 shadow-sm space-y-3">
           <h2 className="text-base font-bold text-slate-900">{RICH_SECTION_LABELS.opinions}</h2>
-          <RichEditor
-            value={sectionsState.opinions?.docJson ?? null}
-            onChange={(json, plain) => handleSectionChange('opinions', json, plain)}
-            weekId={weekId}
-            section="opinions"
-            editable={editable}
-            placeholder="Ghi ý kiến chỉ đạo, góp ý hoặc dán ảnh chụp công văn…"
-          />
+          {sectionsReady ? (
+            <RichEditor
+              value={sectionsState.opinions?.docJson ?? null}
+              onChange={(json, plain) => handleSectionChange('opinions', json, plain)}
+              weekId={weekId}
+              section="opinions"
+              editable={editable}
+              placeholder="Ghi ý kiến chỉ đạo, góp ý hoặc dán ảnh chụp công văn…"
+            />
+          ) : (
+            <div className="min-h-[120px] rounded-lg border border-slate-200 bg-slate-50 animate-pulse" />
+          )}
         </section>
 
         {/* Mục 3: Tuần tới */}
         <section className="rounded-xl border border-slate-200 bg-white p-3 sm:p-4 sm:p-4 shadow-sm space-y-3">
           <h2 className="text-base font-bold text-slate-900">{RICH_SECTION_LABELS.nextWeek}</h2>
-          <RichEditor
-            value={sectionsState.nextWeek?.docJson ?? null}
-            onChange={(json, plain) => handleSectionChange('nextWeek', json, plain)}
-            weekId={weekId}
-            section="nextWeek"
-            editable={editable}
-            placeholder="Nhập dự kiến công việc, trọng tâm tuần tới…"
-          />
+          {sectionsReady ? (
+            <RichEditor
+              value={sectionsState.nextWeek?.docJson ?? null}
+              onChange={(json, plain) => handleSectionChange('nextWeek', json, plain)}
+              weekId={weekId}
+              section="nextWeek"
+              editable={editable}
+              placeholder="Nhập dự kiến công việc, trọng tâm tuần tới…"
+            />
+          ) : (
+            <div className="min-h-[120px] rounded-lg border border-slate-200 bg-slate-50 animate-pulse" />
+          )}
         </section>
 
         {/* Nút bật 2 mục tuỳ chọn */}
@@ -687,14 +700,18 @@ function WeeklyReportWorkspace({ weekId }: { weekId: string }) {
                 </button>
               )}
             </div>
-            <RichEditor
-              value={sectionsState.proposedSchedule?.docJson ?? null}
-              onChange={(json, plain) => handleSectionChange('proposedSchedule', json, plain)}
-              weekId={weekId}
-              section="proposedSchedule"
-              editable={editable}
-              placeholder="Nhập đề xuất lịch họp, lịch công tác tuần tới…"
-            />
+            {sectionsReady ? (
+              <RichEditor
+                value={sectionsState.proposedSchedule?.docJson ?? null}
+                onChange={(json, plain) => handleSectionChange('proposedSchedule', json, plain)}
+                weekId={weekId}
+                section="proposedSchedule"
+                editable={editable}
+                placeholder="Nhập đề xuất lịch họp, lịch công tác tuần tới…"
+              />
+            ) : (
+              <div className="min-h-[120px] rounded-lg border border-slate-200 bg-slate-50 animate-pulse" />
+            )}
           </section>
         )}
 
@@ -714,14 +731,18 @@ function WeeklyReportWorkspace({ weekId }: { weekId: string }) {
                 </button>
               )}
             </div>
-            <RichEditor
-              value={sectionsState.deputyOpinions?.docJson ?? null}
-              onChange={(json, plain) => handleSectionChange('deputyOpinions', json, plain)}
-              weekId={weekId}
-              section="deputyOpinions"
-              editable={editable}
-              placeholder={`Nhập ${deputyLabel.toLowerCase()}…`}
-            />
+            {sectionsReady ? (
+              <RichEditor
+                value={sectionsState.deputyOpinions?.docJson ?? null}
+                onChange={(json, plain) => handleSectionChange('deputyOpinions', json, plain)}
+                weekId={weekId}
+                section="deputyOpinions"
+                editable={editable}
+                placeholder={`Nhập ${deputyLabel.toLowerCase()}…`}
+              />
+            ) : (
+              <div className="min-h-[120px] rounded-lg border border-slate-200 bg-slate-50 animate-pulse" />
+            )}
           </section>
         )}
 

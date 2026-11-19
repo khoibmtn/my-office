@@ -115,8 +115,13 @@ export function RichEditor({
       lastEmittedJsonRef.current = value ?? jsonStr
       setIsEmpty(ed.isEmpty)
     },
-    onUpdate({ editor: ed }) {
+    onUpdate({ editor: ed, transaction }) {
+      // Only real document edits count. Tiptap also emits 'update' from setEditable() with an
+      // unchanged doc; forwarding that (while the editor was still empty before hydration)
+      // overwrote saved sections with an empty doc.
+      if (!transaction.docChanged) return
       const jsonStr = JSON.stringify(ed.getJSON())
+      if (jsonStr === lastEmittedJsonRef.current) return
       const plain = ed.getText({ blockSeparator: '\n' }).trim()
       lastEmittedJsonRef.current = jsonStr
       setIsEmpty(ed.isEmpty)
@@ -126,7 +131,7 @@ export function RichEditor({
 
   useEffect(() => {
     if (!editor) return
-    editor.setEditable(editable)
+    if (editor.isEditable !== editable) editor.setEditable(editable, false)
   }, [editor, editable])
 
   useEffect(() => {
