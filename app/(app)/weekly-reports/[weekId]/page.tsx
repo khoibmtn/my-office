@@ -358,24 +358,50 @@ function WeeklyReportWorkspace({ weekId }: { weekId: string }) {
     if (tasks.length > 0) {
       await Promise.all(tasks)
     }
+    return tasks.length
   }, [persistWorkItems, persistSection])
 
-  const handleAddTaskSuggestion = useCallback(
-    (task: { id: string; title: string }) => {
-      if (workItems.some((item) => item.taskId === task.id)) return
-      const newItem: WorkItem = {
+  // Manual save (button / Ctrl+S) — autosave stays on
+  const handleSaveNow = useCallback(async () => {
+    const n = await flushAllPendingSaves()
+    if (n === 0) {
+      setSaveStatus('saved')
+      setLastSavedAt(new Date())
+    }
+  }, [flushAllPendingSaves])
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && !e.shiftKey && e.key.toLowerCase() === 's') {
+        e.preventDefault()
+        void handleSaveNow()
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [handleSaveNow])
+
+  const handleAddTaskSuggestions = useCallback(
+    (tasks: Array<{ id: string; title: string }>) => {
+      const fresh = tasks.filter((t) => !workItems.some((item) => item.taskId === t.id))
+      if (!fresh.length) return
+      const added: WorkItem[] = fresh.map((task, i) => ({
         id: newId(),
         text: task.title,
         highlight: false,
         pinned: false,
-        order: workItems.length,
+        order: workItems.length + i,
         source: 'task',
         taskId: task.id,
         children: [],
-      }
-      handleWorkItemsChange([...workItems, newItem])
+      }))
+      handleWorkItemsChange([...workItems, ...added])
     },
     [workItems, handleWorkItemsChange],
+  )
+  const handleAddTaskSuggestion = useCallback(
+    (task: { id: string; title: string }) => handleAddTaskSuggestions([task]),
+    [handleAddTaskSuggestions],
   )
 
   const handleUndoCarried = () => {
@@ -516,6 +542,7 @@ function WeeklyReportWorkspace({ weekId }: { weekId: string }) {
         lastSavedAt={lastSavedAt}
         saveErrorMessage={saveErrorMessage}
         onRetrySave={() => void flushAllPendingSaves()}
+        onSaveNow={editable ? () => void handleSaveNow() : undefined}
         onOpenPeriodDialog={() => setPeriodDialogOpen(true)}
         weeks={weeks}
         onSelectWeek={(id) => { if (id !== weekId) router.push(`/weekly-reports/${id}`) }}
@@ -554,8 +581,8 @@ function WeeklyReportWorkspace({ weekId }: { weekId: string }) {
       {/* Kept mounted (hidden) so autosave timers and editors are not torn down when switching tabs */}
       <div role="tabpanel" className={activeTab === 'content' ? 'space-y-3' : 'hidden'}>
         {/* Mục 1 + Gợi ý Công việc */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 items-start">
-          <section className="lg:col-span-8 rounded-xl border border-slate-200 bg-white p-3 sm:p-4 sm:p-4 shadow-sm space-y-3">
+        <div>
+          <section className="rounded-xl border border-slate-200 bg-white p-3 sm:p-4 sm:p-4 shadow-sm space-y-3">
             <div className="space-y-3">
               <div>
                 <h2 className="text-base font-bold text-slate-900">
@@ -578,15 +605,15 @@ function WeeklyReportWorkspace({ weekId }: { weekId: string }) {
             </div>
           </section>
 
-          <div className="lg:col-span-4 lg:sticky lg:top-4">
-            <TaskSuggestions
-              periodStart={report.periodStart}
-              periodEnd={report.periodEnd}
-              workItems={workItems}
-              onAddTask={handleAddTaskSuggestion}
-              editable={editable}
-            />
-          </div>
+          {/* Floating popup — renders nothing when there is no suggestion */}
+          <TaskSuggestions
+            periodStart={report.periodStart}
+            periodEnd={report.periodEnd}
+            workItems={workItems}
+            onAddTask={handleAddTaskSuggestion}
+            onAddTasks={handleAddTaskSuggestions}
+            editable={editable}
+          />
         </div>
 
         {/* Mục 2: Ý kiến */}

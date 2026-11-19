@@ -14,6 +14,7 @@ import {
   FileText,
   Loader2,
   MoreHorizontal,
+  Save,
   Settings,
 } from 'lucide-react'
 import { addDays, formatDM, formatDMY } from '@/lib/weekly-report/period'
@@ -31,6 +32,8 @@ export interface WeekHeaderProps {
   lastSavedAt: Date | null
   saveErrorMessage?: string | null
   onRetrySave?: () => void
+  /** Manual save (autosave stays on) */
+  onSaveNow?: () => void
   onOpenPeriodDialog: () => void
   onOpenReadView?: () => void
   isPreview?: boolean
@@ -65,6 +68,7 @@ export function WeekHeader({
   lastSavedAt,
   saveErrorMessage,
   onRetrySave,
+  onSaveNow,
   onOpenPeriodDialog,
   onOpenReadView,
   isPreview = false,
@@ -107,6 +111,18 @@ export function WeekHeader({
 
         {/* Trạng thái lưu */}
         <div className="flex items-center gap-2 text-xs font-medium" aria-live="polite">
+          {onSaveNow && (
+            <button
+              type="button"
+              onClick={onSaveNow}
+              disabled={saveStatus === 'saving'}
+              title="Lưu ngay (Ctrl/⌘+S) — vẫn tự lưu sau khi gõ"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 min-h-[44px] sm:min-h-[30px] text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+            >
+              <Save className="h-3.5 w-3.5" />
+              <span>Lưu</span>
+            </button>
+          )}
           {saveStatus === 'saving' && (
             <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-3 py-1 text-blue-700">
               <Loader2 className="h-4 w-4 animate-spin" />

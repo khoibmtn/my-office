@@ -414,13 +414,14 @@ export default function WeeklyReportDevPreviewPage() {
         saveStatus={saveStatus}
         lastSavedAt={lastSavedAt}
         onRetrySave={simulateAutosave}
+        onSaveNow={simulateAutosave}
         onOpenPeriodDialog={() => setPeriodDialogOpen(true)}
         onOpenReadView={() => setReadMode(true)}
         isPreview
       />
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 items-start">
-        <section className="lg:col-span-8 rounded-xl border border-slate-200 bg-white p-3 sm:p-4 sm:p-4 shadow-sm space-y-3">
+      <div>
+        <section className="rounded-xl border border-slate-200 bg-white p-3 sm:p-4 sm:p-4 shadow-sm space-y-3">
           <div className="space-y-3">
             <div>
               <h2 className="text-base font-bold text-slate-900">{report.unitHeading}</h2>
@@ -461,7 +462,7 @@ export default function WeeklyReportDevPreviewPage() {
           </div>
         </section>
 
-        <div className="lg:col-span-4">
+        <div>
           <TaskSuggestions
             periodStart={report.periodStart}
             periodEnd={report.periodEnd}
