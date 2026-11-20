@@ -26,6 +26,7 @@ import {
   updateWorkItems,
 } from '@/lib/weekly-report/firestore'
 import { newId } from '@/lib/weekly-report/outline'
+import { PrevNextWeekImport } from '@/components/weekly-report/PrevNextWeekImport'
 import { currentWeekId, dayOfWeek, todayVN } from '@/lib/weekly-report/period'
 import { WeekHeader, type SaveIndicatorStatus } from '@/components/weekly-report/WeekHeader'
 import { WorkItemOutliner } from '@/components/weekly-report/WorkItemOutliner'
@@ -403,6 +404,12 @@ function WeeklyReportWorkspace({ weekId }: { weekId: string }) {
     },
     [workItems, handleWorkItemsChange],
   )
+  // Previous stored week — its "3. Tuần tới" can be pulled into Mục 1
+  const prevWeek = useMemo(
+    () => weeks.filter((w) => w.id < weekId).sort((a, b) => (a.id < b.id ? 1 : -1))[0] ?? null,
+    [weeks, weekId],
+  )
+
   const handleAddTaskSuggestion = useCallback(
     (task: { id: string; title: string }) => handleAddTaskSuggestions([task]),
     [handleAddTaskSuggestions],
@@ -589,13 +596,22 @@ function WeeklyReportWorkspace({ weekId }: { weekId: string }) {
         <div>
           <section className="rounded-xl border border-slate-200 bg-white p-3 sm:p-4 sm:p-4 shadow-sm space-y-3">
             <div className="space-y-3">
-              <div>
-                <h2 className="text-base font-bold text-slate-900">
-                  {report.unitHeading || config.unitHeading || '1. KHTH'}
-                </h2>
-                <p className="text-sm font-medium text-slate-700">
-                  Tình hình thực hiện nhiệm vụ tuần qua:
-                </p>
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <div>
+                  <h2 className="text-base font-bold text-slate-900">
+                    {report.unitHeading || config.unitHeading || '1. KHTH'}
+                  </h2>
+                  <p className="text-sm font-medium text-slate-700">
+                    Tình hình thực hiện nhiệm vụ tuần qua:
+                  </p>
+                </div>
+                <PrevNextWeekImport
+                  prevWeekId={prevWeek?.id ?? null}
+                  prevNextWeek={prevWeek?.sections?.nextWeek?.docJson ?? prevWeek?.sections?.nextWeek?.plainText}
+                  workItems={workItems}
+                  onChange={handleWorkItemsChange}
+                  editable={editable}
+                />
               </div>
 
               <WorkItemOutliner

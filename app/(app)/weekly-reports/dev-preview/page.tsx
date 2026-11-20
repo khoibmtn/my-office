@@ -21,6 +21,7 @@ import {
   sortAdvisory,
 } from '@/lib/weekly-report/advisory-format'
 import { newId } from '@/lib/weekly-report/outline'
+import { PrevNextWeekImport } from '@/components/weekly-report/PrevNextWeekImport'
 import { formatDMY } from '@/lib/weekly-report/period'
 import {
   DEFAULT_WEEKLY_REPORT_CONFIG,
@@ -150,6 +151,27 @@ const INITIAL_MOCK_REPORT: WeeklyReport = {
   createdAt: NOW_TS,
   updatedAt: NOW_TS,
 }
+
+// "3. Tuần tới" of the mock previous week (dev-preview only)
+const MOCK_PREV_NEXT_WEEK = JSON.stringify({
+  type: 'doc',
+  content: [
+    { type: 'paragraph', content: [{ type: 'text', text: 'Hoàn thiện báo cáo công tác KSK gửi SYT' }] },
+    {
+      type: 'bulletList',
+      content: [
+        { type: 'listItem', content: [
+          { type: 'paragraph', content: [{ type: 'text', text: 'Kiểm tra hồ sơ bệnh án', marks: [{ type: 'red' }] }] },
+          { type: 'bulletList', content: [
+            { type: 'listItem', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Khoa Nội' }] }] },
+            { type: 'listItem', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Khoa Ngoại' }] }] },
+          ] },
+        ] },
+        { type: 'listItem', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Tham mưu Hội đồng nghiệm thu đề tài NCKH' }] }] },
+      ],
+    },
+  ],
+})
 
 const MOCK_ADVISORY: AdvisoryDoc[] = [
   {
@@ -423,11 +445,20 @@ export default function WeeklyReportDevPreviewPage() {
       <div>
         <section className="rounded-xl border border-slate-200 bg-white p-3 sm:p-4 sm:p-4 shadow-sm space-y-3">
           <div className="space-y-3">
-            <div>
-              <h2 className="text-base font-bold text-slate-900">{report.unitHeading}</h2>
-              <p className="text-sm font-medium text-slate-700">
-                Tình hình thực hiện nhiệm vụ tuần qua:
-              </p>
+            <div className="flex flex-wrap items-start justify-between gap-2">
+              <div>
+                <h2 className="text-base font-bold text-slate-900">{report.unitHeading}</h2>
+                <p className="text-sm font-medium text-slate-700">
+                  Tình hình thực hiện nhiệm vụ tuần qua:
+                </p>
+              </div>
+              <PrevNextWeekImport
+                prevWeekId={MOCK_PREV_WEEK.id}
+                prevNextWeek={MOCK_PREV_NEXT_WEEK}
+                workItems={report.workItems}
+                onChange={handleWorkItemsChange}
+                editable={editable}
+              />
             </div>
 
             <WorkItemOutliner
